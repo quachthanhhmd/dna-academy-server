@@ -28,7 +28,10 @@ export class AuthFacebookService {
 
       // Step 2: Construct the profile URL and query Facebook for user data
       const profileUrl = new URL(`${this.baseUrl}/${this.apiVersion}/me`);
-      profileUrl.searchParams.set('fields', 'id,last_name,email,first_name');
+      profileUrl.searchParams.set(
+        'fields',
+        'id,last_name,email,first_name,picture',
+      );
       profileUrl.searchParams.set('access_token', loginDto.accessToken);
 
       const response = await fetch(profileUrl.toString(), {
@@ -64,6 +67,7 @@ export class AuthFacebookService {
         email: data.email || undefined, // Email may not be present depending on user permissions
         firstName: data.first_name || '',
         lastName: data.last_name || '',
+        picture: data.picture?.data?.url,
       };
     } catch (error) {
       if (error instanceof HttpException) {

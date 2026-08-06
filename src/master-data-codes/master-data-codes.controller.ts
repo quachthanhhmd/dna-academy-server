@@ -16,7 +16,9 @@ import {
   ApiBearerAuth,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { MasterDataCode } from './domain/master-data-code';
@@ -49,6 +51,18 @@ export class MasterDataCodesController {
   }
 
   @Get()
+  @ApiOperation({
+    summary: 'List lookup codes, optionally filtered by group',
+    description:
+      'Used to populate onboarding <Select>/<MultiSelect> options, e.g. ?groupKey=education_stage or ?groupKey=career_interest.',
+  })
+  @ApiQuery({
+    name: 'groupKey',
+    type: String,
+    required: false,
+    description:
+      'Filter by the owning group key, e.g. "education_stage" or "career_interest".',
+  })
   @ApiOkResponse({
     type: InfinityPaginationResponse(MasterDataCode),
   })
@@ -63,6 +77,9 @@ export class MasterDataCodesController {
 
     return infinityPagination(
       await this.masterDataCodesService.findAllWithPagination({
+        filterOptions: {
+          groupKey: query?.groupKey,
+        },
         paginationOptions: {
           page,
           limit,

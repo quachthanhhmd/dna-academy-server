@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { FindOptionsWhere, Repository, In } from 'typeorm';
 import { MasterDataCodeEntity } from '../entities/master-data-code.entity';
 import { NullableType } from '../../../../../utils/types/nullable.type';
 import { MasterDataCode } from '../../../../domain/master-data-code';
@@ -24,13 +24,23 @@ export class MasterDataCodeRelationalRepository implements MasterDataCodeReposit
   }
 
   async findAllWithPagination({
+    filterOptions,
     paginationOptions,
   }: {
+    filterOptions?: { groupKey?: string } | null;
     paginationOptions: IPaginationOptions;
   }): Promise<MasterDataCode[]> {
+    const where: FindOptionsWhere<MasterDataCodeEntity> = {};
+
+    if (filterOptions?.groupKey) {
+      where.group = { groupKey: filterOptions.groupKey };
+    }
+
     const entities = await this.masterDataCodeRepository.find({
+      where,
       skip: (paginationOptions.page - 1) * paginationOptions.limit,
       take: paginationOptions.limit,
+      order: { displayOrder: 'ASC' },
     });
 
     return entities.map((entity) => MasterDataCodeMapper.toDomain(entity));

@@ -93,6 +93,10 @@ export class StudentProfilesService {
     return this.studentProfileRepository.findByIds(ids);
   }
 
+  findByUserId(userId: StudentProfile['user']['id']) {
+    return this.studentProfileRepository.findByUserId(userId);
+  }
+
   async update(
     id: StudentProfile['id'],
 

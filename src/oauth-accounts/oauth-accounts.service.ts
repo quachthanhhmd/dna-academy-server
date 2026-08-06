@@ -77,6 +77,13 @@ export class OauthAccountsService {
     return this.oauthAccountRepository.findByIds(ids);
   }
 
+  findByProviderAndProviderUid(provider: string, providerUid: string) {
+    return this.oauthAccountRepository.findByProviderAndProviderUid(
+      provider,
+      providerUid,
+    );
+  }
+
   async update(
     id: OauthAccount['id'],
 

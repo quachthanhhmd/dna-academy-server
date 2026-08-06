@@ -22,6 +22,10 @@ export abstract class StudentCareerInterestRepository {
     ids: StudentCareerInterest['id'][],
   ): Promise<StudentCareerInterest[]>;
 
+  abstract findByUserId(
+    userId: StudentCareerInterest['user']['id'],
+  ): Promise<StudentCareerInterest[]>;
+
   abstract update(
     id: StudentCareerInterest['id'],
     payload: DeepPartial<StudentCareerInterest>,

@@ -84,11 +84,14 @@ export class MasterDataCodesService {
   }
 
   findAllWithPagination({
+    filterOptions,
     paginationOptions,
   }: {
+    filterOptions?: { groupKey?: string } | null;
     paginationOptions: IPaginationOptions;
   }) {
     return this.masterDataCodeRepository.findAllWithPagination({
+      filterOptions,
       paginationOptions: {
         page: paginationOptions.page,
         limit: paginationOptions.limit,

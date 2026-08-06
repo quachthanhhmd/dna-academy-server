@@ -37,8 +37,10 @@ async function bootstrap() {
   );
 
   const options = new DocumentBuilder()
-    .setTitle('API')
-    .setDescription('API docs')
+    .setTitle('DNA Academy API')
+    .setDescription(
+      'DNA Academy backend API. Endpoints under "Auth" cover Epic 1 (registration, email/Facebook login, and student onboarding).',
+    )
     .setVersion('1.0')
     .addBearerAuth()
     .addGlobalParameters({

@@ -60,6 +60,19 @@ export class StudentCareerInterestRelationalRepository implements StudentCareerI
     );
   }
 
+  async findByUserId(
+    userId: StudentCareerInterest['user']['id'],
+  ): Promise<StudentCareerInterest[]> {
+    const entities = await this.studentCareerInterestRepository.find({
+      where: { user: { id: userId } },
+      relations: ['careerInterest'],
+    });
+
+    return entities.map((entity) =>
+      StudentCareerInterestMapper.toDomain(entity),
+    );
+  }
+
   async update(
     id: StudentCareerInterest['id'],
     payload: Partial<StudentCareerInterest>,

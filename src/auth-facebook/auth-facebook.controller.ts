@@ -6,7 +6,7 @@ import {
   Post,
   SerializeOptions,
 } from '@nestjs/common';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from '../auth/auth.service';
 import { AuthFacebookService } from './auth-facebook.service';
 import { AuthFacebookLoginDto } from './dto/auth-facebook-login.dto';
@@ -23,6 +23,11 @@ export class AuthFacebookController {
     private readonly authFacebookService: AuthFacebookService,
   ) {}
 
+  @ApiOperation({
+    summary: 'Register or sign in with Facebook',
+    description:
+      'Send the Facebook SDK access token. Looks up oauth_accounts by (provider=facebook, provider_uid); creates a new user + oauth_accounts link on first login. Returns `requiresOnboarding: true` when the linked user has not finished onboarding — the FE should redirect to /onboarding.',
+  })
   @ApiOkResponse({
     type: LoginResponseDto,
   })
@@ -37,6 +42,6 @@ export class AuthFacebookController {
     const socialData =
       await this.authFacebookService.getProfileByToken(loginDto);
 
-    return this.authService.validateSocialLogin('facebook', socialData);
+    return this.authService.validateFacebookLogin(socialData);
   }
 }

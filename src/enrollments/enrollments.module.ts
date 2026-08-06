@@ -1,6 +1,7 @@
 import { LecturesModule } from '../lectures/lectures.module';
 import { CoursesModule } from '../courses/courses.module';
 import { UsersModule } from '../users/users.module';
+import { AuthModule } from '../auth/auth.module';
 import {
   // do not remove this comment
   Module,
@@ -16,6 +17,8 @@ import { RelationalEnrollmentPersistenceModule } from './infrastructure/persiste
     CoursesModule,
 
     UsersModule,
+
+    AuthModule,
 
     // do not remove this comment
     RelationalEnrollmentPersistenceModule,

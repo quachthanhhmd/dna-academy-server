@@ -21,12 +21,13 @@ import { StatusDto } from '../../statuses/dto/status.dto';
 import { lowerCaseTransformer } from '../../utils/transformers/lower-case.transformer';
 
 export class CreateUserDto {
-  @ApiProperty({
-    required: true,
+  @ApiPropertyOptional({
     type: () => Boolean,
+    default: false,
   })
+  @IsOptional()
   @IsBoolean()
-  onboardingDone: boolean;
+  onboardingDone?: boolean;
 
   @ApiProperty({
     required: false,
@@ -53,19 +54,21 @@ export class CreateUserDto {
   @IsString()
   profilePictureUrl?: string | null;
 
-  @ApiProperty({
-    required: true,
+  @ApiPropertyOptional({
     type: () => Boolean,
+    default: false,
   })
+  @IsOptional()
   @IsBoolean()
-  emailVerified: boolean;
+  emailVerified?: boolean;
 
-  @ApiProperty({
-    required: true,
+  @ApiPropertyOptional({
     type: () => String,
+    description: 'Defaults to "{firstName} {lastName}" when omitted.',
   })
+  @IsOptional()
   @IsString()
-  fullName: string;
+  fullName?: string;
 
   @ApiProperty({ example: 'test1@example.com', type: String })
   @Transform(lowerCaseTransformer)

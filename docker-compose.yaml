@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:17.9-alpine
     ports:
-      - ${DATABASE_PORT}:54321
+      - ${DATABASE_PORT}:5432
     volumes:
       - boilerplate-db:/var/lib/postgresql/data
     environment:

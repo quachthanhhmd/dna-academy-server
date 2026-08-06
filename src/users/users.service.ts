@@ -116,7 +116,7 @@ export class UsersService {
     return this.usersRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
-      onboardingDone: createUserDto.onboardingDone,
+      onboardingDone: createUserDto.onboardingDone ?? false,
 
       age: createUserDto.age,
 
@@ -124,9 +124,13 @@ export class UsersService {
 
       profilePictureUrl: createUserDto.profilePictureUrl,
 
-      emailVerified: createUserDto.emailVerified,
+      emailVerified: createUserDto.emailVerified ?? false,
 
-      fullName: createUserDto.fullName,
+      fullName:
+        createUserDto.fullName ??
+        [createUserDto.firstName, createUserDto.lastName]
+          .filter(Boolean)
+          .join(' '),
 
       firstName: createUserDto.firstName,
       lastName: createUserDto.lastName,
