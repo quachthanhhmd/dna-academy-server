@@ -1,0 +1,137 @@
+import { SectionsService } from '../sections/sections.service';
+import { Section } from '../sections/domain/section';
+
+import {
+  // common
+  Injectable,
+  HttpStatus,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import { CreateLectureDto } from './dto/create-lecture.dto';
+import { UpdateLectureDto } from './dto/update-lecture.dto';
+import { LectureRepository } from './infrastructure/persistence/lecture.repository';
+import { IPaginationOptions } from '../utils/types/pagination-options';
+import { Lecture } from './domain/lecture';
+
+@Injectable()
+export class LecturesService {
+  constructor(
+    private readonly sectionService: SectionsService,
+
+    // Dependencies here
+    private readonly lectureRepository: LectureRepository,
+  ) {}
+
+  async create(createLectureDto: CreateLectureDto) {
+    // Do not remove comment below.
+    // <creating-property />
+
+    const sectionObject = await this.sectionService.findById(
+      createLectureDto.section.id,
+    );
+    if (!sectionObject) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          section: 'notExists',
+        },
+      });
+    }
+    const section = sectionObject;
+
+    return this.lectureRepository.create({
+      // Do not remove comment below.
+      // <creating-property-payload />
+      status: createLectureDto.status,
+
+      displayOrder: createLectureDto.displayOrder,
+
+      requiresCompletion: createLectureDto.requiresCompletion,
+
+      isPreview: createLectureDto.isPreview,
+
+      durationSecs: createLectureDto.durationSecs,
+
+      lectureType: createLectureDto.lectureType,
+
+      description: createLectureDto.description,
+
+      title: createLectureDto.title,
+
+      section,
+    });
+  }
+
+  findAllWithPagination({
+    paginationOptions,
+  }: {
+    paginationOptions: IPaginationOptions;
+  }) {
+    return this.lectureRepository.findAllWithPagination({
+      paginationOptions: {
+        page: paginationOptions.page,
+        limit: paginationOptions.limit,
+      },
+    });
+  }
+
+  findById(id: Lecture['id']) {
+    return this.lectureRepository.findById(id);
+  }
+
+  findByIds(ids: Lecture['id'][]) {
+    return this.lectureRepository.findByIds(ids);
+  }
+
+  async update(
+    id: Lecture['id'],
+
+    updateLectureDto: UpdateLectureDto,
+  ) {
+    // Do not remove comment below.
+    // <updating-property />
+
+    let section: Section | undefined = undefined;
+
+    if (updateLectureDto.section) {
+      const sectionObject = await this.sectionService.findById(
+        updateLectureDto.section.id,
+      );
+      if (!sectionObject) {
+        throw new UnprocessableEntityException({
+          status: HttpStatus.UNPROCESSABLE_ENTITY,
+          errors: {
+            section: 'notExists',
+          },
+        });
+      }
+      section = sectionObject;
+    }
+
+    return this.lectureRepository.update(id, {
+      // Do not remove comment below.
+      // <updating-property-payload />
+      status: updateLectureDto.status,
+
+      displayOrder: updateLectureDto.displayOrder,
+
+      requiresCompletion: updateLectureDto.requiresCompletion,
+
+      isPreview: updateLectureDto.isPreview,
+
+      durationSecs: updateLectureDto.durationSecs,
+
+      lectureType: updateLectureDto.lectureType,
+
+      description: updateLectureDto.description,
+
+      title: updateLectureDto.title,
+
+      section,
+    });
+  }
+
+  remove(id: Lecture['id']) {
+    return this.lectureRepository.remove(id);
+  }
+}

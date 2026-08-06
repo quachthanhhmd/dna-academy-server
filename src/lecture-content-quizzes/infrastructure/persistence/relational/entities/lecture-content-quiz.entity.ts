@@ -1,0 +1,48 @@
+import { LectureEntity } from '../../../../../lectures/infrastructure/persistence/relational/entities/lecture.entity';
+
+import {
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+  JoinColumn,
+  OneToOne,
+  Column,
+} from 'typeorm';
+import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
+
+@Entity({
+  name: 'lecture_content_quiz',
+})
+export class LectureContentQuizEntity extends EntityRelationalHelper {
+  @Column({
+    nullable: false,
+    type: Boolean,
+  })
+  allowResume: boolean;
+
+  @Column({
+    nullable: false,
+    type: Number,
+  })
+  passingScore: number;
+
+  @Column({
+    nullable: true,
+    type: String,
+  })
+  instructions?: string | null;
+
+  @OneToOne(() => LectureEntity, { eager: true, nullable: false })
+  @JoinColumn()
+  lecture: LectureEntity;
+
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+}

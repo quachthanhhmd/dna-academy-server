@@ -1,0 +1,195 @@
+import { Module } from '@nestjs/common';
+import { UsersModule } from './users/users.module';
+import { FilesModule } from './files/files.module';
+import { AuthModule } from './auth/auth.module';
+import databaseConfig from './database/config/database.config';
+import authConfig from './auth/config/auth.config';
+import appConfig from './config/app.config';
+import mailConfig from './mail/config/mail.config';
+import fileConfig from './files/config/file.config';
+import facebookConfig from './auth-facebook/config/facebook.config';
+import googleConfig from './auth-google/config/google.config';
+import appleConfig from './auth-apple/config/apple.config';
+import path from 'path';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthAppleModule } from './auth-apple/auth-apple.module';
+import { AuthFacebookModule } from './auth-facebook/auth-facebook.module';
+import { AuthGoogleModule } from './auth-google/auth-google.module';
+import { HeaderResolver, I18nModule } from 'nestjs-i18n';
+import { TypeOrmConfigService } from './database/typeorm-config.service';
+import { MailModule } from './mail/mail.module';
+import { HomeModule } from './home/home.module';
+import { DataSource, DataSourceOptions } from 'typeorm';
+import { AllConfigType } from './config/config.type';
+import { SessionModule } from './session/session.module';
+import { MailerModule } from './mailer/mailer.module';
+
+const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
+  useClass: TypeOrmConfigService,
+  dataSourceFactory: async (options?: DataSourceOptions) => {
+    if (!options) {
+      throw new Error('TypeORM data source options are required');
+    }
+    return new DataSource(options).initialize();
+  },
+});
+
+import { ModulesModule } from './modules/modules.module';
+
+import { PermissionsModule } from './permissions/permissions.module';
+
+import { RolePermissionsModule } from './role-permissions/role-permissions.module';
+
+import { UserRolesModule } from './user-roles/user-roles.module';
+
+import { MasterDataGroupsModule } from './master-data-groups/master-data-groups.module';
+
+import { MasterDataCodesModule } from './master-data-codes/master-data-codes.module';
+
+import { OauthAccountsModule } from './oauth-accounts/oauth-accounts.module';
+
+import { StudentProfilesModule } from './student-profiles/student-profiles.module';
+
+import { StudentCareerInterestsModule } from './student-career-interests/student-career-interests.module';
+
+import { MediaFilesModule } from './media-files/media-files.module';
+
+import { CoursesModule } from './courses/courses.module';
+
+import { CourseGroupAssignmentsModule } from './course-group-assignments/course-group-assignments.module';
+
+import { CourseLearningOutcomesModule } from './course-learning-outcomes/course-learning-outcomes.module';
+
+import { CourseRequirementsModule } from './course-requirements/course-requirements.module';
+
+import { CourseTargetLearnersModule } from './course-target-learners/course-target-learners.module';
+
+import { SectionsModule } from './sections/sections.module';
+
+import { LecturesModule } from './lectures/lectures.module';
+
+import { LectureContentVideosModule } from './lecture-content-videos/lecture-content-videos.module';
+
+import { LectureContentArticlesModule } from './lecture-content-articles/lecture-content-articles.module';
+
+import { LectureContentDocumentsModule } from './lecture-content-documents/lecture-content-documents.module';
+
+import { LectureContentQuizzesModule } from './lecture-content-quizzes/lecture-content-quizzes.module';
+
+import { QuizQuestionsModule } from './quiz-questions/quiz-questions.module';
+
+import { QuizAnswerOptionsModule } from './quiz-answer-options/quiz-answer-options.module';
+
+import { LectureContentReflectionsModule } from './lecture-content-reflections/lecture-content-reflections.module';
+
+import { ReflectionQuestionsModule } from './reflection-questions/reflection-questions.module';
+
+import { EnrollmentsModule } from './enrollments/enrollments.module';
+
+import { LectureProgressesModule } from './lecture-progresses/lecture-progresses.module';
+
+import { QuizAttemptsModule } from './quiz-attempts/quiz-attempts.module';
+
+import { QuizAttemptAnswersModule } from './quiz-attempt-answers/quiz-attempt-answers.module';
+
+import { QuizSavesModule } from './quiz-saves/quiz-saves.module';
+
+import { ReflectionResponsesModule } from './reflection-responses/reflection-responses.module';
+
+import { CertificatesModule } from './certificates/certificates.module';
+
+import { CourseRatingsModule } from './course-ratings/course-ratings.module';
+
+import { CareerReflectionQuestionsModule } from './career-reflection-questions/career-reflection-questions.module';
+
+import { CareerReflectionAnswersModule } from './career-reflection-answers/career-reflection-answers.module';
+
+@Module({
+  imports: [
+    CareerReflectionAnswersModule,
+    CareerReflectionQuestionsModule,
+    CourseRatingsModule,
+    CertificatesModule,
+    ReflectionResponsesModule,
+    QuizSavesModule,
+    QuizAttemptAnswersModule,
+    QuizAttemptsModule,
+    LectureProgressesModule,
+    EnrollmentsModule,
+    ReflectionQuestionsModule,
+    LectureContentReflectionsModule,
+    QuizAnswerOptionsModule,
+    QuizQuestionsModule,
+    LectureContentQuizzesModule,
+    LectureContentDocumentsModule,
+    LectureContentArticlesModule,
+    LectureContentVideosModule,
+    LecturesModule,
+    SectionsModule,
+    CourseTargetLearnersModule,
+    CourseRequirementsModule,
+    CourseLearningOutcomesModule,
+    CourseGroupAssignmentsModule,
+    CoursesModule,
+    MediaFilesModule,
+    StudentCareerInterestsModule,
+    StudentProfilesModule,
+    OauthAccountsModule,
+    MasterDataCodesModule,
+    MasterDataGroupsModule,
+    UserRolesModule,
+    RolePermissionsModule,
+    PermissionsModule,
+    ModulesModule,
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [
+        databaseConfig,
+        authConfig,
+        appConfig,
+        mailConfig,
+        fileConfig,
+        facebookConfig,
+        googleConfig,
+        appleConfig,
+      ],
+      envFilePath: ['.env'],
+    }),
+    infrastructureDatabaseModule,
+    I18nModule.forRootAsync({
+      useFactory: (configService: ConfigService<AllConfigType>) => ({
+        fallbackLanguage: configService.getOrThrow('app.fallbackLanguage', {
+          infer: true,
+        }),
+        loaderOptions: { path: path.join(__dirname, '/i18n/'), watch: true },
+      }),
+      resolvers: [
+        {
+          use: HeaderResolver,
+          useFactory: (configService: ConfigService<AllConfigType>) => {
+            return [
+              configService.get('app.headerLanguage', {
+                infer: true,
+              }),
+            ];
+          },
+          inject: [ConfigService],
+        },
+      ],
+      imports: [ConfigModule],
+      inject: [ConfigService],
+    }),
+    UsersModule,
+    FilesModule,
+    AuthModule,
+    AuthFacebookModule,
+    AuthGoogleModule,
+    AuthAppleModule,
+    SessionModule,
+    MailModule,
+    MailerModule,
+    HomeModule,
+  ],
+})
+export class AppModule {}
