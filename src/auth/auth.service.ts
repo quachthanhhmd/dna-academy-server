@@ -262,9 +262,40 @@ export class AuthService {
       educationStageCode: null,
     });
 
+    await this.sendSignUpConfirmationEmail(user.id, dto.email);
+  }
+
+  async resendVerificationEmail(email: string): Promise<void> {
+    const user = await this.usersService.findByEmail(email);
+
+    if (!user) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          email: 'emailNotExists',
+        },
+      });
+    }
+
+    if (user.status?.id?.toString() !== StatusEnum.inactive.toString()) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          email: 'emailAlreadyConfirmed',
+        },
+      });
+    }
+
+    await this.sendSignUpConfirmationEmail(user.id, email);
+  }
+
+  private async sendSignUpConfirmationEmail(
+    userId: User['id'],
+    email: string,
+  ): Promise<void> {
     const hash = await this.jwtService.signAsync(
       {
-        confirmEmailUserId: user.id,
+        confirmEmailUserId: userId,
       },
       {
         secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
@@ -277,7 +308,7 @@ export class AuthService {
     );
 
     await this.mailService.userSignUp({
-      to: dto.email,
+      to: email,
       data: {
         hash,
       },

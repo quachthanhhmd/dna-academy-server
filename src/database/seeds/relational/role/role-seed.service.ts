@@ -41,5 +41,22 @@ export class RoleSeedService {
         }),
       );
     }
+
+    const countSuperAdmin = await this.repository.count({
+      where: {
+        id: RoleEnum.superAdmin,
+      },
+    });
+
+    if (!countSuperAdmin) {
+      await this.repository.save(
+        this.repository.create({
+          id: RoleEnum.superAdmin,
+          name: 'Super Admin',
+          description: 'Full access to all admin panel modules and actions.',
+          isActive: true,
+        }),
+      );
+    }
   }
 }

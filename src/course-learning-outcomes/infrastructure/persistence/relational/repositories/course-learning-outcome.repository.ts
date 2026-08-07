@@ -60,6 +60,23 @@ export class CourseLearningOutcomeRelationalRepository implements CourseLearning
     );
   }
 
+  async findByCourseId(courseId: string): Promise<CourseLearningOutcome[]> {
+    const entities = await this.courseLearningOutcomeRepository.find({
+      where: { course: { id: courseId } },
+      order: { displayOrder: 'ASC' },
+    });
+
+    return entities.map((entity) =>
+      CourseLearningOutcomeMapper.toDomain(entity),
+    );
+  }
+
+  async removeByCourseId(courseId: string): Promise<void> {
+    await this.courseLearningOutcomeRepository.delete({
+      course: { id: courseId },
+    });
+  }
+
   async update(
     id: CourseLearningOutcome['id'],
     payload: Partial<CourseLearningOutcome>,

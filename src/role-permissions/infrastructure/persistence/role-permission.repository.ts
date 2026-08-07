@@ -20,6 +20,12 @@ export abstract class RolePermissionRepository {
 
   abstract findByIds(ids: RolePermission['id'][]): Promise<RolePermission[]>;
 
+  abstract findByRoleId(
+    roleId: RolePermission['role']['id'],
+  ): Promise<RolePermission[]>;
+
+  abstract removeByRoleId(roleId: RolePermission['role']['id']): Promise<void>;
+
   abstract update(
     id: RolePermission['id'],
     payload: DeepPartial<RolePermission>,

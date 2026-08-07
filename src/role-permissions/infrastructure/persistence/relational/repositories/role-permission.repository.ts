@@ -54,6 +54,20 @@ export class RolePermissionRelationalRepository implements RolePermissionReposit
     return entities.map((entity) => RolePermissionMapper.toDomain(entity));
   }
 
+  async findByRoleId(
+    roleId: RolePermission['role']['id'],
+  ): Promise<RolePermission[]> {
+    const entities = await this.rolePermissionRepository.find({
+      where: { role: { id: roleId } },
+    });
+
+    return entities.map((entity) => RolePermissionMapper.toDomain(entity));
+  }
+
+  async removeByRoleId(roleId: RolePermission['role']['id']): Promise<void> {
+    await this.rolePermissionRepository.delete({ role: { id: roleId } });
+  }
+
   async update(
     id: RolePermission['id'],
     payload: Partial<RolePermission>,

@@ -22,6 +22,10 @@ export abstract class CourseRequirementRepository {
     ids: CourseRequirement['id'][],
   ): Promise<CourseRequirement[]>;
 
+  abstract findByCourseId(courseId: string): Promise<CourseRequirement[]>;
+
+  abstract removeByCourseId(courseId: string): Promise<void>;
+
   abstract update(
     id: CourseRequirement['id'],
     payload: DeepPartial<CourseRequirement>,

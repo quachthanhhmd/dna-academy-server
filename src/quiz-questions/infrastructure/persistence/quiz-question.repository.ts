@@ -20,6 +20,10 @@ export abstract class QuizQuestionRepository {
 
   abstract findByIds(ids: QuizQuestion['id'][]): Promise<QuizQuestion[]>;
 
+  abstract findByLectureId(lectureId: string): Promise<QuizQuestion[]>;
+
+  abstract removeByLectureId(lectureId: string): Promise<void>;
+
   abstract update(
     id: QuizQuestion['id'],
     payload: DeepPartial<QuizQuestion>,

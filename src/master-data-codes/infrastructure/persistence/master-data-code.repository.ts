@@ -12,7 +12,7 @@ export abstract class MasterDataCodeRepository {
     filterOptions,
     paginationOptions,
   }: {
-    filterOptions?: { groupKey?: string } | null;
+    filterOptions?: { groupKey?: string; isActive?: boolean } | null;
     paginationOptions: IPaginationOptions;
   }): Promise<MasterDataCode[]>;
 
@@ -21,6 +21,11 @@ export abstract class MasterDataCodeRepository {
   ): Promise<NullableType<MasterDataCode>>;
 
   abstract findByIds(ids: MasterDataCode['id'][]): Promise<MasterDataCode[]>;
+
+  abstract findByGroupIdAndName(
+    groupId: string,
+    name: string,
+  ): Promise<NullableType<MasterDataCode>>;
 
   abstract update(
     id: MasterDataCode['id'],

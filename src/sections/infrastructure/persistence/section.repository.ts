@@ -18,6 +18,10 @@ export abstract class SectionRepository {
 
   abstract findByIds(ids: Section['id'][]): Promise<Section[]>;
 
+  abstract findByCourseId(courseId: string): Promise<Section[]>;
+
+  abstract countByCourseId(courseId: string): Promise<number>;
+
   abstract update(
     id: Section['id'],
     payload: DeepPartial<Section>,

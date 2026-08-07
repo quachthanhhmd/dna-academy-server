@@ -52,6 +52,21 @@ export class SectionRelationalRepository implements SectionRepository {
     return entities.map((entity) => SectionMapper.toDomain(entity));
   }
 
+  async findByCourseId(courseId: string): Promise<Section[]> {
+    const entities = await this.sectionRepository.find({
+      where: { course: { id: courseId } },
+      order: { displayOrder: 'ASC' },
+    });
+
+    return entities.map((entity) => SectionMapper.toDomain(entity));
+  }
+
+  async countByCourseId(courseId: string): Promise<number> {
+    return this.sectionRepository.count({
+      where: { course: { id: courseId } },
+    });
+  }
+
   async update(id: Section['id'], payload: Partial<Section>): Promise<Section> {
     const entity = await this.sectionRepository.findOne({
       where: { id },

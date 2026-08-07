@@ -105,8 +105,23 @@ import { CareerReflectionQuestionsModule } from './career-reflection-questions/c
 
 import { CareerReflectionAnswersModule } from './career-reflection-answers/career-reflection-answers.module';
 
+import { AuthorizationModule } from './authorization/authorization.module';
+
+import { RolesAdminModule } from './roles-admin/roles-admin.module';
+
+import { MasterDataAdminModule } from './master-data-admin/master-data-admin.module';
+
+import { YoutubeModule } from './youtube/youtube.module';
+
+import { CoursesAdminModule } from './courses-admin/courses-admin.module';
+
 @Module({
   imports: [
+    AuthorizationModule,
+    RolesAdminModule,
+    MasterDataAdminModule,
+    YoutubeModule,
+    CoursesAdminModule,
     CareerReflectionAnswersModule,
     CareerReflectionQuestionsModule,
     CourseRatingsModule,

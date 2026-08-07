@@ -52,6 +52,19 @@ export class QuizQuestionRelationalRepository implements QuizQuestionRepository 
     return entities.map((entity) => QuizQuestionMapper.toDomain(entity));
   }
 
+  async findByLectureId(lectureId: string): Promise<QuizQuestion[]> {
+    const entities = await this.quizQuestionRepository.find({
+      where: { lecture: { id: lectureId } },
+      order: { displayOrder: 'ASC' },
+    });
+
+    return entities.map((entity) => QuizQuestionMapper.toDomain(entity));
+  }
+
+  async removeByLectureId(lectureId: string): Promise<void> {
+    await this.quizQuestionRepository.delete({ lecture: { id: lectureId } });
+  }
+
   async update(
     id: QuizQuestion['id'],
     payload: Partial<QuizQuestion>,

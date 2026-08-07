@@ -8,8 +8,16 @@ import { DeepPartial } from '../utils/types/deep-partial.type';
 export class RolesService {
   constructor(private readonly roleRepository: RoleRepository) {}
 
-  create(data: Omit<Role, 'id'>) {
-    return this.roleRepository.create(data);
+  async create(data: Omit<Role, 'id'>) {
+    // RoleEntity.id is a manually-assigned integer PK (not auto-increment) —
+    // reserved for the boilerplate's static Admin/User/Super Admin ids.
+    const id = await this.roleRepository.getNextId();
+
+    return this.roleRepository.create({ ...data, id });
+  }
+
+  findByName(name: Role['name']) {
+    return this.roleRepository.findByName(name);
   }
 
   findAllWithPagination({

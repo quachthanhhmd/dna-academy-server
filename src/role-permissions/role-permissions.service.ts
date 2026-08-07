@@ -85,6 +85,14 @@ export class RolePermissionsService {
     return this.rolePermissionRepository.findByIds(ids);
   }
 
+  findByRoleId(roleId: RolePermission['role']['id']) {
+    return this.rolePermissionRepository.findByRoleId(roleId);
+  }
+
+  removeByRoleId(roleId: RolePermission['role']['id']) {
+    return this.rolePermissionRepository.removeByRoleId(roleId);
+  }
+
   async update(
     id: RolePermission['id'],
 

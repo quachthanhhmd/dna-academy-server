@@ -87,7 +87,7 @@ export class MasterDataCodesService {
     filterOptions,
     paginationOptions,
   }: {
-    filterOptions?: { groupKey?: string } | null;
+    filterOptions?: { groupKey?: string; isActive?: boolean } | null;
     paginationOptions: IPaginationOptions;
   }) {
     return this.masterDataCodeRepository.findAllWithPagination({
@@ -105,6 +105,10 @@ export class MasterDataCodesService {
 
   findByIds(ids: MasterDataCode['id'][]) {
     return this.masterDataCodeRepository.findByIds(ids);
+  }
+
+  findByGroupIdAndName(groupId: string, name: string) {
+    return this.masterDataCodeRepository.findByGroupIdAndName(groupId, name);
   }
 
   async update(

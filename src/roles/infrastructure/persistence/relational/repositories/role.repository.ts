@@ -44,6 +44,23 @@ export class RoleRelationalRepository implements RoleRepository {
     return entity ? RoleMapper.toDomain(entity) : null;
   }
 
+  async findByName(name: Role['name']): Promise<NullableType<Role>> {
+    const entity = await this.roleRepository.findOne({
+      where: { name },
+    });
+
+    return entity ? RoleMapper.toDomain(entity) : null;
+  }
+
+  async getNextId(): Promise<number> {
+    const result = await this.roleRepository
+      .createQueryBuilder('role')
+      .select('MAX(role.id)', 'max')
+      .getRawOne<{ max: number | null }>();
+
+    return (result?.max ?? 0) + 1;
+  }
+
   async findByIds(ids: Role['id'][]): Promise<Role[]> {
     const entities = await this.roleRepository.find({
       where: { id: In(ids) },

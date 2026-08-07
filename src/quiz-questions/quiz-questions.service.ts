@@ -89,6 +89,14 @@ export class QuizQuestionsService {
     return this.quizQuestionRepository.findByIds(ids);
   }
 
+  findByLectureId(lectureId: string) {
+    return this.quizQuestionRepository.findByLectureId(lectureId);
+  }
+
+  removeByLectureId(lectureId: string) {
+    return this.quizQuestionRepository.removeByLectureId(lectureId);
+  }
+
   async update(
     id: QuizQuestion['id'],
 

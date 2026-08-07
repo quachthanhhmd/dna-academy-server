@@ -73,6 +73,10 @@ export class QuizAnswerOptionsService {
     return this.quizAnswerOptionRepository.findByIds(ids);
   }
 
+  removeByQuestionIds(questionIds: string[]) {
+    return this.quizAnswerOptionRepository.removeByQuestionIds(questionIds);
+  }
+
   async update(
     id: QuizAnswerOption['id'],
 

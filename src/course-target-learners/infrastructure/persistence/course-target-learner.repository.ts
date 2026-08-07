@@ -22,6 +22,10 @@ export abstract class CourseTargetLearnerRepository {
     ids: CourseTargetLearner['id'][],
   ): Promise<CourseTargetLearner[]>;
 
+  abstract findByCourseId(courseId: string): Promise<CourseTargetLearner[]>;
+
+  abstract removeByCourseId(courseId: string): Promise<void>;
+
   abstract update(
     id: CourseTargetLearner['id'],
     payload: DeepPartial<CourseTargetLearner>,

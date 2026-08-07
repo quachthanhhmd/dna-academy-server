@@ -357,3 +357,187 @@ interface MasterDataStore {
 | Record publish date, time, user | `published_at`, `published_by` set on publish |
 | Unpublish preserves enrollment/progress records | Only `status` field changed to `unpublished` |
 | Preview as student in desktop/tablet/mobile | FE preview tab with responsive container toggle |
+
+---
+
+## API Guide (for FE integration)
+
+Everything below reflects the **actual running implementation** (verified against a live server, including DB-level checks), not just the original spec above. Interactive docs: `http://localhost:3001/docs` · raw OpenAPI JSON: `http://localhost:3001/docs-json`.
+
+### Conventions
+
+- Base path: `/api/v1` (e.g. `http://localhost:3001/api/v1/admin/courses`).
+- Auth: `Authorization: Bearer <token>` header. All routes below additionally require the calling user to hold the `courses` permission for the relevant action (`view`/`create`/`edit`/`delete`/`publish`) via the Epic 2 role/permission system — see `POST /admin/user-roles` and `PUT /admin/roles/:id/permissions`. A logged-in user without the right permission gets `403 { code: 'PERMISSION_DENIED', required: { module, action } }`.
+- All bodies are JSON (`Content-Type: application/json`).
+- **Validation errors** (`422`) normally look like:
+  ```json
+  { "status": 422, "errors": { "<field>": "<errorCode>" } }
+  ```
+  The one exception is the **publish checklist**, which uses `{ "status": 422, "missingItems": string[] }` instead (no `errors` key) — see §6.
+- **Not-found errors** (`404`) look like: `{ "status": 404, "error": "courseNotFound" | "sectionNotFound" | "lectureNotFound" }`.
+- **Section-delete conflict** (`409`): `{ "code": "SECTION_HAS_LECTURES" }` — see §4.
+- IDs for `courses`/`sections`/`lectures`/lecture-content rows are UUIDs (strings); `instructorId` is the numeric `users.id`.
+- `levelId`/`categoryId`/`groupIds` are `master_data_code` ids — fetch options via the Epic 2 endpoint `GET /master-data-codes?groupKey=course_level|course_category|course_group` (public/any-logged-in-user read).
+
+### 1. Course CRUD — `POST/GET/PATCH /admin/courses`
+
+**`POST /admin/courses`** — create (always starts `status: 'draft'`).
+```json
+{
+  "title": "Intro to TypeScript",
+  "shortDescription": "Learn the basics",
+  "fullDescription": "<p>...</p>",
+  "thumbnailUrl": "https://.../thumb.png",
+  "introVideoUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  "language": "en",
+  "price": 0,
+  "hasCertificate": false,
+  "enrollmentOpen": true,
+  "levelId": "<master_data_code id, course_level>",
+  "categoryId": "<master_data_code id, course_category>",
+  "instructorId": 7
+}
+```
+- `title`, `language`, `price`, `hasCertificate`, `enrollmentOpen` are required; everything else is optional.
+- `slug` is auto-generated from `title` (`slugify`, lowercased, collisions suffixed `-2`, `-3`, ...) — not settable by the client.
+- `introVideoUrl`, if given, is validated via the YouTube oEmbed API; an unreachable/invalid video → `422 { errors: { introVideoUrl: ... } }` (message from `YoutubeService`).
+- `levelId`/`categoryId` must be **active** `master_data_code` rows in the matching group, else `422 { errors: { levelId: "notExists" } }` (same for `categoryId`).
+- `instructorId` must be an existing user id, else `422 { errors: { instructorId: "notExists" } }`.
+- `isFree` is derived server-side (`price === 0`); `totalSections`/`totalLectures`/`totalDurationSecs`/`totalEnrollments` default to `0`.
+
+Response `201`: the full `Course` object (see shape below).
+
+**`GET /admin/courses`** — paginated list.
+Query params: `status`, `levelId`, `categoryId`, `instructorId` (all optional filters), `page` (default 1), `limit` (default 10, max 50).
+Response `200`: `{ "data": Course[], "hasNextPage": boolean }`.
+
+**`GET /admin/courses/:id`** — full detail, including nested curriculum. Response `200`:
+```json
+{
+  "id": "...", "slug": "...", "title": "...", "status": "draft",
+  "shortDescription": "...", "fullDescription": "...", "thumbnailUrl": "...",
+  "introVideoUrl": "...", "language": "en", "price": 0, "isFree": true,
+  "hasCertificate": false, "enrollmentOpen": true,
+  "level": { "id": "...", "code": "...", "name": "...", "group": { "groupKey": "course_level" } },
+  "category": { "...": "same shape, group.groupKey = course_category" },
+  "instructor": { "id": 7, "fullName": "...", "...": "User" } ,
+  "totalSections": 1, "totalLectures": 3, "totalDurationSecs": 900,
+  "totalEnrollments": 0, "avgRating": null,
+  "publishedAt": null, "publishedBy": null,
+  "createdAt": "...", "updatedAt": "...",
+  "sections": [
+    {
+      "id": "...", "title": "Section 1", "displayOrder": 1,
+      "description": null, "learningObjective": null,
+      "lectures": [
+        { "id": "...", "title": "Lecture 1", "lectureType": "video", "status": "draft",
+          "durationSecs": 300, "isPreview": false, "requiresCompletion": true, "displayOrder": 1 }
+      ]
+    }
+  ],
+  "learningOutcomes": [{ "id": "...", "description": "...", "displayOrder": 1 }],
+  "requirements": [{ "...": "same shape" }],
+  "targetLearners": [{ "...": "same shape" }],
+  "groupIds": ["<master_data_code id>", "..."]
+}
+```
+> Note: `GET /admin/courses` (list) items use the plain `Course` shape (no `sections`/lists nesting) — only the single-course `GET /admin/courses/:id` includes the full curriculum + lists. Also note: **lecture-level content is not embedded here** — `lectureType` tells you which content sub-form to render, but you must call the content endpoint separately if you need the saved content payload (there is currently no `GET` for it; see the caveat in §5).
+
+**`PATCH /admin/courses/:id`** — partial update, any subset of the `POST` body fields. Omitted fields are left untouched (server strips `undefined` keys before merging, so there is no risk of accidentally nulling other fields). Same `introVideoUrl`/`levelId`/`categoryId`/`instructorId` validation as create. Response `200`: full `Course` object.
+
+### 2. Course Supporting Lists
+
+Three identical-shaped sub-resources, each a **full replace** (not additive/patch):
+
+- `PUT /admin/courses/:id/outcomes`
+- `PUT /admin/courses/:id/requirements`
+- `PUT /admin/courses/:id/target-learners`
+
+Request: `{ "items": [{ "description": "...", "displayOrder": 1 }, ...] }` (`items` may be `[]` to clear the list). Response `200`: the new list, e.g. `[{ "id": "...", "description": "...", "displayOrder": 1 }]`.
+
+### 3. Course Group Assignment
+
+`PUT /admin/courses/:id/groups`
+```json
+{ "groupIds": ["<master_data_code id, course_group>", "..."] }
+```
+Every id must be an **active** code in the `course_group` group, else `422 { errors: { groupIds: "notExists:<id>" } }` (the failing id is embedded in the code). On success, fully replaces `course_group_assignments` for the course. Response `200`: `string[]` of the new `groupIds`.
+
+### 4. Sections CRUD
+
+All under `/admin/courses/:courseId/sections`.
+
+- **`POST /`** — `{ "title": "...", "description"?: "...", "learningObjective"?: "...", "displayOrder": 1 }` → `201` Section.
+- **`GET /`** — list, ordered by `displayOrder`.
+- **`PATCH /:id`** — partial update (same fields as create, all optional).
+- **`PATCH /reorder`** — `{ "orderedIds": ["<id>", "..."] }` must be **exactly** the course's current section ids (a permutation, no missing/extra), else `422 { errors: { orderedIds: "mustMatchExistingSections" } }`. Response `200`: sections in the new order, each with its updated `displayOrder`.
+- **`DELETE /:id`** — if the section has lectures, the request body must be `{ "force": true }` to cascade-delete them; otherwise `409 { code: "SECTION_HAS_LECTURES" }`. Response `204`.
+- Any create/delete/reorder here (and any lecture mutation below) triggers a server-side recalculation of the parent course's `totalSections`/`totalLectures`/`totalDurationSecs` — re-fetch `GET /admin/courses/:id` (or trust the response body, where returned) to pick up the new totals.
+
+### 5. Lectures CRUD, Move, and Content
+
+**CRUD** — under `/admin/courses/:courseId/sections/:sectionId/lectures`:
+
+- **`POST /`** — `{ "title": "...", "description"?: "...", "lectureType": "video"|"article"|"pdf_document"|"quiz"|"reflection", "durationSecs": 0, "isPreview": false, "requiresCompletion": true, "displayOrder": 1 }` → `201` Lecture (`status` defaults to `draft`; `lectureType` is only a type tag here — no content row is created until you call the content endpoint).
+- **`PATCH /:id`** — partial update. **Changing `lectureType` here does NOT clear old content** — only saving new content via §5's content endpoint with a different `lectureType` does that (see below). Prefer changing type through the content endpoint so the two stay in sync.
+- **`DELETE /:id`** → `204`.
+- **`PATCH /reorder`** — `{ "orderedIds": [...] }`, exact-set validated like sections (`422 { errors: { orderedIds: "mustMatchExistingLectures" } }` on mismatch).
+
+**Move between sections** — `PATCH /admin/courses/:courseId/lectures/:id/move`
+```json
+{ "targetSectionId": "<section id>", "displayOrder": 1 }
+```
+`targetSectionId` must belong to the **same course** (`courseId` in the URL), else `422 { errors: { targetSectionId: "notExists" } }`. Response `200`: the moved Lecture, `section` populated with its new parent.
+
+**Content** — `PATCH /admin/lectures/:id/content` (note: **not** nested under `/courses/:courseId/...` — just the lecture id). This is the single endpoint for saving type-specific content; `lectureType` in the body both selects the content shape **and** updates `lectures.lecture_type`.
+
+Body varies by `lectureType`:
+
+| lectureType | Required fields | Optional fields |
+|---|---|---|
+| `video` | `youtubeUrl` | — |
+| `article` | `body` (HTML string) | — |
+| `pdf_document` | `fileUrl` | `fileName`, `isDownloadable` (default `false`) |
+| `quiz` | `passingScore`, `allowResume` | `instructions`, `quizQuestions[]` |
+| `reflection` | `minResponseLength` | `reflectionQuestions[]` |
+
+Missing a required field for the chosen type → `422 { errors: { <field>: "required" } }` (quiz's combined check → `422 { errors: { quiz: "passingScoreAndAllowResumeRequired" } }`). An invalid YouTube URL → `422` from the oEmbed check (same as course `introVideoUrl`).
+
+`quizQuestions[]` items: `{ questionText, questionType, isRequired, displayOrder, ratingMin?, ratingMax?, ratingLabelMin?, ratingLabelMax?, minWordCount?, allowedMimeTypes?, maxFileSizeMb?, options?: [{ optionText, isCorrect, displayOrder }] }`. `questionType` is a free-form string the FE defines the meaning of (e.g. `single_choice`, `short_text`, `rating`, `file_upload`) — the BE does not branch on it beyond storing it.
+
+`reflectionQuestions[]` items: `{ questionText, displayOrder }`.
+
+**Every save fully replaces** `quizQuestions`/`options` or `reflectionQuestions` for that lecture — there is no per-question patch; resend the complete list each time.
+
+**Type switch behavior**: if `lectureType` in the request differs from the lecture's current type, the previous type's content (and its questions/options) is **deleted** before the new content is saved, and the response includes `"incompatibleContentCleared": true` (else `false`). FE should show a confirm dialog before letting the admin submit a type change.
+
+Response `200`: the created/updated content row (shape depends on type — `LectureContentVideo`/`Article`/`Document`/`Quiz`/`Reflection`), **plus** `incompatibleContentCleared`. It does **not** include the nested `quizQuestions`/`reflectionQuestions` in the response body even though they were just saved — re-fetch if you need to display them back immediately after save.
+
+> **Known gap**: there is currently no `GET /admin/lectures/:id/content` to fetch previously-saved content. If the admin reopens the lecture editor, the FE has no BE-provided way to pre-fill the type-specific form — only `lectureType` is visible via `GET /admin/courses/:id`. Track saved content client-side (e.g. keep it in the Zustand store after each successful `PATCH .../content`) until a fetch endpoint is added.
+
+### 6. Publish / Unpublish
+
+**`POST /admin/courses/:id/publish`** (no body). Validates a checklist and, if it passes, publishes. Response `200`: the full `Course` object with `status: "published"`, `publishedAt` (ISO timestamp), `publishedBy` (the calling admin's `User` object).
+
+Checklist (all must pass):
+- `title`, `shortDescription`, `thumbnailUrl` are all non-empty.
+- `levelId` and `categoryId` are both set.
+- The course has at least one section, and that section (any section) has at least one lecture.
+- **Every** lecture in the course has its type-specific content saved (checked via the corresponding content table's `findByLectureId`).
+
+On failure → `422`:
+```json
+{ "status": 422, "missingItems": ["shortDescription", "thumbnailUrl", "levelId", "categoryId", "curriculum"] }
+```
+Possible codes: `title`, `shortDescription`, `thumbnailUrl`, `levelId`, `categoryId`, `curriculum` (no sections, or no lectures in any section), `lectureContent` (one or more lectures still missing their content — this code does not currently name which lecture(s)). FE should map these codes to the checklist modal's line items and, on `curriculum`/`lectureContent`, send the admin back to Tab 3.
+
+**`POST /admin/courses/:id/unpublish`** (no body). Sets `status: 'unpublished'` only — `publishedAt`/`publishedBy` are **left as-is** (not cleared), and enrollment/progress records are untouched. Response `200`: full `Course` object.
+
+### Suggested FE flow
+
+1. `/admin/courses` → `GET /admin/courses?status=&levelId=&categoryId=` for the table; "Create Course" → `POST /admin/courses` with just `title`/`language`/`price`/`hasCertificate`/`enrollmentOpen`, then redirect straight into the editor.
+2. `/admin/courses/:id/edit` → `GET /admin/courses/:id` once on mount, feed the full response into `useCourseEditorStore.loadCourse(...)`.
+3. Tab 1 (Overview) → `PATCH /admin/courses/:id` on save; Tab 2 (Lists) → the three `PUT .../outcomes|requirements|target-learners` plus `PUT .../groups`.
+4. Tab 3 (Curriculum) → section/lecture CRUD + `.../reorder` + `.../move`; lecture drawer save → `PATCH /admin/lectures/:id/content`. If the response has `incompatibleContentCleared: true` and this wasn't expected, surface a toast ("previous content for this lecture was removed").
+5. Publish bar → `POST /admin/courses/:id/publish`. On `422`, populate `missingItems` in the store and open the checklist modal (`publishChecklistOpen: true`) instead of a generic error toast. On success, update `status`/`publishedAt`/`publishedBy` from the response.
+6. "Unpublish" action (e.g. from the course list row menu) → `POST /admin/courses/:id/unpublish`, then patch `status` in local state — no need to re-fetch the whole course.

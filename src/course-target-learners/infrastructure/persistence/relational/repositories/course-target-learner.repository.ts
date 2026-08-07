@@ -56,6 +56,21 @@ export class CourseTargetLearnerRelationalRepository implements CourseTargetLear
     return entities.map((entity) => CourseTargetLearnerMapper.toDomain(entity));
   }
 
+  async findByCourseId(courseId: string): Promise<CourseTargetLearner[]> {
+    const entities = await this.courseTargetLearnerRepository.find({
+      where: { course: { id: courseId } },
+      order: { displayOrder: 'ASC' },
+    });
+
+    return entities.map((entity) => CourseTargetLearnerMapper.toDomain(entity));
+  }
+
+  async removeByCourseId(courseId: string): Promise<void> {
+    await this.courseTargetLearnerRepository.delete({
+      course: { id: courseId },
+    });
+  }
+
   async update(
     id: CourseTargetLearner['id'],
     payload: Partial<CourseTargetLearner>,

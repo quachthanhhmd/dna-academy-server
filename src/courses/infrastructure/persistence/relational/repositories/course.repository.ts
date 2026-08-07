@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { FindOptionsWhere, Repository, In } from 'typeorm';
 import { CourseEntity } from '../entities/course.entity';
 import { NullableType } from '../../../../../utils/types/nullable.type';
 import { Course } from '../../../../domain/course';
@@ -24,13 +24,37 @@ export class CourseRelationalRepository implements CourseRepository {
   }
 
   async findAllWithPagination({
+    filterOptions,
     paginationOptions,
   }: {
+    filterOptions?: {
+      status?: string;
+      levelId?: string;
+      categoryId?: string;
+      instructorId?: number;
+    } | null;
     paginationOptions: IPaginationOptions;
   }): Promise<Course[]> {
+    const where: FindOptionsWhere<CourseEntity> = {};
+
+    if (filterOptions?.status) {
+      where.status = filterOptions.status;
+    }
+    if (filterOptions?.levelId) {
+      where.level = { id: filterOptions.levelId };
+    }
+    if (filterOptions?.categoryId) {
+      where.category = { id: filterOptions.categoryId };
+    }
+    if (filterOptions?.instructorId) {
+      where.instructor = { id: filterOptions.instructorId };
+    }
+
     const entities = await this.courseRepository.find({
+      where,
       skip: (paginationOptions.page - 1) * paginationOptions.limit,
       take: paginationOptions.limit,
+      order: { createdAt: 'DESC' },
     });
 
     return entities.map((entity) => CourseMapper.toDomain(entity));
@@ -50,6 +74,26 @@ export class CourseRelationalRepository implements CourseRepository {
     });
 
     return entities.map((entity) => CourseMapper.toDomain(entity));
+  }
+
+  async findBySlug(slug: Course['slug']): Promise<NullableType<Course>> {
+    const entity = await this.courseRepository.findOne({
+      where: { slug },
+    });
+
+    return entity ? CourseMapper.toDomain(entity) : null;
+  }
+
+  async countByLevelId(levelId: string): Promise<number> {
+    return this.courseRepository.count({
+      where: { level: { id: levelId } },
+    });
+  }
+
+  async countByCategoryId(categoryId: string): Promise<number> {
+    return this.courseRepository.count({
+      where: { category: { id: categoryId } },
+    });
   }
 
   async update(id: Course['id'], payload: Partial<Course>): Promise<Course> {

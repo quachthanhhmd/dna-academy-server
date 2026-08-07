@@ -70,6 +70,14 @@ export class CourseLearningOutcomesService {
     return this.courseLearningOutcomeRepository.findByIds(ids);
   }
 
+  findByCourseId(courseId: string) {
+    return this.courseLearningOutcomeRepository.findByCourseId(courseId);
+  }
+
+  removeByCourseId(courseId: string) {
+    return this.courseLearningOutcomeRepository.removeByCourseId(courseId);
+  }
+
   async update(
     id: CourseLearningOutcome['id'],
 

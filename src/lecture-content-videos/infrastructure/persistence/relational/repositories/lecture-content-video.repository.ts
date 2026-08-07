@@ -56,6 +56,16 @@ export class LectureContentVideoRelationalRepository implements LectureContentVi
     return entities.map((entity) => LectureContentVideoMapper.toDomain(entity));
   }
 
+  async findByLectureId(
+    lectureId: string,
+  ): Promise<NullableType<LectureContentVideo>> {
+    const entity = await this.lectureContentVideoRepository.findOne({
+      where: { lecture: { id: lectureId } },
+    });
+
+    return entity ? LectureContentVideoMapper.toDomain(entity) : null;
+  }
+
   async update(
     id: LectureContentVideo['id'],
     payload: Partial<LectureContentVideo>,

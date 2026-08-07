@@ -22,6 +22,10 @@ export abstract class LectureContentQuizRepository {
     ids: LectureContentQuiz['id'][],
   ): Promise<LectureContentQuiz[]>;
 
+  abstract findByLectureId(
+    lectureId: string,
+  ): Promise<NullableType<LectureContentQuiz>>;
+
   abstract update(
     id: LectureContentQuiz['id'],
     payload: DeepPartial<LectureContentQuiz>,

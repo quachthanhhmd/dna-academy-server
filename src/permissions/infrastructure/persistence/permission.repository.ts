@@ -14,6 +14,8 @@ export abstract class PermissionRepository {
     paginationOptions: IPaginationOptions;
   }): Promise<Permission[]>;
 
+  abstract findAll(): Promise<Permission[]>;
+
   abstract findById(id: Permission['id']): Promise<NullableType<Permission>>;
 
   abstract findByIds(ids: Permission['id'][]): Promise<Permission[]>;

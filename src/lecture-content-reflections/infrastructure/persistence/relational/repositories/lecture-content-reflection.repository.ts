@@ -62,6 +62,16 @@ export class LectureContentReflectionRelationalRepository implements LectureCont
     );
   }
 
+  async findByLectureId(
+    lectureId: string,
+  ): Promise<NullableType<LectureContentReflection>> {
+    const entity = await this.lectureContentReflectionRepository.findOne({
+      where: { lecture: { id: lectureId } },
+    });
+
+    return entity ? LectureContentReflectionMapper.toDomain(entity) : null;
+  }
+
   async update(
     id: LectureContentReflection['id'],
     payload: Partial<LectureContentReflection>,

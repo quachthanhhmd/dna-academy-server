@@ -56,6 +56,16 @@ export class LectureContentQuizRelationalRepository implements LectureContentQui
     return entities.map((entity) => LectureContentQuizMapper.toDomain(entity));
   }
 
+  async findByLectureId(
+    lectureId: string,
+  ): Promise<NullableType<LectureContentQuiz>> {
+    const entity = await this.lectureContentQuizRepository.findOne({
+      where: { lecture: { id: lectureId } },
+    });
+
+    return entity ? LectureContentQuizMapper.toDomain(entity) : null;
+  }
+
   async update(
     id: LectureContentQuiz['id'],
     payload: Partial<LectureContentQuiz>,

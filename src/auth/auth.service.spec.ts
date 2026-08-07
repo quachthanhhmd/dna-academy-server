@@ -16,6 +16,7 @@ describe('AuthService', () => {
     update: jest.Mock<any>;
   };
   let sessionService: { create: jest.Mock<any> };
+  let mailService: { userSignUp: jest.Mock<any> };
   let configService: { getOrThrow: jest.Mock<any> };
   let oauthAccountsService: {
     findByProviderAndProviderUid: jest.Mock<any>;
@@ -85,6 +86,10 @@ describe('AuthService', () => {
       }),
     };
 
+    mailService = {
+      userSignUp: (jest.fn() as jest.Mock<any>).mockResolvedValue(undefined),
+    };
+
     configService = {
       getOrThrow: jest.fn((key: string) => {
         if (key.endsWith('Expires')) return '1h';
@@ -117,7 +122,7 @@ describe('AuthService', () => {
       jwtService as any,
       usersService as any,
       sessionService as any,
-      {} as any, // mailService, unused by the paths under test
+      mailService as any,
       configService as any,
       oauthAccountsService as any,
       studentProfilesService as any,
@@ -357,6 +362,48 @@ describe('AuthService', () => {
           customInterest: 'Robotics',
         }),
       );
+    });
+  });
+
+  describe('resendVerificationEmail', () => {
+    it('should reject when no user has the given email', async () => {
+      usersService.findByEmail.mockResolvedValue(null);
+
+      await expect(
+        service.resendVerificationEmail('missing@example.com'),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(mailService.userSignUp).not.toHaveBeenCalled();
+    });
+
+    it('should reject when the account is already confirmed', async () => {
+      usersService.findByEmail.mockResolvedValue({
+        ...baseUser,
+        status: { id: StatusEnum.active },
+      });
+
+      await expect(
+        service.resendVerificationEmail('student@example.com'),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(mailService.userSignUp).not.toHaveBeenCalled();
+    });
+
+    it('should sign a fresh confirm-email token and resend the sign-up email', async () => {
+      usersService.findByEmail.mockResolvedValue({
+        ...baseUser,
+        id: 42,
+        status: { id: StatusEnum.inactive },
+      });
+
+      await service.resendVerificationEmail('student@example.com');
+
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
+        { confirmEmailUserId: 42 },
+        expect.objectContaining({ secret: 'secret', expiresIn: '1h' }),
+      );
+      expect(mailService.userSignUp).toHaveBeenCalledWith({
+        to: 'student@example.com',
+        data: { hash: 'signed-token' },
+      });
     });
   });
 });

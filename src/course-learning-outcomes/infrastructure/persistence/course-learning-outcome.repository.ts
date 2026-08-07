@@ -22,6 +22,10 @@ export abstract class CourseLearningOutcomeRepository {
     ids: CourseLearningOutcome['id'][],
   ): Promise<CourseLearningOutcome[]>;
 
+  abstract findByCourseId(courseId: string): Promise<CourseLearningOutcome[]>;
+
+  abstract removeByCourseId(courseId: string): Promise<void>;
+
   abstract update(
     id: CourseLearningOutcome['id'],
     payload: DeepPartial<CourseLearningOutcome>,

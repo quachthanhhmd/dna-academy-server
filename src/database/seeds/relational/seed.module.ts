@@ -7,6 +7,10 @@ import { TypeOrmConfigService } from '../../typeorm-config.service';
 import { RoleSeedModule } from './role/role-seed.module';
 import { StatusSeedModule } from './status/status-seed.module';
 import { UserSeedModule } from './user/user-seed.module';
+import { ModuleSeedModule } from './module/module-seed.module';
+import { PermissionSeedModule } from './permission/permission-seed.module';
+import { RolePermissionSeedModule } from './role-permission/role-permission-seed.module';
+import { MasterDataGroupSeedModule } from './master-data-group/master-data-group-seed.module';
 import databaseConfig from '../../config/database.config';
 import appConfig from '../../../config/app.config';
 
@@ -15,6 +19,10 @@ import appConfig from '../../../config/app.config';
     RoleSeedModule,
     StatusSeedModule,
     UserSeedModule,
+    ModuleSeedModule,
+    PermissionSeedModule,
+    RolePermissionSeedModule,
+    MasterDataGroupSeedModule,
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, appConfig],

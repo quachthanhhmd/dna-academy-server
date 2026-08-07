@@ -71,6 +71,14 @@ export class ReflectionQuestionsService {
     return this.reflectionQuestionRepository.findByIds(ids);
   }
 
+  findByLectureId(lectureId: string) {
+    return this.reflectionQuestionRepository.findByLectureId(lectureId);
+  }
+
+  removeByLectureId(lectureId: string) {
+    return this.reflectionQuestionRepository.removeByLectureId(lectureId);
+  }
+
   async update(
     id: ReflectionQuestion['id'],
 

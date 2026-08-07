@@ -70,6 +70,10 @@ export class LectureContentReflectionsService {
     return this.lectureContentReflectionRepository.findByIds(ids);
   }
 
+  findByLectureId(lectureId: string) {
+    return this.lectureContentReflectionRepository.findByLectureId(lectureId);
+  }
+
   async update(
     id: LectureContentReflection['id'],
 

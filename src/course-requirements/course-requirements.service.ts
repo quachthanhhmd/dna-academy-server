@@ -70,6 +70,14 @@ export class CourseRequirementsService {
     return this.courseRequirementRepository.findByIds(ids);
   }
 
+  findByCourseId(courseId: string) {
+    return this.courseRequirementRepository.findByCourseId(courseId);
+  }
+
+  removeByCourseId(courseId: string) {
+    return this.courseRequirementRepository.removeByCourseId(courseId);
+  }
+
   async update(
     id: CourseRequirement['id'],
 

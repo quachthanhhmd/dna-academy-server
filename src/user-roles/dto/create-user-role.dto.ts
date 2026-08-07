@@ -12,16 +12,25 @@ import {
 
   ValidateNested,
   IsNotEmptyObject,
+  IsOptional,
+  IsDate,
 } from 'class-validator';
 
 import {
   // decorators here
   ApiProperty,
+  ApiPropertyOptional,
 } from '@nestjs/swagger';
 
 export class CreateUserRoleDto {
   assignedBy?: UserDto | null;
 
+  @ApiPropertyOptional({
+    description: 'Defaults to the current time when omitted.',
+  })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
   assignedAt?: Date;
 
   @ApiProperty({

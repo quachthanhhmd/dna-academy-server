@@ -52,6 +52,24 @@ export class UserRoleRelationalRepository implements UserRoleRepository {
     return entities.map((entity) => UserRoleMapper.toDomain(entity));
   }
 
+  async findByUserId(userId: UserRole['user']['id']): Promise<UserRole[]> {
+    const entities = await this.userRoleRepository.find({
+      where: { user: { id: userId } },
+    });
+
+    return entities.map((entity) => UserRoleMapper.toDomain(entity));
+  }
+
+  async countByRoleId(roleId: UserRole['role']['id']): Promise<number> {
+    return this.userRoleRepository.count({
+      where: { role: { id: roleId } },
+    });
+  }
+
+  async removeByUserId(userId: UserRole['user']['id']): Promise<void> {
+    await this.userRoleRepository.delete({ user: { id: userId } });
+  }
+
   async update(
     id: UserRole['id'],
     payload: Partial<UserRole>,

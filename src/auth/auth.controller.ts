@@ -22,6 +22,7 @@ import {
 import { AuthEmailLoginDto } from './dto/auth-email-login.dto';
 import { AuthForgotPasswordDto } from './dto/auth-forgot-password.dto';
 import { AuthConfirmEmailDto } from './dto/auth-confirm-email.dto';
+import { AuthResendVerificationEmailDto } from './dto/auth-resend-verification-email.dto';
 import { AuthResetPasswordDto } from './dto/auth-reset-password.dto';
 import { AuthUpdateDto } from './dto/auth-update.dto';
 import { AuthGuard } from '@nestjs/passport';
@@ -89,6 +90,24 @@ export class AuthController {
     @Body() confirmEmailDto: AuthConfirmEmailDto,
   ): Promise<void> {
     return this.service.confirmNewEmail(confirmEmailDto.hash);
+  }
+
+  @ApiOperation({
+    summary: 'Resend the sign-up verification email',
+    description:
+      'For accounts stuck unverified (e.g. the original email from /auth/email/register never arrived). Issues a new confirmation token and re-sends the same email as register. No-op error if the account is already confirmed.',
+  })
+  @Post('email/confirm/resend')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiUnprocessableEntityResponse({
+    description: 'Email not found, or the account is already confirmed',
+  })
+  async resendVerificationEmail(
+    @Body() resendVerificationEmailDto: AuthResendVerificationEmailDto,
+  ): Promise<void> {
+    return this.service.resendVerificationEmail(
+      resendVerificationEmailDto.email,
+    );
   }
 
   @Post('forgot/password')

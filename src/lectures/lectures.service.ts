@@ -11,6 +11,7 @@ import { CreateLectureDto } from './dto/create-lecture.dto';
 import { UpdateLectureDto } from './dto/update-lecture.dto';
 import { LectureRepository } from './infrastructure/persistence/lecture.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
+import { DeepPartial } from '../utils/types/deep-partial.type';
 import { Lecture } from './domain/lecture';
 
 @Injectable()
@@ -83,6 +84,22 @@ export class LecturesService {
     return this.lectureRepository.findByIds(ids);
   }
 
+  findBySectionId(sectionId: string) {
+    return this.lectureRepository.findBySectionId(sectionId);
+  }
+
+  countBySectionId(sectionId: string) {
+    return this.lectureRepository.countBySectionId(sectionId);
+  }
+
+  removeBySectionId(sectionId: string) {
+    return this.lectureRepository.removeBySectionId(sectionId);
+  }
+
+  getCourseAggregates(courseId: string) {
+    return this.lectureRepository.getCourseAggregates(courseId);
+  }
+
   async update(
     id: Lecture['id'],
 
@@ -108,7 +125,7 @@ export class LecturesService {
       section = sectionObject;
     }
 
-    return this.lectureRepository.update(id, {
+    const payload: DeepPartial<Lecture> = {
       // Do not remove comment below.
       // <updating-property-payload />
       status: updateLectureDto.status,
@@ -128,7 +145,19 @@ export class LecturesService {
       title: updateLectureDto.title,
 
       section,
-    });
+    };
+
+    // See CoursesService.update for why this is necessary: a partial update
+    // DTO instance carries every declared field as an own property, so an
+    // undefined value here would otherwise clobber the existing column via
+    // the repository's `{ ...current, ...payload }` merge.
+    for (const key of Object.keys(payload) as (keyof Lecture)[]) {
+      if (payload[key] === undefined) {
+        delete payload[key];
+      }
+    }
+
+    return this.lectureRepository.update(id, payload);
   }
 
   remove(id: Lecture['id']) {

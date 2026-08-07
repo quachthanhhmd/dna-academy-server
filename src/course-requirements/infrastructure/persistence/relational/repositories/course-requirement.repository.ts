@@ -56,6 +56,19 @@ export class CourseRequirementRelationalRepository implements CourseRequirementR
     return entities.map((entity) => CourseRequirementMapper.toDomain(entity));
   }
 
+  async findByCourseId(courseId: string): Promise<CourseRequirement[]> {
+    const entities = await this.courseRequirementRepository.find({
+      where: { course: { id: courseId } },
+      order: { displayOrder: 'ASC' },
+    });
+
+    return entities.map((entity) => CourseRequirementMapper.toDomain(entity));
+  }
+
+  async removeByCourseId(courseId: string): Promise<void> {
+    await this.courseRequirementRepository.delete({ course: { id: courseId } });
+  }
+
   async update(
     id: CourseRequirement['id'],
     payload: Partial<CourseRequirement>,

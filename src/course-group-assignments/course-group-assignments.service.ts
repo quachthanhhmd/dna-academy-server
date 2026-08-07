@@ -85,6 +85,18 @@ export class CourseGroupAssignmentsService {
     return this.courseGroupAssignmentRepository.findByIds(ids);
   }
 
+  countByGroupId(groupId: string) {
+    return this.courseGroupAssignmentRepository.countByGroupId(groupId);
+  }
+
+  findByCourseId(courseId: string) {
+    return this.courseGroupAssignmentRepository.findByCourseId(courseId);
+  }
+
+  removeByCourseId(courseId: string) {
+    return this.courseGroupAssignmentRepository.removeByCourseId(courseId);
+  }
+
   async update(
     id: CourseGroupAssignment['id'],
 
