@@ -15,12 +15,14 @@ import { UpdateEnrollmentDto } from './dto/update-enrollment.dto';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiOkResponse,
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
 import { Enrollment } from './domain/enrollment';
 import { AuthGuard } from '@nestjs/passport';
+import { OnboardingGuard } from '../auth/guards/onboarding.guard';
 import {
   InfinityPaginationResponse,
   InfinityPaginationResponseDto,
@@ -39,8 +41,13 @@ export class EnrollmentsController {
   constructor(private readonly enrollmentsService: EnrollmentsService) {}
 
   @Post()
+  @UseGuards(OnboardingGuard)
   @ApiCreatedResponse({
     type: Enrollment,
+  })
+  @ApiForbiddenResponse({
+    description:
+      'Student profile onboarding is incomplete. Body: { code: "ONBOARDING_REQUIRED" } — FE should redirect to /onboarding.',
   })
   create(@Body() createEnrollmentDto: CreateEnrollmentDto) {
     return this.enrollmentsService.create(createEnrollmentDto);

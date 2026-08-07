@@ -28,6 +28,13 @@ import { Session } from '../session/domain/session';
 import { SessionService } from '../session/session.service';
 import { StatusEnum } from '../statuses/statuses.enum';
 import { User } from '../users/domain/user';
+import { OauthAccountsService } from '../oauth-accounts/oauth-accounts.service';
+import { StudentProfilesService } from '../student-profiles/student-profiles.service';
+import { StudentCareerInterestsService } from '../student-career-interests/student-career-interests.service';
+import { MasterDataCodesService } from '../master-data-codes/master-data-codes.service';
+import { MasterDataCode } from '../master-data-codes/domain/master-data-code';
+import { AuthOnboardingDto } from './dto/auth-onboarding.dto';
+import { ProfileResponseDto } from './dto/profile-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -37,6 +44,10 @@ export class AuthService {
     private readonly sessionService: SessionService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService<AllConfigType>,
+    private readonly oauthAccountsService: OauthAccountsService,
+    private readonly studentProfilesService: StudentProfilesService,
+    private readonly studentCareerInterestsService: StudentCareerInterestsService,
+    private readonly masterDataCodesService: MasterDataCodesService,
   ) {}
 
   async validateLogin(loginDto: AuthEmailLoginDto): Promise<LoginResponseDto> {
@@ -83,6 +94,10 @@ export class AuthService {
       });
     }
 
+    return this.buildLoginResponse(user);
+  }
+
+  private async buildLoginResponse(user: User): Promise<LoginResponseDto> {
     const hash = crypto
       .createHash('sha256')
       .update(randomStringGenerator())
@@ -105,6 +120,7 @@ export class AuthService {
       token,
       tokenExpires,
       user,
+      requiresOnboarding: !user.onboardingDone,
     };
   }
 
@@ -171,33 +187,59 @@ export class AuthService {
       });
     }
 
-    const hash = crypto
-      .createHash('sha256')
-      .update(randomStringGenerator())
-      .digest('hex');
+    return this.buildLoginResponse(user);
+  }
 
-    const session = await this.sessionService.create({
+  async validateFacebookLogin(
+    socialData: SocialInterface,
+  ): Promise<LoginResponseDto> {
+    const provider = AuthProvidersEnum.facebook;
+    const oauthAccount =
+      await this.oauthAccountsService.findByProviderAndProviderUid(
+        provider,
+        socialData.id,
+      );
+
+    if (oauthAccount) {
+      // Existing link: do NOT overwrite manually updated user fields on re-login.
+      return this.buildLoginResponse(oauthAccount.user);
+    }
+
+    const socialEmail = socialData.email?.toLowerCase();
+    let user: NullableType<User> = socialEmail
+      ? await this.usersService.findByEmail(socialEmail)
+      : null;
+
+    if (!user) {
+      user = await this.usersService.create({
+        email: socialEmail ?? null,
+        firstName: socialData.firstName ?? null,
+        lastName: socialData.lastName ?? null,
+        fullName:
+          [socialData.firstName, socialData.lastName]
+            .filter(Boolean)
+            .join(' ') ||
+          (socialEmail ?? ''),
+        profilePictureUrl: socialData.picture ?? null,
+        emailVerified: true,
+        onboardingDone: false,
+        provider,
+        role: {
+          id: RoleEnum.user,
+        },
+        status: {
+          id: StatusEnum.active,
+        },
+      });
+    }
+
+    await this.oauthAccountsService.create({
+      provider,
+      providerUid: socialData.id,
       user,
-      hash,
     });
 
-    const {
-      token: jwtToken,
-      refreshToken,
-      tokenExpires,
-    } = await this.getTokensData({
-      id: user.id,
-      role: user.role,
-      sessionId: session.id,
-      hash,
-    });
-
-    return {
-      refreshToken,
-      token: jwtToken,
-      tokenExpires,
-      user,
-    };
+    return this.buildLoginResponse(user);
   }
 
   async register(dto: AuthRegisterLoginDto): Promise<void> {
@@ -213,6 +255,11 @@ export class AuthService {
       status: {
         id: StatusEnum.inactive,
       },
+    });
+
+    await this.studentProfilesService.create({
+      user: { id: user.id },
+      educationStageCode: null,
     });
 
     const hash = await this.jwtService.signAsync(
@@ -274,6 +321,7 @@ export class AuthService {
     user.status = {
       id: StatusEnum.active,
     };
+    user.emailVerified = true;
 
     await this.usersService.update(user.id, user);
   }
@@ -547,6 +595,128 @@ export class AuthService {
 
   async logout(data: Pick<JwtRefreshPayloadType, 'sessionId'>) {
     return this.sessionService.deleteById(data.sessionId);
+  }
+
+  async getProfile(userId: User['id']): Promise<ProfileResponseDto> {
+    const user = await this.usersService.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: `notFound`,
+      });
+    }
+
+    const [studentProfile, careerInterests] = await Promise.all([
+      this.studentProfilesService.findByUserId(userId),
+      this.studentCareerInterestsService.findByUserId(userId),
+    ]);
+
+    return {
+      user,
+      studentProfile,
+      careerInterests,
+    };
+  }
+
+  async completeOnboarding(
+    userId: User['id'],
+    dto: AuthOnboardingDto,
+  ): Promise<ProfileResponseDto> {
+    const user = await this.usersService.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException({
+        status: HttpStatus.NOT_FOUND,
+        error: `notFound`,
+      });
+    }
+
+    const educationStageCode = await this.masterDataCodesService.findById(
+      dto.educationStageCodeId,
+    );
+
+    if (
+      !educationStageCode ||
+      !educationStageCode.isActive ||
+      educationStageCode.group.groupKey !== 'education_stage'
+    ) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          educationStageCodeId: 'notExists',
+        },
+      });
+    }
+
+    const careerInterestCodes: MasterDataCode[] = [];
+
+    for (const careerInterestId of dto.careerInterestIds) {
+      const code = await this.masterDataCodesService.findById(careerInterestId);
+
+      if (
+        !code ||
+        !code.isActive ||
+        code.group.groupKey !== 'career_interest'
+      ) {
+        throw new UnprocessableEntityException({
+          status: HttpStatus.UNPROCESSABLE_ENTITY,
+          errors: {
+            careerInterestIds: `notExists:${careerInterestId}`,
+          },
+        });
+      }
+
+      careerInterestCodes.push(code);
+    }
+
+    if (!dto.age && !dto.dateOfBirth && !user.age && !user.dateOfBirth) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          age: 'ageOrDateOfBirthRequired',
+        },
+      });
+    }
+
+    const existingProfile =
+      await this.studentProfilesService.findByUserId(userId);
+
+    if (existingProfile) {
+      await this.studentProfilesService.update(existingProfile.id, {
+        educationStageCode,
+      });
+    } else {
+      await this.studentProfilesService.create({
+        user: { id: userId },
+        educationStageCode,
+      });
+    }
+
+    const existingInterests =
+      await this.studentCareerInterestsService.findByUserId(userId);
+
+    for (const interest of existingInterests) {
+      await this.studentCareerInterestsService.remove(interest.id);
+    }
+
+    for (const code of careerInterestCodes) {
+      const isOther = code.code?.toLowerCase() === 'other';
+
+      await this.studentCareerInterestsService.create({
+        user: { id: userId },
+        careerInterest: code,
+        customInterest: isOther ? (dto.customInterest ?? null) : null,
+      });
+    }
+
+    await this.usersService.update(userId, {
+      age: dto.age ?? user.age,
+      dateOfBirth: dto.dateOfBirth ?? user.dateOfBirth,
+      onboardingDone: true,
+    });
+
+    return this.getProfile(userId);
   }
 
   private async getTokensData(data: {

@@ -9,8 +9,10 @@ export abstract class MasterDataCodeRepository {
   ): Promise<MasterDataCode>;
 
   abstract findAllWithPagination({
+    filterOptions,
     paginationOptions,
   }: {
+    filterOptions?: { groupKey?: string } | null;
     paginationOptions: IPaginationOptions;
   }): Promise<MasterDataCode[]>;
 

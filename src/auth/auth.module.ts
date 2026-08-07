@@ -9,6 +9,11 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { MailModule } from '../mail/mail.module';
 import { SessionModule } from '../session/session.module';
 import { UsersModule } from '../users/users.module';
+import { OauthAccountsModule } from '../oauth-accounts/oauth-accounts.module';
+import { StudentProfilesModule } from '../student-profiles/student-profiles.module';
+import { StudentCareerInterestsModule } from '../student-career-interests/student-career-interests.module';
+import { MasterDataCodesModule } from '../master-data-codes/master-data-codes.module';
+import { OnboardingGuard } from './guards/onboarding.guard';
 
 @Module({
   imports: [
@@ -17,9 +22,19 @@ import { UsersModule } from '../users/users.module';
     PassportModule,
     MailModule,
     JwtModule.register({}),
+    OauthAccountsModule,
+    StudentProfilesModule,
+    StudentCareerInterestsModule,
+    MasterDataCodesModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, AnonymousStrategy],
-  exports: [AuthService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    JwtRefreshStrategy,
+    AnonymousStrategy,
+    OnboardingGuard,
+  ],
+  exports: [AuthService, OnboardingGuard],
 })
 export class AuthModule {}

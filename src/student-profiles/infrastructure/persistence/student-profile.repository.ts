@@ -20,6 +20,10 @@ export abstract class StudentProfileRepository {
 
   abstract findByIds(ids: StudentProfile['id'][]): Promise<StudentProfile[]>;
 
+  abstract findByUserId(
+    userId: StudentProfile['user']['id'],
+  ): Promise<NullableType<StudentProfile>>;
+
   abstract update(
     id: StudentProfile['id'],
     payload: DeepPartial<StudentProfile>,

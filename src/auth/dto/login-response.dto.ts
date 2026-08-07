@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { User } from '../../users/domain/user';
 
 export class LoginResponseDto {
@@ -15,4 +15,7 @@ export class LoginResponseDto {
     type: () => User,
   })
   user: User;
+
+  @ApiPropertyOptional()
+  requiresOnboarding?: boolean;
 }

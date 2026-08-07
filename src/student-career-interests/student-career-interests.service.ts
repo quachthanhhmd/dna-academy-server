@@ -89,6 +89,10 @@ export class StudentCareerInterestsService {
     return this.studentCareerInterestRepository.findByIds(ids);
   }
 
+  findByUserId(userId: StudentCareerInterest['user']['id']) {
+    return this.studentCareerInterestRepository.findByUserId(userId);
+  }
+
   async update(
     id: StudentCareerInterest['id'],
 

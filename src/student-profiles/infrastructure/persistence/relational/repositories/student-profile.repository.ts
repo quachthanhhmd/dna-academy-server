@@ -54,6 +54,17 @@ export class StudentProfileRelationalRepository implements StudentProfileReposit
     return entities.map((entity) => StudentProfileMapper.toDomain(entity));
   }
 
+  async findByUserId(
+    userId: StudentProfile['user']['id'],
+  ): Promise<NullableType<StudentProfile>> {
+    const entity = await this.studentProfileRepository.findOne({
+      where: { user: { id: userId } },
+      relations: ['educationStageCode'],
+    });
+
+    return entity ? StudentProfileMapper.toDomain(entity) : null;
+  }
+
   async update(
     id: StudentProfile['id'],
     payload: Partial<StudentProfile>,

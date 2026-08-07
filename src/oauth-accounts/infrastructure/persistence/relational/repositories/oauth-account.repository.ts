@@ -52,6 +52,17 @@ export class OauthAccountRelationalRepository implements OauthAccountRepository 
     return entities.map((entity) => OauthAccountMapper.toDomain(entity));
   }
 
+  async findByProviderAndProviderUid(
+    provider: string,
+    providerUid: string,
+  ): Promise<NullableType<OauthAccount>> {
+    const entity = await this.oauthAccountRepository.findOne({
+      where: { provider, providerUid },
+    });
+
+    return entity ? OauthAccountMapper.toDomain(entity) : null;
+  }
+
   async update(
     id: OauthAccount['id'],
     payload: Partial<OauthAccount>,
