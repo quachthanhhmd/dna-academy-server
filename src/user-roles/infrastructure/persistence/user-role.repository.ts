@@ -18,6 +18,12 @@ export abstract class UserRoleRepository {
 
   abstract findByIds(ids: UserRole['id'][]): Promise<UserRole[]>;
 
+  abstract findByUserId(userId: UserRole['user']['id']): Promise<UserRole[]>;
+
+  abstract countByRoleId(roleId: UserRole['role']['id']): Promise<number>;
+
+  abstract removeByUserId(userId: UserRole['user']['id']): Promise<void>;
+
   abstract update(
     id: UserRole['id'],
     payload: DeepPartial<UserRole>,

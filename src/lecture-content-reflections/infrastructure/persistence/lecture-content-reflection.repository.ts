@@ -22,6 +22,10 @@ export abstract class LectureContentReflectionRepository {
     ids: LectureContentReflection['id'][],
   ): Promise<LectureContentReflection[]>;
 
+  abstract findByLectureId(
+    lectureId: string,
+  ): Promise<NullableType<LectureContentReflection>>;
+
   abstract update(
     id: LectureContentReflection['id'],
     payload: DeepPartial<LectureContentReflection>,

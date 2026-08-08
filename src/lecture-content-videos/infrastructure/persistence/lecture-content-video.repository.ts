@@ -22,6 +22,10 @@ export abstract class LectureContentVideoRepository {
     ids: LectureContentVideo['id'][],
   ): Promise<LectureContentVideo[]>;
 
+  abstract findByLectureId(
+    lectureId: string,
+  ): Promise<NullableType<LectureContentVideo>>;
+
   abstract update(
     id: LectureContentVideo['id'],
     payload: DeepPartial<LectureContentVideo>,

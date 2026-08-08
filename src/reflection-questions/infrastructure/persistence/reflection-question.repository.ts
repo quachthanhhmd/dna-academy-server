@@ -22,6 +22,10 @@ export abstract class ReflectionQuestionRepository {
     ids: ReflectionQuestion['id'][],
   ): Promise<ReflectionQuestion[]>;
 
+  abstract findByLectureId(lectureId: string): Promise<ReflectionQuestion[]>;
+
+  abstract removeByLectureId(lectureId: string): Promise<void>;
+
   abstract update(
     id: ReflectionQuestion['id'],
     payload: DeepPartial<ReflectionQuestion>,

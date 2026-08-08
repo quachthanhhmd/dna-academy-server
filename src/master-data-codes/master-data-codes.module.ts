@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { MasterDataCodesService } from './master-data-codes.service';
 import { MasterDataCodesController } from './master-data-codes.controller';
+import { MasterDataCodesPublicController } from './master-data-codes-public.controller';
 import { RelationalMasterDataCodePersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -17,7 +18,7 @@ import { RelationalMasterDataCodePersistenceModule } from './infrastructure/pers
     // do not remove this comment
     RelationalMasterDataCodePersistenceModule,
   ],
-  controllers: [MasterDataCodesController],
+  controllers: [MasterDataCodesController, MasterDataCodesPublicController],
   providers: [MasterDataCodesService],
   exports: [MasterDataCodesService, RelationalMasterDataCodePersistenceModule],
 })

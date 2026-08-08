@@ -54,6 +54,15 @@ export class QuizAnswerOptionRelationalRepository implements QuizAnswerOptionRep
     return entities.map((entity) => QuizAnswerOptionMapper.toDomain(entity));
   }
 
+  async removeByQuestionIds(questionIds: string[]): Promise<void> {
+    if (!questionIds.length) {
+      return;
+    }
+    await this.quizAnswerOptionRepository.delete({
+      question: { id: In(questionIds) },
+    });
+  }
+
   async update(
     id: QuizAnswerOption['id'],
     payload: Partial<QuizAnswerOption>,

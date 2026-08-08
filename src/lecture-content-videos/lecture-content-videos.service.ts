@@ -70,6 +70,10 @@ export class LectureContentVideosService {
     return this.lectureContentVideoRepository.findByIds(ids);
   }
 
+  findByLectureId(lectureId: string) {
+    return this.lectureContentVideoRepository.findByLectureId(lectureId);
+  }
+
   async update(
     id: LectureContentVideo['id'],
 

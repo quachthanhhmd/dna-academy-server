@@ -54,6 +54,16 @@ export class MasterDataGroupRelationalRepository implements MasterDataGroupRepos
     return entities.map((entity) => MasterDataGroupMapper.toDomain(entity));
   }
 
+  async findByGroupKey(
+    groupKey: MasterDataGroup['groupKey'],
+  ): Promise<NullableType<MasterDataGroup>> {
+    const entity = await this.masterDataGroupRepository.findOne({
+      where: { groupKey },
+    });
+
+    return entity ? MasterDataGroupMapper.toDomain(entity) : null;
+  }
+
   async update(
     id: MasterDataGroup['id'],
     payload: Partial<MasterDataGroup>,

@@ -27,13 +27,17 @@ export class MasterDataCodeRelationalRepository implements MasterDataCodeReposit
     filterOptions,
     paginationOptions,
   }: {
-    filterOptions?: { groupKey?: string } | null;
+    filterOptions?: { groupKey?: string; isActive?: boolean } | null;
     paginationOptions: IPaginationOptions;
   }): Promise<MasterDataCode[]> {
     const where: FindOptionsWhere<MasterDataCodeEntity> = {};
 
     if (filterOptions?.groupKey) {
       where.group = { groupKey: filterOptions.groupKey };
+    }
+
+    if (filterOptions?.isActive !== undefined) {
+      where.isActive = filterOptions.isActive;
     }
 
     const entities = await this.masterDataCodeRepository.find({
@@ -62,6 +66,17 @@ export class MasterDataCodeRelationalRepository implements MasterDataCodeReposit
     });
 
     return entities.map((entity) => MasterDataCodeMapper.toDomain(entity));
+  }
+
+  async findByGroupIdAndName(
+    groupId: string,
+    name: string,
+  ): Promise<NullableType<MasterDataCode>> {
+    const entity = await this.masterDataCodeRepository.findOne({
+      where: { group: { id: groupId }, name },
+    });
+
+    return entity ? MasterDataCodeMapper.toDomain(entity) : null;
   }
 
   async update(

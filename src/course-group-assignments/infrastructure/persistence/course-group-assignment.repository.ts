@@ -22,6 +22,12 @@ export abstract class CourseGroupAssignmentRepository {
     ids: CourseGroupAssignment['id'][],
   ): Promise<CourseGroupAssignment[]>;
 
+  abstract countByGroupId(groupId: string): Promise<number>;
+
+  abstract findByCourseId(courseId: string): Promise<CourseGroupAssignment[]>;
+
+  abstract removeByCourseId(courseId: string): Promise<void>;
+
   abstract update(
     id: CourseGroupAssignment['id'],
     payload: DeepPartial<CourseGroupAssignment>,

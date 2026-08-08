@@ -72,6 +72,10 @@ export class LectureContentQuizzesService {
     return this.lectureContentQuizRepository.findByIds(ids);
   }
 
+  findByLectureId(lectureId: string) {
+    return this.lectureContentQuizRepository.findByLectureId(lectureId);
+  }
+
   async update(
     id: LectureContentQuiz['id'],
 

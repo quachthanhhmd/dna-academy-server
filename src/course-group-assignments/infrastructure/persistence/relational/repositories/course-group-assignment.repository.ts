@@ -60,6 +60,28 @@ export class CourseGroupAssignmentRelationalRepository implements CourseGroupAss
     );
   }
 
+  async countByGroupId(groupId: string): Promise<number> {
+    return this.courseGroupAssignmentRepository.count({
+      where: { group: { id: groupId } },
+    });
+  }
+
+  async findByCourseId(courseId: string): Promise<CourseGroupAssignment[]> {
+    const entities = await this.courseGroupAssignmentRepository.find({
+      where: { course: { id: courseId } },
+    });
+
+    return entities.map((entity) =>
+      CourseGroupAssignmentMapper.toDomain(entity),
+    );
+  }
+
+  async removeByCourseId(courseId: string): Promise<void> {
+    await this.courseGroupAssignmentRepository.delete({
+      course: { id: courseId },
+    });
+  }
+
   async update(
     id: CourseGroupAssignment['id'],
     payload: Partial<CourseGroupAssignment>,

@@ -82,6 +82,10 @@ export class MasterDataGroupsService {
     return this.masterDataGroupRepository.findByIds(ids);
   }
 
+  findByGroupKey(groupKey: MasterDataGroup['groupKey']) {
+    return this.masterDataGroupRepository.findByGroupKey(groupKey);
+  }
+
   async update(
     id: MasterDataGroup['id'],
 

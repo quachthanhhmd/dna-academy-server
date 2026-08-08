@@ -74,6 +74,10 @@ export class LectureContentDocumentsService {
     return this.lectureContentDocumentRepository.findByIds(ids);
   }
 
+  findByLectureId(lectureId: string) {
+    return this.lectureContentDocumentRepository.findByLectureId(lectureId);
+  }
+
   async update(
     id: LectureContentDocument['id'],
 

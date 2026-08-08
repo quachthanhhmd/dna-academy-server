@@ -18,6 +18,16 @@ export abstract class LectureRepository {
 
   abstract findByIds(ids: Lecture['id'][]): Promise<Lecture[]>;
 
+  abstract findBySectionId(sectionId: string): Promise<Lecture[]>;
+
+  abstract countBySectionId(sectionId: string): Promise<number>;
+
+  abstract getCourseAggregates(
+    courseId: string,
+  ): Promise<{ totalLectures: number; totalDurationSecs: number }>;
+
+  abstract removeBySectionId(sectionId: string): Promise<void>;
+
   abstract update(
     id: Lecture['id'],
     payload: DeepPartial<Lecture>,

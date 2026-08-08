@@ -14,6 +14,7 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import { CourseRepository } from './infrastructure/persistence/course.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
+import { DeepPartial } from '../utils/types/deep-partial.type';
 import { Course } from './domain/course';
 
 @Injectable()
@@ -177,11 +178,19 @@ export class CoursesService {
   }
 
   findAllWithPagination({
+    filterOptions,
     paginationOptions,
   }: {
+    filterOptions?: {
+      status?: string;
+      levelId?: string;
+      categoryId?: string;
+      instructorId?: number;
+    } | null;
     paginationOptions: IPaginationOptions;
   }) {
     return this.courseRepository.findAllWithPagination({
+      filterOptions,
       paginationOptions: {
         page: paginationOptions.page,
         limit: paginationOptions.limit,
@@ -195,6 +204,18 @@ export class CoursesService {
 
   findByIds(ids: Course['id'][]) {
     return this.courseRepository.findByIds(ids);
+  }
+
+  findBySlug(slug: Course['slug']) {
+    return this.courseRepository.findBySlug(slug);
+  }
+
+  countByLevelId(levelId: string) {
+    return this.courseRepository.countByLevelId(levelId);
+  }
+
+  countByCategoryId(categoryId: string) {
+    return this.courseRepository.countByCategoryId(categoryId);
   }
 
   async update(
@@ -299,7 +320,7 @@ export class CoursesService {
       level = null;
     }
 
-    return this.courseRepository.update(id, {
+    const payload: DeepPartial<Course> = {
       // Do not remove comment below.
       // <updating-property-payload />
       createdBy,
@@ -347,7 +368,21 @@ export class CoursesService {
       title: updateCourseDto.title,
 
       slug: updateCourseDto.slug,
-    });
+    };
+
+    // A partial update DTO instance carries every declared field as an own
+    // property (undefined when the caller omitted it). Listing every field
+    // above — required so relation fields can be tri-stated (unset/null/id)
+    // — means this object has the same undefined keys. Strip them so the
+    // repository's `{ ...current, ...payload }` merge can't clobber existing
+    // column values with undefined.
+    for (const key of Object.keys(payload) as (keyof Course)[]) {
+      if (payload[key] === undefined) {
+        delete payload[key];
+      }
+    }
+
+    return this.courseRepository.update(id, payload);
   }
 
   remove(id: Course['id']) {

@@ -70,6 +70,14 @@ export class CourseTargetLearnersService {
     return this.courseTargetLearnerRepository.findByIds(ids);
   }
 
+  findByCourseId(courseId: string) {
+    return this.courseTargetLearnerRepository.findByCourseId(courseId);
+  }
+
+  removeByCourseId(courseId: string) {
+    return this.courseTargetLearnerRepository.removeByCourseId(courseId);
+  }
+
   async update(
     id: CourseTargetLearner['id'],
 

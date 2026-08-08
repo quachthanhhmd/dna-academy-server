@@ -56,6 +56,21 @@ export class ReflectionQuestionRelationalRepository implements ReflectionQuestio
     return entities.map((entity) => ReflectionQuestionMapper.toDomain(entity));
   }
 
+  async findByLectureId(lectureId: string): Promise<ReflectionQuestion[]> {
+    const entities = await this.reflectionQuestionRepository.find({
+      where: { lecture: { id: lectureId } },
+      order: { displayOrder: 'ASC' },
+    });
+
+    return entities.map((entity) => ReflectionQuestionMapper.toDomain(entity));
+  }
+
+  async removeByLectureId(lectureId: string): Promise<void> {
+    await this.reflectionQuestionRepository.delete({
+      lecture: { id: lectureId },
+    });
+  }
+
   async update(
     id: ReflectionQuestion['id'],
     payload: Partial<ReflectionQuestion>,

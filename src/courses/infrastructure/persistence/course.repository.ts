@@ -9,14 +9,27 @@ export abstract class CourseRepository {
   ): Promise<Course>;
 
   abstract findAllWithPagination({
+    filterOptions,
     paginationOptions,
   }: {
+    filterOptions?: {
+      status?: string;
+      levelId?: string;
+      categoryId?: string;
+      instructorId?: number;
+    } | null;
     paginationOptions: IPaginationOptions;
   }): Promise<Course[]>;
 
   abstract findById(id: Course['id']): Promise<NullableType<Course>>;
 
   abstract findByIds(ids: Course['id'][]): Promise<Course[]>;
+
+  abstract findBySlug(slug: Course['slug']): Promise<NullableType<Course>>;
+
+  abstract countByLevelId(levelId: string): Promise<number>;
+
+  abstract countByCategoryId(categoryId: string): Promise<number>;
 
   abstract update(
     id: Course['id'],

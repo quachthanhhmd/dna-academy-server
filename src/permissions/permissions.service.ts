@@ -63,6 +63,10 @@ export class PermissionsService {
     });
   }
 
+  findAll() {
+    return this.permissionRepository.findAll();
+  }
+
   findById(id: Permission['id']) {
     return this.permissionRepository.findById(id);
   }

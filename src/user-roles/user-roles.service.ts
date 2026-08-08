@@ -79,7 +79,7 @@ export class UserRolesService {
       // <creating-property-payload />
       assignedBy,
 
-      assignedAt: createUserRoleDto.assignedAt,
+      assignedAt: createUserRoleDto.assignedAt ?? new Date(),
 
       role,
 
@@ -106,6 +106,18 @@ export class UserRolesService {
 
   findByIds(ids: UserRole['id'][]) {
     return this.userRoleRepository.findByIds(ids);
+  }
+
+  findByUserId(userId: UserRole['user']['id']) {
+    return this.userRoleRepository.findByUserId(userId);
+  }
+
+  countByRoleId(roleId: UserRole['role']['id']) {
+    return this.userRoleRepository.countByRoleId(roleId);
+  }
+
+  removeByUserId(userId: UserRole['user']['id']) {
+    return this.userRoleRepository.removeByUserId(userId);
   }
 
   async update(

@@ -4,7 +4,13 @@ import { IPaginationOptions } from '../../../utils/types/pagination-options';
 import { Role } from '../../domain/role';
 
 export abstract class RoleRepository {
-  abstract create(data: Omit<Role, 'id'>): Promise<Role>;
+  /** RoleEntity.id is a manually-assigned integer PK — callers must supply it (see getNextId). */
+  abstract create(data: Role): Promise<Role>;
+
+  abstract findByName(name: Role['name']): Promise<NullableType<Role>>;
+
+  /** RoleEntity.id is a manually-assigned integer PK (not auto-increment). */
+  abstract getNextId(): Promise<number>;
 
   abstract findAllWithPagination({
     paginationOptions,

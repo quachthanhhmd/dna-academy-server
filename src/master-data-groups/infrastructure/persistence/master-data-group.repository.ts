@@ -20,6 +20,10 @@ export abstract class MasterDataGroupRepository {
 
   abstract findByIds(ids: MasterDataGroup['id'][]): Promise<MasterDataGroup[]>;
 
+  abstract findByGroupKey(
+    groupKey: MasterDataGroup['groupKey'],
+  ): Promise<NullableType<MasterDataGroup>>;
+
   abstract update(
     id: MasterDataGroup['id'],
     payload: DeepPartial<MasterDataGroup>,

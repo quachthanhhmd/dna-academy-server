@@ -52,6 +52,42 @@ export class LectureRelationalRepository implements LectureRepository {
     return entities.map((entity) => LectureMapper.toDomain(entity));
   }
 
+  async findBySectionId(sectionId: string): Promise<Lecture[]> {
+    const entities = await this.lectureRepository.find({
+      where: { section: { id: sectionId } },
+      order: { displayOrder: 'ASC' },
+    });
+
+    return entities.map((entity) => LectureMapper.toDomain(entity));
+  }
+
+  async countBySectionId(sectionId: string): Promise<number> {
+    return this.lectureRepository.count({
+      where: { section: { id: sectionId } },
+    });
+  }
+
+  async getCourseAggregates(
+    courseId: string,
+  ): Promise<{ totalLectures: number; totalDurationSecs: number }> {
+    const raw = await this.lectureRepository
+      .createQueryBuilder('lecture')
+      .innerJoin('lecture.section', 'section')
+      .where('section.courseId = :courseId', { courseId })
+      .select('COUNT(lecture.id)', 'totalLectures')
+      .addSelect('COALESCE(SUM(lecture.durationSecs), 0)', 'totalDurationSecs')
+      .getRawOne<{ totalLectures: string; totalDurationSecs: string }>();
+
+    return {
+      totalLectures: Number(raw?.totalLectures ?? 0),
+      totalDurationSecs: Number(raw?.totalDurationSecs ?? 0),
+    };
+  }
+
+  async removeBySectionId(sectionId: string): Promise<void> {
+    await this.lectureRepository.delete({ section: { id: sectionId } });
+  }
+
   async update(id: Lecture['id'], payload: Partial<Lecture>): Promise<Lecture> {
     const entity = await this.lectureRepository.findOne({
       where: { id },

@@ -36,6 +36,12 @@ export class PermissionRelationalRepository implements PermissionRepository {
     return entities.map((entity) => PermissionMapper.toDomain(entity));
   }
 
+  async findAll(): Promise<Permission[]> {
+    const entities = await this.permissionRepository.find();
+
+    return entities.map((entity) => PermissionMapper.toDomain(entity));
+  }
+
   async findById(id: Permission['id']): Promise<NullableType<Permission>> {
     const entity = await this.permissionRepository.findOne({
       where: { id },

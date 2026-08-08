@@ -103,6 +103,68 @@ describe('Auth Module', () => {
     });
   });
 
+  describe('Resend verification email', () => {
+    const resendUserEmail = `Resend.${Date.now()}@example.com`;
+    const resendUserPassword = `secret`;
+
+    it('should fail for an email that has no account: /api/v1/auth/email/confirm/resend (POST)', () => {
+      return request(app)
+        .post('/api/v1/auth/email/confirm/resend')
+        .send({ email: `no-such-user.${Date.now()}@example.com` })
+        .expect(422)
+        .expect(({ body }) => {
+          expect(body.errors.email).toBe('emailNotExists');
+        });
+    });
+
+    it('should send a new confirmation email that confirms the account: /api/v1/auth/email/confirm/resend (POST)', async () => {
+      await request(app)
+        .post('/api/v1/auth/email/register')
+        .send({
+          email: resendUserEmail,
+          password: resendUserPassword,
+          firstName: 'Resend',
+          lastName: 'E2E',
+        })
+        .expect(204);
+
+      await request(app)
+        .post('/api/v1/auth/email/confirm/resend')
+        .send({ email: resendUserEmail })
+        .expect(204);
+
+      const hash = await request(mail)
+        .get('/email')
+        .then(({ body }) => {
+          const letter = body
+            .filter(
+              (letter) =>
+                letter.to[0].address.toLowerCase() ===
+                  resendUserEmail.toLowerCase() &&
+                /.*confirm\-email\?hash\=(\S+).*/g.test(letter.text),
+            )
+            .pop();
+
+          expect(letter).toBeDefined();
+          return letter!.text.replace(/.*confirm\-email\?hash\=(\S+).*/g, '$1');
+        });
+      await request(app)
+        .post('/api/v1/auth/email/confirm')
+        .send({ hash })
+        .expect(204);
+    });
+
+    it('should fail for an already-confirmed email: /api/v1/auth/email/confirm/resend (POST)', () => {
+      return request(app)
+        .post('/api/v1/auth/email/confirm/resend')
+        .send({ email: resendUserEmail })
+        .expect(422)
+        .expect(({ body }) => {
+          expect(body.errors.email).toBe('emailAlreadyConfirmed');
+        });
+    });
+  });
+
   describe('Login', () => {
     it('should successfully for user with confirmed email: /api/v1/auth/email/login (POST)', () => {
       return request(app)
