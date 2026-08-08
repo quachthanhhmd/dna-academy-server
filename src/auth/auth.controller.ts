@@ -95,7 +95,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Resend the sign-up verification email',
     description:
-      'For accounts stuck unverified (e.g. the original email from /auth/email/register never arrived). Issues a new confirmation token and re-sends the same email as register. No-op error if the account is already confirmed.',
+      'For accounts stuck unverified (e.g. the original email from /auth/email/register never arrived). Issues a new confirmation token and re-sends the same email as register. Returns 422 if the account is already confirmed.',
   })
   @Post('email/confirm/resend')
   @HttpCode(HttpStatus.NO_CONTENT)
