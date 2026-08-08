@@ -135,18 +135,19 @@ describe('Auth Module', () => {
 
       const hash = await request(mail)
         .get('/email')
-        .then(({ body }) =>
-          body
+        .then(({ body }) => {
+          const letter = body
             .filter(
               (letter) =>
                 letter.to[0].address.toLowerCase() ===
                   resendUserEmail.toLowerCase() &&
                 /.*confirm\-email\?hash\=(\S+).*/g.test(letter.text),
             )
-            .pop()
-            ?.text.replace(/.*confirm\-email\?hash\=(\S+).*/g, '$1'),
-        );
+            .pop();
 
+          expect(letter).toBeDefined();
+          return letter!.text.replace(/.*confirm\-email\?hash\=(\S+).*/g, '$1');
+        });
       await request(app)
         .post('/api/v1/auth/email/confirm')
         .send({ hash })
