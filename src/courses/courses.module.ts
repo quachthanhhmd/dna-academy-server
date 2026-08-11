@@ -5,7 +5,6 @@ import {
   Module,
 } from '@nestjs/common';
 import { CoursesService } from './courses.service';
-import { CoursesController } from './courses.controller';
 import { RelationalCoursePersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -17,7 +16,9 @@ import { RelationalCoursePersistenceModule } from './infrastructure/persistence/
     // do not remove this comment
     RelationalCoursePersistenceModule,
   ],
-  controllers: [CoursesController],
+  // No controller here on purpose: `/courses` is owned by CourseCatalogModule
+  // (public catalog) and admin writes by CoursesAdminModule (`/admin/courses`).
+  // CoursesService is exported for both.
   providers: [CoursesService],
   exports: [CoursesService, RelationalCoursePersistenceModule],
 })

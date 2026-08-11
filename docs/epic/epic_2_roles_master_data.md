@@ -128,6 +128,9 @@ Admin can manage **codes** (add/edit/deactivate) but NOT add/delete groups in V1
 
 `POST /admin/master-data/groups/:groupKey/codes` — create new code
 - Validate unique `(group_id, name)` → 409 if duplicate
+- `thumbnailUrl` is a plain string: the image is uploaded first via
+  `POST /api/v1/files/upload` (Cloudflare R2 — see Epic 3 §0 of the API guide),
+  and the returned `file.path` is stored here
 
 `PATCH /admin/master-data/groups/:groupKey/codes/:id` — update code
 

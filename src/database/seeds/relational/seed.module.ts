@@ -13,6 +13,7 @@ import { RolePermissionSeedModule } from './role-permission/role-permission-seed
 import { MasterDataGroupSeedModule } from './master-data-group/master-data-group-seed.module';
 import databaseConfig from '../../config/database.config';
 import appConfig from '../../../config/app.config';
+import { envFilePaths } from '../../../config/env-files';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import appConfig from '../../../config/app.config';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, appConfig],
-      envFilePath: ['.env'],
+      envFilePath: envFilePaths,
     }),
     TypeOrmModule.forRootAsync({
       useClass: TypeOrmConfigService,

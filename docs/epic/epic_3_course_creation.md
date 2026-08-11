@@ -379,6 +379,41 @@ Everything below reflects the **actual running implementation** (verified agains
 - IDs for `courses`/`sections`/`lectures`/lecture-content rows are UUIDs (strings); `instructorId` is the numeric `users.id`.
 - `levelId`/`categoryId`/`groupIds` are `master_data_code` ids — fetch options via the Epic 2 endpoint `GET /master-data-codes?groupKey=course_level|course_category|course_group` (public/any-logged-in-user read).
 
+### 0. File uploads — `POST /api/v1/files/upload` (Cloudflare R2)
+
+`thumbnailUrl` (course) and `fileUrl` (`pdf_document` lecture content) are plain
+strings on the course/lecture payloads — the API never receives the binary on
+those endpoints. Upload the file first, then send the returned URL.
+
+Storage is **Cloudflare R2** (`FILE_DRIVER=r2`). Allowed: `jpg`, `jpeg`, `png`,
+`gif`, `webp`, `avif`, `svg`, `pdf`; max size `FILE_MAX_SIZE` (25mb default).
+
+**`FILE_DRIVER=r2`** — multipart upload through the API (default):
+
+```
+POST /api/v1/files/upload      Authorization: Bearer <token>
+Content-Type: multipart/form-data      field: file
+```
+
+Response `201`:
+
+```json
+{ "file": { "id": "uuid", "path": "https://cdn.example.com/9f2c….png" } }
+```
+
+`file.path` is the URL to store in `thumbnailUrl` / `fileUrl`. It is a permanent
+public URL when the bucket is exposed via `R2_PUBLIC_URL`; otherwise it is a
+presigned GET URL valid for one hour, so re-read it from the API rather than
+caching it.
+
+**`FILE_DRIVER=r2-presigned`** — for large PDFs, the browser uploads straight to
+R2: `POST /api/v1/files/upload` with `{ "fileName", "fileSize", "contentType" }`
+returns `{ file, uploadSignedUrl }`; `PUT` the bytes to `uploadSignedUrl` (same
+`Content-Type`, valid one hour), then use `file.path`.
+
+Errors: `422 { errors: { file: "cantUploadFileType" } }` for a rejected
+extension, `413` when over the size limit.
+
 ### 1. Course CRUD — `POST/GET/PATCH /admin/courses`
 
 **`POST /admin/courses`** — create (always starts `status: 'draft'`).

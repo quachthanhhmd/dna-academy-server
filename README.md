@@ -28,6 +28,8 @@ Belongs to the [bc boilerplates](https://bcboilerplates.com/) ecosystem
 ## Table of Contents <!-- omit in toc -->
 
 - [Features](#features)
+- [Environments](#environments)
+- [File uploads](#file-uploads)
 - [Contributors](#contributors)
 - [Support](#support)
 
@@ -46,6 +48,99 @@ Belongs to the [bc boilerplates](https://bcboilerplates.com/) ecosystem
 - [x] E2E and units tests.
 - [x] Docker.
 - [x] CI (Github Actions).
+
+## Environments
+
+Every environment has its own file in `env/`:
+
+```
+env/.env.example   # committed template
+env/.env.local     # default environment (git-ignored)
+env/.env.develop   # (git-ignored)
+```
+
+Add a new one by copying the template, e.g. `cp env/.env.example env/.env.staging`,
+then update `APP_ENV` and `ENV_FILE` inside it.
+
+### Running with Docker
+
+`scripts/compose.sh` wraps `docker compose`: it attaches the selected env file
+(both for interpolation inside `docker-compose.yaml` and as the container
+environment of the `api` service) and namespaces the compose project per
+environment. `local` is the default.
+
+```bash
+npm run docker:up                 # env/.env.local
+npm run docker:up:develop         # env/.env.develop
+npm run docker:down
+npm run docker:logs
+
+# any other docker compose command:
+npm run compose -- up -d          # local
+npm run compose -- develop ps
+npm run compose -- staging exec api sh
+
+# or call the script directly
+./scripts/compose.sh develop up -d --build
+```
+
+Running plain `docker compose` works too, as long as the env file is attached:
+
+```bash
+docker compose --env-file ./env/.env.develop up -d
+```
+
+`ENV_FILE` is declared inside each env file, so the `api` container receives the
+same file that compose used for interpolation. Note that this form reuses a
+single compose project name, so use the script when you want `local` and
+`develop` stacks side by side (they also need different host ports).
+
+### Running on the host
+
+The app picks its env file the same way — `ENV_FILE` first, then
+`env/.env.$APP_ENV`, defaulting to `env/.env.local` (see
+[src/config/env-files.ts](src/config/env-files.ts)). Variables already present in
+the environment always win over the file.
+
+```bash
+npm run start:dev                        # env/.env.local
+APP_ENV=develop npm run start:dev        # env/.env.develop
+APP_ENV=develop npm run migration:run
+ENV_FILE=./env/.env.staging npm run seed:run:relational
+```
+
+## File uploads
+
+Uploads go to **Cloudflare R2** (`FILE_DRIVER=r2`). R2 speaks the S3 API, so it
+reuses the AWS SDK with `region: auto` and the account endpoint; the driver is
+selected in [src/files/files.module.ts](src/files/files.module.ts) and lives in
+`src/files/infrastructure/uploader/r2` (+ `r2-presigned`).
+
+| Variable | Meaning |
+| --- | --- |
+| `R2_ACCOUNT_ID` | Cloudflare account id — used to derive the S3 endpoint |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API token (R2 → Manage API tokens) |
+| `R2_BUCKET` | Bucket name |
+| `R2_ENDPOINT` | Optional, overrides `https://<account>.r2.cloudflarestorage.com` |
+| `R2_PUBLIC_URL` | Optional public base URL (r2.dev or custom domain) |
+| `FILE_MAX_SIZE` | Max upload size in bytes (default 25mb) |
+
+Two drivers are available:
+
+- `r2` — `POST /api/v1/files/upload` with `multipart/form-data` (field `file`);
+  the API streams it to R2 and returns `{ file: { id, path } }`.
+- `r2-presigned` — `POST /api/v1/files/upload` with
+  `{ fileName, fileSize, contentType }` returns `{ file, uploadSignedUrl }`;
+  the browser `PUT`s the bytes straight to R2. Better for large PDFs.
+
+`file.path` is a permanent public URL when `R2_PUBLIC_URL` is set, otherwise a
+presigned GET URL valid for one hour. That value is what the epics store in
+`Course.thumbnailUrl`, `MasterDataCode.thumbnailUrl` and the `pdf_document`
+lecture content `fileUrl`. Allowed extensions: `jpg`, `jpeg`, `png`, `gif`,
+`webp`, `avif`, `svg`, `pdf`.
+
+The `local`, `s3` and `s3-presigned` drivers still work — set `FILE_DRIVER`
+accordingly (e.g. `local` to develop without R2 credentials).
 
 ## Contributors
 

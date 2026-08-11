@@ -3,6 +3,22 @@ import { NullableType } from '../../../utils/types/nullable.type';
 import { IPaginationOptions } from '../../../utils/types/pagination-options';
 import { Course } from '../../domain/course';
 
+// Public catalog filters. `status`/`enrollmentOpen` are deliberately absent:
+// the catalog query hard-codes published + open enrollment so an unpublished
+// course can never leak through a caller-supplied filter.
+export type CourseCatalogFilterOptions = {
+  search?: string;
+  groupId?: string;
+  categoryId?: string;
+  levelId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  isFree?: boolean;
+  language?: string;
+  instructorId?: number;
+  minRating?: number;
+};
+
 export abstract class CourseRepository {
   abstract create(
     data: Omit<Course, 'id' | 'createdAt' | 'updatedAt'>,
@@ -20,6 +36,14 @@ export abstract class CourseRepository {
     } | null;
     paginationOptions: IPaginationOptions;
   }): Promise<Course[]>;
+
+  abstract findCatalog({
+    filterOptions,
+    paginationOptions,
+  }: {
+    filterOptions?: CourseCatalogFilterOptions | null;
+    paginationOptions: IPaginationOptions;
+  }): Promise<{ data: Course[]; total: number }>;
 
   abstract findById(id: Course['id']): Promise<NullableType<Course>>;
 

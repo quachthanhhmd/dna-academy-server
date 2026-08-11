@@ -3,6 +3,7 @@ import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
 import { AuthModule } from './auth/auth.module';
 import databaseConfig from './database/config/database.config';
+import { envFilePaths } from './config/env-files';
 import authConfig from './auth/config/auth.config';
 import appConfig from './config/app.config';
 import mailConfig from './mail/config/mail.config';
@@ -115,6 +116,8 @@ import { YoutubeModule } from './youtube/youtube.module';
 
 import { CoursesAdminModule } from './courses-admin/courses-admin.module';
 
+import { CourseCatalogModule } from './course-catalog/course-catalog.module';
+
 @Module({
   imports: [
     AuthorizationModule,
@@ -122,6 +125,8 @@ import { CoursesAdminModule } from './courses-admin/courses-admin.module';
     MasterDataAdminModule,
     YoutubeModule,
     CoursesAdminModule,
+
+    CourseCatalogModule,
     CareerReflectionAnswersModule,
     CareerReflectionQuestionsModule,
     CourseRatingsModule,
@@ -169,7 +174,7 @@ import { CoursesAdminModule } from './courses-admin/courses-admin.module';
         googleConfig,
         appleConfig,
       ],
-      envFilePath: ['.env'],
+      envFilePath: envFilePaths,
     }),
     infrastructureDatabaseModule,
     I18nModule.forRootAsync({

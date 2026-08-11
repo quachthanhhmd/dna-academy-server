@@ -10,13 +10,19 @@ import { FileConfig, FileDriver } from './config/file-config.type';
 import { FilesLocalModule } from './infrastructure/uploader/local/files.module';
 import { FilesS3Module } from './infrastructure/uploader/s3/files.module';
 import { FilesS3PresignedModule } from './infrastructure/uploader/s3-presigned/files.module';
+import { FilesR2Module } from './infrastructure/uploader/r2/files.module';
+import { FilesR2PresignedModule } from './infrastructure/uploader/r2-presigned/files.module';
+
+const uploaderModules = {
+  [FileDriver.LOCAL]: FilesLocalModule,
+  [FileDriver.S3]: FilesS3Module,
+  [FileDriver.S3_PRESIGNED]: FilesS3PresignedModule,
+  [FileDriver.R2]: FilesR2Module,
+  [FileDriver.R2_PRESIGNED]: FilesR2PresignedModule,
+};
 
 const infrastructureUploaderModule =
-  (fileConfig() as FileConfig).driver === FileDriver.LOCAL
-    ? FilesLocalModule
-    : (fileConfig() as FileConfig).driver === FileDriver.S3
-      ? FilesS3Module
-      : FilesS3PresignedModule;
+  uploaderModules[(fileConfig() as FileConfig).driver];
 
 @Module({
   imports: [

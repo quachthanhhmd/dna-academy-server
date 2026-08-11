@@ -34,6 +34,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    # The selected environment file, injected into the container.
+    # Defaults to env/.env.local when ENV_FILE is not set.
+    env_file:
+      - ${ENV_FILE:-./env/.env.local}
     ports:
       - ${APP_PORT}:${APP_PORT}
 

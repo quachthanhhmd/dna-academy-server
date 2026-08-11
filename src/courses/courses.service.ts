@@ -12,7 +12,10 @@ import {
 } from '@nestjs/common';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
-import { CourseRepository } from './infrastructure/persistence/course.repository';
+import {
+  CourseCatalogFilterOptions,
+  CourseRepository,
+} from './infrastructure/persistence/course.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { DeepPartial } from '../utils/types/deep-partial.type';
 import { Course } from './domain/course';
@@ -195,6 +198,19 @@ export class CoursesService {
         page: paginationOptions.page,
         limit: paginationOptions.limit,
       },
+    });
+  }
+
+  findCatalog({
+    filterOptions,
+    paginationOptions,
+  }: {
+    filterOptions?: CourseCatalogFilterOptions | null;
+    paginationOptions: IPaginationOptions;
+  }) {
+    return this.courseRepository.findCatalog({
+      filterOptions,
+      paginationOptions,
     });
   }
 

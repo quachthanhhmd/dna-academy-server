@@ -18,6 +18,13 @@ export abstract class EnrollmentRepository {
 
   abstract findByIds(ids: Enrollment['id'][]): Promise<Enrollment[]>;
 
+  abstract findByStudentAndCourse(
+    studentId: number,
+    courseId: string,
+  ): Promise<NullableType<Enrollment>>;
+
+  abstract findByStudentId(studentId: number): Promise<Enrollment[]>;
+
   abstract update(
     id: Enrollment['id'],
     payload: DeepPartial<Enrollment>,

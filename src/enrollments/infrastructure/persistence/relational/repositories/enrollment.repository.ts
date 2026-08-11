@@ -52,6 +52,30 @@ export class EnrollmentRelationalRepository implements EnrollmentRepository {
     return entities.map((entity) => EnrollmentMapper.toDomain(entity));
   }
 
+  async findByStudentAndCourse(
+    studentId: number,
+    courseId: string,
+  ): Promise<NullableType<Enrollment>> {
+    const entity = await this.enrollmentRepository.findOne({
+      where: { student: { id: studentId }, course: { id: courseId } },
+      relations: { lastLecture: true },
+    });
+
+    return entity ? EnrollmentMapper.toDomain(entity) : null;
+  }
+
+  async findByStudentId(studentId: number): Promise<Enrollment[]> {
+    const entities = await this.enrollmentRepository.find({
+      where: { student: { id: studentId } },
+      // lastLecture is lazy on the entity but the My Courses card needs its
+      // title, so pull it in here rather than issuing a query per enrollment.
+      relations: { lastLecture: true },
+      order: { enrollmentDate: 'DESC' },
+    });
+
+    return entities.map((entity) => EnrollmentMapper.toDomain(entity));
+  }
+
   async update(
     id: Enrollment['id'],
     payload: Partial<Enrollment>,

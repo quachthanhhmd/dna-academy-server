@@ -341,3 +341,174 @@ interface MyCoursesStore {
 | Record student, course, enrollment date, source, status on enroll | All fields saved in `enrollments` row |
 | My Courses shows progress, last accessed lecture, completion status | `GET /students/me/courses` returns all fields |
 | Continue Learning opens last incomplete lecture | `lastLectureId` in enrollment response → FE navigates |
+
+---
+
+## API Integration (FE)
+
+> Implemented and unit-tested. All routes are prefixed `/api/v1`. Auth is `Authorization: Bearer <accessToken>`.
+
+### Route ownership note
+
+`/api/v1/courses` is now owned by the **public catalog** (`CourseCatalogModule`). The generated CRUD `CoursesController` that previously sat on this path was removed — admin writes already live at `/api/v1/admin/courses` (Epic 3), so no functionality was lost. Nothing else moved.
+
+### 1. Course Catalog
+
+**`GET /api/v1/courses`** — no auth required (send a JWT or not, the response is identical).
+
+Always applies `status = 'published' AND enrollment_open = true`; a draft, unpublished or inactive course can never appear here regardless of query params.
+
+| Param | Type | Notes |
+|---|---|---|
+| `search` | string | Case-insensitive substring (`ILIKE %term%`) across course title, short description, full description and **instructor full name**. Partial words match. Trimmed; empty string = no filter. |
+| `groupId` | uuid | `master_data_code` id in the `course_group` group |
+| `categoryId` | uuid | |
+| `levelId` | uuid | |
+| `minPrice` / `maxPrice` | number | Inclusive bounds |
+| `isFree` | boolean | `true`/`false` as a query string; `false` is honoured (not dropped as falsy) |
+| `language` | string | Exact match, e.g. `vi` |
+| `instructorId` | number | User id (integer, not uuid) |
+| `minRating` | number | `avg_rating >= minRating` |
+| `page` | number | Default `1` |
+| `limit` | number | Default `12`, **hard-capped at 50** — request more and you silently get 50 |
+
+All filters combine with **AND**. Invalid types are rejected with `422` by the validation pipe.
+
+Response `200`:
+```json
+{
+  "data": [{
+    "id": "uuid",
+    "slug": "career-basics",
+    "title": "Career Basics",
+    "thumbnailUrl": null,
+    "shortDescription": null,
+    "instructorName": "Jane Doe",
+    "level": { "id": "uuid", "name": "Beginner" },
+    "totalDurationSecs": 3600,
+    "price": 0,
+    "isFree": true,
+    "avgRating": 4.5,
+    "totalEnrollments": 128
+  }],
+  "totalCount": 30,
+  "page": 1,
+  "limit": 12,
+  "hasNextPage": true
+}
+```
+
+> Note this is **not** the boilerplate's `{ data, hasNextPage }` infinity-pagination envelope — it also carries `totalCount`, `page` and `limit` so `useCourseFilterStore` can drive real pagination and the "N results" label. Every optional field is `null` rather than absent, so no `undefined` checks are needed. Empty result → `data: []`, `totalCount: 0` (drive the `isEmpty` state off `totalCount === 0`).
+
+### 2. Course Overview
+
+**`GET /api/v1/courses/:slug`** — optional JWT.
+
+Send the JWT when you have one; it is used only to attach enrollment state. Without it the endpoint still returns `200` (the guard is `jwt` + `anonymous`), so **do not** redirect to login on this call.
+
+Visibility: only `status = 'published'` is returned. Anything else — including a slug that does not exist — is `404 { error: 'courseNotFound' }`. Deliberately **not** 403, so the catalog never confirms an unpublished slug exists.
+
+> A published course with `enrollmentOpen: false` **is** returned here (students can still browse it) but enrolling will fail — see §3. Render the CTA as disabled when `enrollmentOpen` is false.
+
+Response `200`:
+```json
+{
+  "id": "uuid", "slug": "career-basics", "title": "Career Basics",
+  "shortDescription": "...", "fullDescription": "...",
+  "thumbnailUrl": "...", "introVideoUrl": "...",
+  "instructor": { "id": 7, "fullName": "Jane Doe", "profilePictureUrl": "..." },
+  "level": { "id": "uuid", "name": "Beginner" },
+  "category": { "id": "uuid", "name": "Career" },
+  "language": "vi",
+  "totalDurationSecs": 7200, "totalSections": 5, "totalLectures": 24,
+  "price": 0, "isFree": true, "hasCertificate": true,
+  "avgRating": 4.5, "totalEnrollments": 128,
+  "learningOutcomes": ["..."],
+  "requirements": ["..."],
+  "targetLearners": ["..."],
+  "groupIds": ["uuid"],
+  "curriculum": [{
+    "id": "uuid", "title": "Section 1", "displayOrder": 1,
+    "lectures": [{
+      "id": "uuid", "title": "Intro", "lectureType": "video",
+      "durationSecs": 300, "isPreview": true, "displayOrder": 1
+    }]
+  }],
+  "isEnrolled": false,
+  "enrollmentStatus": null,
+  "enrollmentId": null
+}
+```
+
+`learningOutcomes` / `requirements` / `targetLearners` are flat `string[]` (the `description` column), already ordered by `displayOrder` — not objects. Sections and lectures are likewise pre-sorted by `displayOrder`; render in array order.
+
+**Curriculum visibility:** every lecture is listed with title, type, duration and `isPreview`, for enrolled and anonymous visitors alike. Content URLs (video/article/document payloads) live in separate lecture-content tables that this endpoint never joins, so there is nothing to hide client-side — a locked lecture simply has no content to fetch. Gate the UI on `isPreview`: `true` → clickable preview, `false` → lock icon.
+
+**Enrollment state** (all three are `null`/`false` for anonymous callers):
+
+| Field | Meaning |
+|---|---|
+| `isEnrolled` | boolean, convenient for the CTA switch |
+| `enrollmentStatus` | the **raw DB status**: `enrolled` \| `in_progress` \| `completed` \| `cancelled`, or `null` when there is no enrollment row |
+| `enrollmentId` | the enrollment id, or `null` |
+
+> `enrollmentStatus` is `null` — **not** the string `"not_enrolled"` — when the student has no enrollment. If `useCourseDetailStore` types this as `'not_enrolled' | ...`, map `null → 'not_enrolled'` at the API-client boundary. Note a `cancelled` enrollment still returns `isEnrolled: true`; treat that as "not active" in the CTA if you surface cancellation.
+
+### 3. Enrollment
+
+**`POST /api/v1/courses/:slug/enroll`** — JWT **required** + `OnboardingGuard`. No request body.
+
+Writes an `enrollments` row with `status: 'enrolled'`, `enrollment_date: NOW()`, `enrollment_source: 'organic'`, `progress_pct: 0`, then increments `courses.total_enrollments`.
+
+Response `201`:
+```json
+{ "enrollmentId": "uuid", "message": "Enrollment successful" }
+```
+
+Error handling — this is the full set the enroll button must handle:
+
+| Status | Body | FE action |
+|---|---|---|
+| `401` | — | Redirect to `/auth/login?redirect=/courses/:slug` |
+| `403` | `{ "code": "ONBOARDING_REQUIRED" }` | Redirect to `/onboarding` |
+| `404` | `{ "error": "courseNotFound" }` | Slug missing or not published — show "course unavailable" |
+| `409` | `{ "code": "ALREADY_ENROLLED" }` | Not a real error: set `enrollmentStatus = 'enrolled'` and flip the CTA to "Continue Learning" |
+| `422` | `{ "errors": { "course": "enrollmentClosed" } }` | Course is published but closed to new students |
+
+The `409` is a **hard guarantee against double-enrollment** — the duplicate check is scoped to `(student_id, course_id)`, and the enrollment counter is not incremented when it fires. A double-clicked button therefore cannot inflate `totalEnrollments`.
+
+**`GET /api/v1/students/me/courses`** — JWT required. Returns every enrollment for the caller, **newest enrollment first**. No pagination.
+
+Response `200`:
+```json
+[{
+  "enrollmentId": "uuid",
+  "course": { "id": "uuid", "title": "Career Basics", "slug": "career-basics", "thumbnailUrl": "..." },
+  "enrollmentDate": "2026-01-05T00:00:00.000Z",
+  "progressPct": 45.5,
+  "lastLectureId": "uuid",
+  "lastLectureTitle": "Lesson 9",
+  "lastAccessedAt": "2026-01-06T00:00:00.000Z",
+  "status": "in_progress",
+  "completedAt": null
+}]
+```
+
+> The field is `lastLectureTitle` — the epic draft spelled it `lastLectureTile`, which was a typo. "Continue Learning" navigates to `lastLectureId`; when it is `null` the student has not started, so send them to the first lecture from the course overview's `curriculum` instead.
+
+`status` is the raw DB enum, so `useMyCoursesStore`'s tabs map as: **All** = everything, **In Progress** = `in_progress`, **Completed** = `completed`. A freshly enrolled row is `enrolled` (not `in_progress`) — decide whether "Not Started" belongs under the All tab only, and note `progressPct` is a `decimal(5,2)`, so expect fractional values like `45.5`.
+
+### Suggested FE flow
+
+1. `/courses` mount → `syncFromUrl()` → `GET /courses?...`. Debounce filter changes 300ms, then refetch + `syncToUrl()`. Drive "Load More" off `hasNextPage`, the results count off `totalCount`.
+2. Filter dropdowns come from Epic 2's master data: `GET /master-data/codes?groupKey=course_group|course_category|course_level`.
+3. `/courses/:slug` mount → `GET /courses/:slug` **with the JWT if present**. Populate the CTA from `isEnrolled` / `enrollmentStatus` in one round trip — no second call needed.
+4. Enroll CTA → `POST /courses/:slug/enroll`, handling all five statuses in the table above. On `201` and on `409`, both end in the enrolled state.
+5. `/students/me/courses` mount → `GET /students/me/courses` once; tab switching filters client-side, no refetch.
+
+### Known gaps / not in this epic
+
+- **Progress is never written yet.** `progressPct`, `startedAt`, `completedAt`, `lastLectureId` and `lastAccessedAt` are stored and returned, but nothing updates them — every new enrollment reads `progressPct: 0`, `status: 'enrolled'`, `lastLectureId: null` until the lecture-player epic lands. Build the My Courses UI against these fields; they will start moving without an API change.
+- **No unenroll endpoint** — the `cancelled` status exists in the DB enum but nothing sets it.
+- **`avgRating` is an `integer` column** in the current migration despite the `4.5` examples here, so ratings round-trip as whole numbers until that column is widened to `decimal`. `minRating` filtering works either way.
+- **Duplicate enrollment is guarded in application code, not by a DB constraint.** There is no unique index on `(student_id, course_id)`, so two truly concurrent requests could in principle both pass the check. Worth adding a unique constraint in a later migration.

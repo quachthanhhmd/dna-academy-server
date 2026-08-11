@@ -126,6 +126,17 @@ export class EnrollmentsService {
     return this.enrollmentRepository.findByIds(ids);
   }
 
+  findByStudentAndCourse(studentId: number, courseId: string) {
+    return this.enrollmentRepository.findByStudentAndCourse(
+      studentId,
+      courseId,
+    );
+  }
+
+  findByStudentId(studentId: number) {
+    return this.enrollmentRepository.findByStudentId(studentId);
+  }
+
   async update(
     id: Enrollment['id'],
 

@@ -37,6 +37,9 @@ lerna-debug.log*
 .data
 /files
 .env
+# Per-environment files, only the template is committed
+/env/.env.*
+!/env/.env.example
 /ormconfig.json
 .codegpt
 
