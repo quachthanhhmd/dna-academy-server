@@ -1,11 +1,30 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import { COURSE_SEARCH_VECTOR_EXPRESSION } from '../../courses/infrastructure/persistence/relational/course-search.sql';
 
-/** The same expression before this migration — see `AddCourseFullTextSearch`. */
+/**
+ * The `course.search_vector` generation expression on either side of this
+ * migration, frozen as literals rather than imported from `course-search.sql`.
+ *
+ * Both spellings have to be written down here for the same reason
+ * `AddCourseFullTextSearch` freezes its own copy: a migration is a transition
+ * between two fixed schema states. Importing the live constant would make this
+ * file mean something different the moment the application changed it — a
+ * fresh database would still create the column from the frozen camelCase
+ * literal, while this migration wrote the *new* text into `typeorm_metadata`,
+ * leaving the metadata row describing an expression the column does not have.
+ * That is precisely the drift the row exists to prevent.
+ *
+ * `course-search.sql.spec.ts` pins the live constant, so a change there is
+ * caught in review and arrives as a new migration.
+ */
 const SEARCH_VECTOR_EXPRESSION_CAMEL =
   `setweight(to_tsvector('vi_unaccent', coalesce("title", '')), 'A') || ` +
   `setweight(to_tsvector('vi_unaccent', coalesce("shortDescription", '')), 'B') || ` +
   `setweight(to_tsvector('vi_unaccent', coalesce("fullDescription", '')), 'C')`;
+
+const SEARCH_VECTOR_EXPRESSION_SNAKE =
+  `setweight(to_tsvector('vi_unaccent', coalesce("title", '')), 'A') || ` +
+  `setweight(to_tsvector('vi_unaccent', coalesce("short_description", '')), 'B') || ` +
+  `setweight(to_tsvector('vi_unaccent', coalesce("full_description", '')), 'C')`;
 
 /**
  * Renames every camelCase column to snake_case.
@@ -1128,7 +1147,7 @@ export class RenameColumnsToSnakeCase1787100000000 implements MigrationInterface
     await this.rewriteSearchVectorMetadata(
       queryRunner,
       'search_vector',
-      COURSE_SEARCH_VECTOR_EXPRESSION,
+      SEARCH_VECTOR_EXPRESSION_SNAKE,
     );
   }
 
