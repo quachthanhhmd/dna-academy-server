@@ -37,7 +37,7 @@ export const SEARCH_LIKE_PARAM = 'searchLike';
  *
  * Ordering by the `ts_rank(...)` expression directly does not work: TypeORM
  * resolves an `orderBy` string by splitting it on '.', so it reads
- * `ts_rank(course."searchVector", …)` as an alias named `ts_rank(course` and
+ * `ts_rank(course."search_vector", …)` as an alias named `ts_rank(course` and
  * throws "alias was not found" on every search. Selecting the rank under an
  * alias and ordering by that also survives the DISTINCT sub-query TypeORM
  * wraps a paginated join query in — where a bare expression would be dropped.
@@ -45,7 +45,7 @@ export const SEARCH_LIKE_PARAM = 'searchLike';
 export const CATALOG_RANK_ALIAS = 'catalog_rank';
 
 /**
- * The generation expression behind `course."searchVector"`.
+ * The generation expression behind `course."search_vector"`.
  *
  * **This string is frozen.** It is the literal the migration wrote into
  * `typeorm_metadata`, and TypeORM compares the entity's `asExpression` against
@@ -59,8 +59,8 @@ export const CATALOG_RANK_ALIAS = 'catalog_rank';
  */
 export const COURSE_SEARCH_VECTOR_EXPRESSION =
   `setweight(to_tsvector('vi_unaccent', coalesce("title", '')), 'A') || ` +
-  `setweight(to_tsvector('vi_unaccent', coalesce("shortDescription", '')), 'B') || ` +
-  `setweight(to_tsvector('vi_unaccent', coalesce("fullDescription", '')), 'C')`;
+  `setweight(to_tsvector('vi_unaccent', coalesce("short_description", '')), 'B') || ` +
+  `setweight(to_tsvector('vi_unaccent', coalesce("full_description", '')), 'C')`;
 
 /** The tsquery for the caller's term. Never throws — see `VI_SEARCH_QUERY_FN`. */
 export const searchQuerySql = (param: string = SEARCH_TERM_PARAM): string =>
@@ -70,7 +70,7 @@ export const searchQuerySql = (param: string = SEARCH_TERM_PARAM): string =>
 export const searchMatchSql = (
   alias: string,
   param: string = SEARCH_TERM_PARAM,
-): string => `${alias}."searchVector" @@ ${searchQuerySql(param)}`;
+): string => `${alias}."search_vector" @@ ${searchQuerySql(param)}`;
 
 /**
  * Ranking expression for `sortBy=relevance`. Must be driven by the same
@@ -80,7 +80,7 @@ export const searchMatchSql = (
 export const searchRankSql = (
   alias: string,
   param: string = SEARCH_TERM_PARAM,
-): string => `ts_rank(${alias}."searchVector", ${searchQuerySql(param)})`;
+): string => `ts_rank(${alias}."search_vector", ${searchQuerySql(param)})`;
 
 /**
  * Diacritic-insensitive ILIKE for the columns a generated tsvector cannot

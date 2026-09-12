@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   Column,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
@@ -15,26 +16,29 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class ReflectionQuestionEntity extends EntityRelationalHelper {
   @Column({
+    name: 'display_order',
     nullable: false,
     type: Number,
   })
   displayOrder: number;
 
   @Column({
+    name: 'question_text',
     nullable: false,
     type: String,
   })
   questionText: string;
 
   @ManyToOne(() => LectureEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'lecture_id' })
   lecture: LectureEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

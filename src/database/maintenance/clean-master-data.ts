@@ -24,12 +24,12 @@ import { CodePlan, CodeRow, planForCode } from './junk-code-plan';
 
 /** Where a code can be referenced from. Each entry is one FK to check. */
 const REFERENCES: { table: string; column: string }[] = [
-  { table: 'course', column: 'levelId' },
-  { table: 'course', column: 'categoryId' },
-  { table: 'course_group_assignment', column: 'groupId' },
-  { table: 'instructor_expertise', column: 'expertiseCodeId' },
-  { table: 'student_profile', column: 'educationStageCodeId' },
-  { table: 'student_career_interest', column: 'careerInterestId' },
+  { table: 'course', column: 'level_id' },
+  { table: 'course', column: 'category_id' },
+  { table: 'course_group_assignment', column: 'group_id' },
+  { table: 'instructor_expertise', column: 'expertise_code_id' },
+  { table: 'student_profile', column: 'education_stage_code_id' },
+  { table: 'student_career_interest', column: 'career_interest_id' },
 ];
 
 const GROUPS = ['course_level', 'course_category', 'course_group'];
@@ -72,10 +72,10 @@ const run = async (): Promise<void> => {
 
   for (const groupKey of GROUPS) {
     const codes: CodeRow[] = await dataSource.query(
-      `SELECT c."id", c."name", c."isActive"
+      `SELECT c."id", c."name", c."is_active" AS "isActive"
          FROM "master_data_code" c
-         JOIN "master_data_group" g ON g."id" = c."groupId"
-        WHERE g."groupKey" = $1
+         JOIN "master_data_group" g ON g."id" = c."group_id"
+        WHERE g."group_key" = $1
         ORDER BY c."name"`,
       [groupKey],
     );
@@ -117,7 +117,7 @@ const run = async (): Promise<void> => {
         );
       } else {
         await dataSource.query(
-          `UPDATE "master_data_code" SET "isActive" = false WHERE "id" = $1`,
+          `UPDATE "master_data_code" SET "is_active" = false WHERE "id" = $1`,
           [entry.code.id],
         );
       }

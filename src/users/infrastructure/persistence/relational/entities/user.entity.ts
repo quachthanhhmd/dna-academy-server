@@ -25,6 +25,7 @@ export class UserEntity extends EntityRelationalHelper {
   // Epic 6: preferred UI locale. Defaults to the platform default (vi) so
   // every pre-existing row is valid without a backfill of its own.
   @Column({
+    name: 'locale',
     nullable: false,
     type: String,
     default: DEFAULT_LOCALE,
@@ -32,6 +33,7 @@ export class UserEntity extends EntityRelationalHelper {
   locale: string;
 
   @Column({
+    name: 'onboarding_done',
     nullable: false,
     type: Boolean,
     default: false,
@@ -39,24 +41,28 @@ export class UserEntity extends EntityRelationalHelper {
   onboardingDone: boolean;
 
   @Column({
+    name: 'age',
     nullable: true,
     type: Number,
   })
   age?: number | null;
 
   @Column({
+    name: 'date_of_birth',
     nullable: true,
     type: Date,
   })
   dateOfBirth?: Date | null;
 
   @Column({
+    name: 'profile_picture_url',
     nullable: true,
     type: String,
   })
   profilePictureUrl?: string | null;
 
   @Column({
+    name: 'email_verified',
     nullable: false,
     type: Boolean,
     default: false,
@@ -64,6 +70,7 @@ export class UserEntity extends EntityRelationalHelper {
   emailVerified: boolean;
 
   @Column({
+    name: 'full_name',
     nullable: false,
     type: String,
   })
@@ -74,49 +81,51 @@ export class UserEntity extends EntityRelationalHelper {
 
   // For "string | null" we need to use String type.
   // More info: https://github.com/typeorm/typeorm/issues/2567
-  @Column({ type: String, unique: true, nullable: true })
+  @Column({ name: 'email', type: String, unique: true, nullable: true })
   email: string | null;
 
-  @Column({ nullable: true })
+  @Column({ name: 'password', nullable: true })
   password?: string;
 
-  @Column({ default: AuthProvidersEnum.email })
+  @Column({ name: 'provider', default: AuthProvidersEnum.email })
   provider: string;
 
   @Index()
-  @Column({ type: String, nullable: true })
+  @Column({ name: 'social_id', type: String, nullable: true })
   socialId?: string | null;
 
   @Index()
-  @Column({ type: String, nullable: true })
+  @Column({ name: 'first_name', type: String, nullable: true })
   firstName: string | null;
 
   @Index()
-  @Column({ type: String, nullable: true })
+  @Column({ name: 'last_name', type: String, nullable: true })
   lastName: string | null;
 
   @OneToOne(() => FileEntity, {
     eager: true,
   })
-  @JoinColumn()
+  @JoinColumn({ name: 'photo_id' })
   photo?: FileEntity | null;
 
   @ManyToOne(() => RoleEntity, {
     eager: true,
   })
+  @JoinColumn({ name: 'role_id' })
   role?: RoleEntity | null;
 
   @ManyToOne(() => StatusEntity, {
     eager: true,
   })
+  @JoinColumn({ name: 'status_id' })
   status?: StatusEntity;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn({ name: 'deleted_at' })
   deletedAt: Date;
 }

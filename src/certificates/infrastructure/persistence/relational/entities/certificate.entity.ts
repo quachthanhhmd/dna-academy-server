@@ -23,60 +23,68 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class CertificateEntity extends EntityRelationalHelper {
   @Column({
+    name: 'issued_at',
     nullable: false,
     type: Date,
   })
   issuedAt?: Date;
 
   @ManyToOne(() => MediaFileEntity, { eager: false, nullable: true })
+  @JoinColumn({ name: 'file_id' })
   file?: MediaFileEntity | null;
 
   @Column({
+    name: 'completion_date',
     nullable: false,
     type: Date,
   })
   completionDate: Date;
 
   @Column({
+    name: 'course_title_snapshot',
     nullable: false,
     type: String,
   })
   courseTitleSnapshot: string;
 
   @Column({
+    name: 'student_name_snapshot',
     nullable: false,
     type: String,
   })
   studentNameSnapshot: string;
 
   @Column({
+    name: 'certificate_number',
     nullable: false,
     type: String,
   })
   certificateNumber: string;
 
   @ManyToOne(() => CourseEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'course_id' })
   course: CourseEntity;
 
   @ManyToOne(() => UserEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'student_id' })
   student: UserEntity;
 
   @OneToOne(() => EnrollmentEntity, { eager: true, nullable: false })
-  @JoinColumn()
+  @JoinColumn({ name: 'enrollment_id' })
   enrollment: EnrollmentEntity;
 
   // Epic 4.5 §1.5 — frozen at issue time and never recomputed, so the grade
   // beside a certificate cannot drift from the certificate itself. NULL means
   // the student submitted no quiz, which renders as no grade row at all.
-  @Column({ nullable: true, type: 'smallint' })
+  @Column({ name: 'final_grade_pct', nullable: true, type: 'smallint' })
   finalGradePct?: number | null;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

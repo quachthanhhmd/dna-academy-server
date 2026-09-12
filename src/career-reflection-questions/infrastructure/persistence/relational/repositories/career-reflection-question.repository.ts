@@ -68,10 +68,9 @@ export class CareerReflectionQuestionRelationalRepository implements CareerRefle
     const entities = await this.careerReflectionQuestionRepository
       .createQueryBuilder('question')
       .where('question.isActive = true')
-      .andWhere(
-        '(question.courseId = :courseId OR question.courseId IS NULL)',
-        { courseId },
-      )
+      .andWhere('(question.course = :courseId OR question.course IS NULL)', {
+        courseId,
+      })
       .orderBy('question.displayOrder', 'ASC')
       .getMany();
 
@@ -89,7 +88,7 @@ export class CareerReflectionQuestionRelationalRepository implements CareerRefle
       .leftJoinAndSelect('question.course', 'course');
 
     if (filters.courseId) {
-      query.andWhere('question.courseId = :courseId', {
+      query.andWhere('question.course = :courseId', {
         courseId: filters.courseId,
       });
     }

@@ -91,9 +91,9 @@ export class EnrollmentRelationalRepository implements EnrollmentRepository {
 
     const rows = await this.enrollmentRepository
       .createQueryBuilder('enrollment')
-      .select('DISTINCT enrollment.courseId', 'courseId')
-      .where('enrollment.studentId = :studentId', { studentId })
-      .andWhere('enrollment.courseId IN (:...courseIds)', { courseIds })
+      .select('DISTINCT enrollment.course', 'courseId')
+      .where('enrollment.student = :studentId', { studentId })
+      .andWhere('enrollment.course IN (:...courseIds)', { courseIds })
       .andWhere("enrollment.status <> 'cancelled'")
       .getRawMany<{ courseId: string }>();
 
@@ -107,8 +107,8 @@ export class EnrollmentRelationalRepository implements EnrollmentRepository {
 
     const raw = await this.enrollmentRepository
       .createQueryBuilder('enrollment')
-      .select('COUNT(DISTINCT enrollment.studentId)', 'count')
-      .where('enrollment.courseId IN (:...courseIds)', { courseIds })
+      .select('COUNT(DISTINCT enrollment.student)', 'count')
+      .where('enrollment.course IN (:...courseIds)', { courseIds })
       .getRawOne<{ count: string }>();
 
     return Number(raw?.count ?? 0);

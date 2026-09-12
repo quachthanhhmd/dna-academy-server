@@ -73,8 +73,8 @@ export class CourseRelationalRepository implements CourseRepository {
       query.andWhere(
         `EXISTS (
           SELECT 1 FROM "course_instructor" "ci"
-          WHERE "ci"."courseId" = course.id
-            AND "ci"."instructorId" = :instructorId
+          WHERE "ci"."course_id" = course.id
+            AND "ci"."instructor_id" = :instructorId
         )`,
         { instructorId: filterOptions.instructorId },
       );
@@ -127,9 +127,9 @@ export class CourseRelationalRepository implements CourseRepository {
             .orWhere(
               `EXISTS (
                 SELECT 1 FROM "course_instructor" "ci"
-                JOIN "instructor" "i" ON "i"."id" = "ci"."instructorId"
-                WHERE "ci"."courseId" = course.id
-                  AND (${unaccentIlikeSql('"i"."fullName"', SEARCH_LIKE_PARAM)}
+                JOIN "instructor" "i" ON "i"."id" = "ci"."instructor_id"
+                WHERE "ci"."course_id" = course.id
+                  AND (${unaccentIlikeSql('"i"."full_name"', SEARCH_LIKE_PARAM)}
                        OR ${unaccentIlikeSql('COALESCE("i"."headline", \'\')', SEARCH_LIKE_PARAM)})
               )`,
             )
@@ -151,8 +151,8 @@ export class CourseRelationalRepository implements CourseRepository {
       query.andWhere(
         `EXISTS (
           SELECT 1 FROM "course_group_assignment" "cga"
-          WHERE "cga"."courseId" = course.id
-            AND "cga"."groupId" IN (:...groupIds)
+          WHERE "cga"."course_id" = course.id
+            AND "cga"."group_id" IN (:...groupIds)
         )`,
         { groupIds: filterOptions.groupIds },
       );
@@ -174,8 +174,8 @@ export class CourseRelationalRepository implements CourseRepository {
       query.andWhere(
         `EXISTS (
           SELECT 1 FROM "course_instructor" "ci2"
-          WHERE "ci2"."courseId" = course.id
-            AND "ci2"."instructorId" IN (:...instructorIds)
+          WHERE "ci2"."course_id" = course.id
+            AND "ci2"."instructor_id" IN (:...instructorIds)
         )`,
         { instructorIds: filterOptions.instructorIds },
       );
@@ -238,7 +238,7 @@ export class CourseRelationalRepository implements CourseRepository {
       //
       // The rank is selected under an alias and ordered by *that*, not by the
       // expression: TypeORM resolves an `orderBy` string by splitting it on
-      // '.', so `ts_rank(course."searchVector", …)` is read as the alias
+      // '.', so `ts_rank(course."search_vector", …)` is read as the alias
       // `ts_rank(course` and every search 500s. Ordering by a selected alias
       // is also what lets the expression survive the DISTINCT sub-query
       // TypeORM wraps a paginated join query in.

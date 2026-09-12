@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   Column,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
@@ -15,26 +16,29 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class PermissionEntity extends EntityRelationalHelper {
   @Column({
+    name: 'label',
     nullable: true,
     type: String,
   })
   label?: string | null;
 
   @Column({
+    name: 'action',
     nullable: false,
     type: String,
   })
   action: string;
 
   @ManyToOne(() => ModuleEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'module_id' })
   module: ModuleEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

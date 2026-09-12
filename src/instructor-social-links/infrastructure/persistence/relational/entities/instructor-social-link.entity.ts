@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   Column,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
@@ -21,21 +22,25 @@ export class InstructorSocialLinkEntity extends EntityRelationalHelper {
     nullable: false,
     onDelete: 'CASCADE',
   })
+  @JoinColumn({ name: 'instructor_id' })
   instructor: InstructorEntity;
 
   @Column({
+    name: 'platform',
     nullable: false,
     type: String,
   })
   platform: string;
 
   @Column({
+    name: 'url',
     nullable: false,
     type: 'text',
   })
   url: string;
 
   @Column({
+    name: 'display_order',
     nullable: false,
     type: Number,
     default: 0,
@@ -45,9 +50,9 @@ export class InstructorSocialLinkEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

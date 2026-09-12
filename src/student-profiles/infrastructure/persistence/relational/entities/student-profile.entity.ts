@@ -18,18 +18,19 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class StudentProfileEntity extends EntityRelationalHelper {
   @ManyToOne(() => MasterDataCodeEntity, { eager: false, nullable: true })
+  @JoinColumn({ name: 'education_stage_code_id' })
   educationStageCode?: MasterDataCodeEntity | null;
 
   @OneToOne(() => UserEntity, { eager: true, nullable: false })
-  @JoinColumn()
+  @JoinColumn({ name: 'user_id' })
   user: UserEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

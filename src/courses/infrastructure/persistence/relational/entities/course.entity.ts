@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
   Column,
   ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { IndexOptions } from 'typeorm/decorator/options/IndexOptions';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
@@ -35,7 +36,7 @@ const MIGRATION_OWNED_INDEX = { synchronize: false } as unknown as IndexOptions;
 @Index('IDX_course_search_vector', ['searchVector'], MIGRATION_OWNED_INDEX)
 @Check(
   'CK_course_avg_rating_0_5',
-  `"avgRating" IS NULL OR "avgRating" BETWEEN 0 AND 5`,
+  `"avg_rating" IS NULL OR "avg_rating" BETWEEN 0 AND 5`,
 )
 @Entity({
   name: 'course',
@@ -47,18 +48,22 @@ export class CourseEntity extends EntityRelationalHelper {
   // index; the admin create endpoint requires it.
   @Index('IDX_course_courseId_unique', { unique: true })
   @Column({
+    name: 'course_id',
     nullable: true,
     type: String,
   })
   courseId?: string | null;
 
   @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @JoinColumn({ name: 'created_by_id' })
   createdBy?: UserEntity | null;
 
   @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @JoinColumn({ name: 'published_by_id' })
   publishedBy?: UserEntity | null;
 
   @Column({
+    name: 'published_at',
     nullable: true,
     type: Date,
   })
@@ -66,17 +71,20 @@ export class CourseEntity extends EntityRelationalHelper {
 
   // Epic 4 v2 §2.1 — publish audit trail.
   @Column({
+    name: 'unpublished_at',
     nullable: true,
     type: Date,
   })
   unpublishedAt?: Date | null;
 
   @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @JoinColumn({ name: 'unpublished_by_id' })
   unpublishedBy?: UserEntity | null;
 
   // Epic 4 v2 §2.4 — when true, a lecture only opens once the previous
   // required lecture in the course is completed.
   @Column({
+    name: 'requires_sequential_completion',
     nullable: false,
     type: Boolean,
     default: false,
@@ -87,6 +95,7 @@ export class CourseEntity extends EntityRelationalHelper {
   // round-trip. Postgres returns numeric as a string; the transformer keeps
   // the domain model on plain numbers.
   @Column({
+    name: 'avg_rating',
     nullable: true,
     type: 'numeric',
     precision: 3,
@@ -99,102 +108,120 @@ export class CourseEntity extends EntityRelationalHelper {
   avgRating?: number | null;
 
   @Column({
+    name: 'total_enrollments',
     nullable: false,
     type: Number,
   })
   totalEnrollments?: number;
 
   @Column({
+    name: 'total_duration_secs',
     nullable: false,
     type: Number,
   })
   totalDurationSecs?: number;
 
   @Column({
+    name: 'total_lectures',
     nullable: false,
     type: Number,
   })
   totalLectures?: number;
 
   @Column({
+    name: 'total_sections',
     nullable: false,
     type: Number,
   })
   totalSections?: number;
 
   @ManyToOne(() => MasterDataCodeEntity, { eager: true, nullable: true })
+  @JoinColumn({ name: 'category_id' })
   category?: MasterDataCodeEntity | null;
 
   @ManyToOne(() => MasterDataCodeEntity, { eager: true, nullable: true })
+  @JoinColumn({ name: 'level_id' })
   level?: MasterDataCodeEntity | null;
 
   @Column({
+    name: 'status',
     nullable: false,
     type: String,
   })
   status: string;
 
   @Column({
+    name: 'enrollment_open',
     nullable: false,
     type: Boolean,
   })
   enrollmentOpen: boolean;
 
   @Column({
+    name: 'has_certificate',
     nullable: false,
     type: Boolean,
   })
   hasCertificate: boolean;
 
   @Column({
+    name: 'is_free',
     nullable: false,
     type: Boolean,
   })
   isFree: boolean;
 
   @Column({
+    name: 'price',
     nullable: false,
     type: Number,
   })
   price: number;
 
   @Column({
+    name: 'language',
     nullable: false,
     type: String,
   })
   language: string;
 
   @Column({
+    name: 'intro_video_url',
     nullable: true,
     type: String,
   })
   introVideoUrl?: string | null;
 
   @Column({
+    name: 'thumbnail_url',
     nullable: true,
     type: String,
   })
   thumbnailUrl?: string | null;
 
   @Column({
+    name: 'full_description',
     nullable: true,
     type: String,
   })
   fullDescription?: string | null;
 
   @Column({
+    name: 'short_description',
     nullable: true,
     type: String,
   })
   shortDescription?: string | null;
 
   @Column({
+    name: 'title',
     nullable: false,
     type: String,
   })
   title: string;
 
   @Column({
+    name: 'slug',
     nullable: false,
     type: String,
   })
@@ -220,6 +247,7 @@ export class CourseEntity extends EntityRelationalHelper {
    * `course-search.sql.spec.ts` pins its text.
    */
   @Column({
+    name: 'search_vector',
     type: 'tsvector',
     nullable: true,
     select: false,
@@ -231,9 +259,9 @@ export class CourseEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

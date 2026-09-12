@@ -6,12 +6,14 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class RoleEntity extends EntityRelationalHelper {
   @Column({
+    name: 'description',
     nullable: true,
     type: String,
   })
   description?: string | null;
 
   @Column({
+    name: 'is_active',
     default: true,
   })
   isActive?: boolean;
@@ -19,6 +21,6 @@ export class RoleEntity extends EntityRelationalHelper {
   @PrimaryColumn()
   id: number;
 
-  @Column()
+  @Column({ name: 'name' })
   name?: string;
 }

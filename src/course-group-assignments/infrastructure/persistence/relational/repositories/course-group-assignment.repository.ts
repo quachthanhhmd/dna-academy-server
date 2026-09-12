@@ -96,9 +96,9 @@ export class CourseGroupAssignmentRelationalRepository implements CourseGroupAss
     // field that is a list of uuids.
     const rows = await this.courseGroupAssignmentRepository
       .createQueryBuilder('assignment')
-      .select('assignment.courseId', 'courseId')
-      .addSelect('assignment.groupId', 'groupId')
-      .where('assignment.courseId IN (:...courseIds)', { courseIds })
+      .select('assignment.course', 'courseId')
+      .addSelect('assignment.group', 'groupId')
+      .where('assignment.course IN (:...courseIds)', { courseIds })
       .orderBy('assignment.createdAt', 'ASC')
       .getRawMany<{ courseId: string; groupId: string }>();
 
@@ -123,11 +123,11 @@ export class CourseGroupAssignmentRelationalRepository implements CourseGroupAss
     const rows = await this.courseGroupAssignmentRepository
       .createQueryBuilder('assignment')
       .innerJoin('assignment.group', 'grp')
-      .select('assignment.courseId', 'courseId')
+      .select('assignment.course', 'courseId')
       .addSelect('grp.id', 'id')
       .addSelect('grp.name', 'name')
       .addSelect('grp.nameTranslations', 'nameTranslations')
-      .where('assignment.courseId IN (:...courseIds)', { courseIds })
+      .where('assignment.course IN (:...courseIds)', { courseIds })
       .orderBy('grp.displayOrder', 'ASC')
       .addOrderBy('grp.name', 'ASC')
       .getRawMany<{

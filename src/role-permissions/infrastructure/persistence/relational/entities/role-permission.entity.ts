@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
@@ -16,17 +17,19 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class RolePermissionEntity extends EntityRelationalHelper {
   @ManyToOne(() => PermissionEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'permission_id' })
   permission: PermissionEntity;
 
   @ManyToOne(() => RoleEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'role_id' })
   role: RoleEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
