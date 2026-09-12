@@ -1,3 +1,5 @@
+import { TranslationMap } from '../../utils/i18n/translation-map.type';
+import { IsTranslationMap } from '../../utils/i18n/is-translation-map.validator';
 import { UserDto } from '../../users/dto/user.dto';
 
 import { MasterDataGroupDto } from '../../master-data-groups/dto/master-data-group.dto';
@@ -21,6 +23,7 @@ import {
 import {
   // decorators here
   ApiProperty,
+  ApiPropertyOptional,
 } from '@nestjs/swagger';
 
 export class CreateMasterDataCodeDto {
@@ -80,4 +83,23 @@ export class CreateMasterDataCodeDto {
   group: MasterDataGroupDto;
 
   // Don't forget to use the class-validator decorators in the DTO properties.
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    example: { vi: 'Cơ bản', en: 'Beginner' },
+    description:
+      'Per-locale overrides. When omitted, the default locale is seeded from `name`.',
+  })
+  @IsOptional()
+  @IsTranslationMap()
+  nameTranslations?: TranslationMap;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+  })
+  @IsOptional()
+  @IsTranslationMap()
+  descriptionTranslations?: TranslationMap;
 }

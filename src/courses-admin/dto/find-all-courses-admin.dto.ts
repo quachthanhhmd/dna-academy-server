@@ -18,11 +18,13 @@ export class FindAllCoursesAdminDto {
   @IsUUID()
   categoryId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'instructors.id. Matches courses where the instructor holds any role.',
+  })
   @IsOptional()
-  @Transform(({ value }) => (value ? Number(value) : undefined))
-  @IsInt()
-  instructorId?: number;
+  @IsUUID()
+  instructorId?: string;
 
   @ApiPropertyOptional()
   @Transform(({ value }) => (value ? Number(value) : 1))

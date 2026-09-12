@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { CoursesModule } from '../courses/courses.module';
 import { MasterDataCodesModule } from '../master-data-codes/master-data-codes.module';
-import { UsersModule } from '../users/users.module';
+import { CourseInstructorsModule } from '../course-instructors/course-instructors.module';
+import { InstructorsModule } from '../instructors/instructors.module';
+import { InstructorsAdminModule } from '../instructors-admin/instructors-admin.module';
 import { YoutubeModule } from '../youtube/youtube.module';
 import { SectionsModule } from '../sections/sections.module';
 import { LecturesModule } from '../lectures/lectures.module';
@@ -20,6 +22,7 @@ import { ReflectionQuestionsModule } from '../reflection-questions/reflection-qu
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { CoursesAdminController } from './courses-admin.controller';
 import { CoursesAdminService } from './courses-admin.service';
+import { CourseInstructorsAdminService } from './course-instructors-admin.service';
 import { CourseDetailService } from './course-detail.service';
 import { CourseListsAdminService } from './course-lists-admin.service';
 import { CourseGroupsAdminService } from './course-groups-admin.service';
@@ -37,7 +40,9 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
   imports: [
     CoursesModule,
     MasterDataCodesModule,
-    UsersModule,
+    CourseInstructorsModule,
+    InstructorsModule,
+    InstructorsAdminModule,
     YoutubeModule,
     SectionsModule,
     LecturesModule,
@@ -64,6 +69,7 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
   ],
   providers: [
     CoursesAdminService,
+    CourseInstructorsAdminService,
     CourseDetailService,
     CourseListsAdminService,
     CourseGroupsAdminService,
@@ -75,6 +81,7 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
   ],
   exports: [
     CoursesAdminService,
+    CourseInstructorsAdminService,
     CourseDetailService,
     CourseListsAdminService,
     CourseGroupsAdminService,

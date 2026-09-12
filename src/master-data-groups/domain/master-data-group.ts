@@ -1,6 +1,7 @@
 import { User } from '../../users/domain/user';
 import { Exclude } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { TranslationMap } from '../../utils/i18n/translation-map.type';
 
 export class MasterDataGroup {
   @Exclude({ toPlainOnly: true })
@@ -27,8 +28,22 @@ export class MasterDataGroup {
   @ApiProperty({
     type: () => String,
     nullable: false,
+    description: 'Resolved for the request locale (Epic 6).',
   })
   name: string;
+
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    example: { vi: 'Cấp độ khóa học', en: 'Course Level' },
+  })
+  nameTranslations: TranslationMap;
+
+  @ApiProperty({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+  })
+  descriptionTranslations: TranslationMap;
 
   @ApiProperty({
     type: () => String,

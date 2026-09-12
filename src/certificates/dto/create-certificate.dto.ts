@@ -20,6 +20,9 @@ import {
   IsString,
   IsDate,
   IsOptional,
+  Max,
+  Min,
+  IsInt,
 } from 'class-validator';
 
 import {
@@ -68,6 +71,19 @@ export class CreateCertificateDto {
   })
   @IsString()
   certificateNumber: string;
+
+  @ApiProperty({
+    required: false,
+    type: () => Number,
+    description:
+      'Epic 4.5 — frozen at issue time. Null when the student submitted no ' +
+      'quiz for this course.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  finalGradePct?: number | null;
 
   @ApiProperty({
     required: true,

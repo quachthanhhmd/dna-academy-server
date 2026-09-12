@@ -29,6 +29,8 @@ export class CertificateMapper {
 
     domainEntity.certificateNumber = raw.certificateNumber;
 
+    domainEntity.finalGradePct = raw.finalGradePct;
+
     if (raw.course) {
       domainEntity.course = CourseMapper.toDomain(raw.course);
     }
@@ -65,6 +67,8 @@ export class CertificateMapper {
     persistenceEntity.studentNameSnapshot = domainEntity.studentNameSnapshot;
 
     persistenceEntity.certificateNumber = domainEntity.certificateNumber;
+
+    persistenceEntity.finalGradePct = domainEntity.finalGradePct;
 
     if (domainEntity.course) {
       persistenceEntity.course = CourseMapper.toPersistence(

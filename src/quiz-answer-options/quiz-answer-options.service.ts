@@ -77,6 +77,10 @@ export class QuizAnswerOptionsService {
     return this.quizAnswerOptionRepository.removeByQuestionIds(questionIds);
   }
 
+  findByQuestionIds(questionIds: string[]) {
+    return this.quizAnswerOptionRepository.findByQuestionIds(questionIds);
+  }
+
   async update(
     id: QuizAnswerOption['id'],
 

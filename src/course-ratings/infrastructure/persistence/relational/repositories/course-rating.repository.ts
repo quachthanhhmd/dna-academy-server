@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { CourseRatingEntity } from '../entities/course-rating.entity';
@@ -52,6 +53,50 @@ export class CourseRatingRelationalRepository implements CourseRatingRepository 
     return entities.map((entity) => CourseRatingMapper.toDomain(entity));
   }
 
+  async findByEnrollmentId(
+    enrollmentId: string,
+  ): Promise<NullableType<CourseRating>> {
+    const entity = await this.courseRatingRepository.findOne({
+      where: { enrollment: { id: enrollmentId } },
+    });
+
+    return entity ? CourseRatingMapper.toDomain(entity) : null;
+  }
+
+  async findApprovedByCourseId(
+    courseId: string,
+    paginationOptions: IPaginationOptions,
+  ): Promise<{ data: CourseRating[]; total: number }> {
+    const [entities, total] = await this.courseRatingRepository.findAndCount({
+      where: { course: { id: courseId }, reviewStatus: 'approved' },
+      order: { submittedAt: 'DESC' },
+      skip: (paginationOptions.page - 1) * paginationOptions.limit,
+      take: paginationOptions.limit,
+    });
+
+    return {
+      data: entities.map((entity) => CourseRatingMapper.toDomain(entity)),
+      total,
+    };
+  }
+
+  /** Every rating counts toward the average, approved or not. */
+  async averageForCourse(
+    courseId: string,
+  ): Promise<{ average: number | null; count: number }> {
+    const raw = await this.courseRatingRepository
+      .createQueryBuilder('rating')
+      .select('AVG(rating.rating)', 'average')
+      .addSelect('COUNT(rating.id)', 'count')
+      .where('rating.courseId = :courseId', { courseId })
+      .getRawOne<{ average: string | null; count: string }>();
+
+    return {
+      average: raw?.average == null ? null : Number(raw.average),
+      count: Number(raw?.count ?? 0),
+    };
+  }
+
   async update(
     id: CourseRating['id'],
     payload: Partial<CourseRating>,
@@ -68,7 +113,7 @@ export class CourseRatingRelationalRepository implements CourseRatingRepository 
       this.courseRatingRepository.create(
         CourseRatingMapper.toPersistence({
           ...CourseRatingMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

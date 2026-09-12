@@ -95,6 +95,12 @@ export class CareerReflectionAnswersService {
     return this.careerReflectionAnswerRepository.findByIds(ids);
   }
 
+  findByEnrollmentId(enrollmentId: string) {
+    return this.careerReflectionAnswerRepository.findByEnrollmentId(
+      enrollmentId,
+    );
+  }
+
   async update(
     id: CareerReflectionAnswer['id'],
 
@@ -155,5 +161,12 @@ export class CareerReflectionAnswersService {
 
   remove(id: CareerReflectionAnswer['id']) {
     return this.careerReflectionAnswerRepository.remove(id);
+  }
+
+  /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
+  removeByEnrollmentId(enrollmentId: string) {
+    return this.careerReflectionAnswerRepository.removeByEnrollmentId(
+      enrollmentId,
+    );
   }
 }

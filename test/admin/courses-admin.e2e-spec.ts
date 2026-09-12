@@ -1,8 +1,7 @@
 import { describe, expect, it, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
-
-const SUPER_ADMIN_ROLE_ID = 3;
+import { loginSeededSuperAdmin, makeSuperAdmin } from '../utils/admin';
 
 describe('Admin / Courses', () => {
   const app = APP_URL;
@@ -37,24 +36,20 @@ describe('Admin / Courses', () => {
     return body.id as string;
   };
 
+  let seededAdminToken: string;
+
   let superAdminToken: string;
   let plainUserToken: string;
   let levelId: string;
   let categoryId: string;
 
   beforeAll(async () => {
+    seededAdminToken = await loginSeededSuperAdmin(app);
     const superAdmin = await registerAndLogin(
       `courses-admin.super.${runId}@example.com`,
     );
     superAdminToken = superAdmin.token;
-    await request(app)
-      .post('/api/v1/user-roles')
-      .auth(superAdminToken, { type: 'bearer' })
-      .send({
-        user: { id: superAdmin.userId },
-        role: { id: SUPER_ADMIN_ROLE_ID },
-      })
-      .expect(201);
+    await makeSuperAdmin(app, seededAdminToken, superAdmin.userId);
 
     const plain = await registerAndLogin(
       `courses-admin.plain.${runId}@example.com`,
@@ -80,6 +75,7 @@ describe('Admin / Courses', () => {
       .post('/api/v1/admin/courses')
       .auth(plainUserToken, { type: 'bearer' })
       .send({
+        courseId: `FORBIDDEN-${runId}`,
         title: 'X',
         language: 'en',
         price: 0,
@@ -98,6 +94,7 @@ describe('Admin / Courses', () => {
         .post('/api/v1/admin/courses')
         .auth(superAdminToken, { type: 'bearer' })
         .send({
+          courseId: `DNA-${runId}`,
           title,
           language: 'en',
           price: 0,
@@ -108,6 +105,7 @@ describe('Admin / Courses', () => {
         })
         .expect(201);
 
+      expect(body.courseId).toBe(`DNA-${runId}`);
       expect(body.slug).toBe(`intro-to-testing-${runId}`);
       expect(body.status).toBe('draft');
       expect(body.isFree).toBe(true);
@@ -121,6 +119,7 @@ describe('Admin / Courses', () => {
         .post('/api/v1/admin/courses')
         .auth(superAdminToken, { type: 'bearer' })
         .send({
+          courseId: `DNA-${runId}-2`,
           title,
           language: 'en',
           price: 20,
@@ -133,11 +132,44 @@ describe('Admin / Courses', () => {
       expect(body.isFree).toBe(false);
     });
 
+    it('should reject a duplicate courseId with 422', async () => {
+      await request(app)
+        .post('/api/v1/admin/courses')
+        .auth(superAdminToken, { type: 'bearer' })
+        .send({
+          courseId: `DNA-${runId}`,
+          title: `Duplicate code ${runId}`,
+          language: 'en',
+          price: 0,
+          hasCertificate: false,
+          enrollmentOpen: true,
+        })
+        .expect(422)
+        .expect(({ body }) => {
+          expect(body.errors.courseId).toBe('alreadyExists');
+        });
+    });
+
+    it('should reject a create with no courseId at all with 422', async () => {
+      await request(app)
+        .post('/api/v1/admin/courses')
+        .auth(superAdminToken, { type: 'bearer' })
+        .send({
+          title: `Missing code ${runId}`,
+          language: 'en',
+          price: 0,
+          hasCertificate: false,
+          enrollmentOpen: true,
+        })
+        .expect(422);
+    });
+
     it('should reject an unknown levelId with 422', async () => {
       await request(app)
         .post('/api/v1/admin/courses')
         .auth(superAdminToken, { type: 'bearer' })
         .send({
+          courseId: `BAD-LEVEL-${runId}`,
           title: `Bad level ${runId}`,
           language: 'en',
           price: 0,
@@ -153,6 +185,7 @@ describe('Admin / Courses', () => {
         .post('/api/v1/admin/courses')
         .auth(superAdminToken, { type: 'bearer' })
         .send({
+          courseId: `WRONG-GROUP-${runId}`,
           title: `Wrong group ${runId}`,
           language: 'en',
           price: 0,

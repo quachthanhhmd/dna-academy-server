@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { CertificateEntity } from '../entities/certificate.entity';
@@ -52,6 +53,49 @@ export class CertificateRelationalRepository implements CertificateRepository {
     return entities.map((entity) => CertificateMapper.toDomain(entity));
   }
 
+  async findByNumber(
+    certificateNumber: string,
+  ): Promise<NullableType<Certificate>> {
+    const entity = await this.certificateRepository.findOne({
+      where: { certificateNumber },
+    });
+
+    return entity ? CertificateMapper.toDomain(entity) : null;
+  }
+
+  async findByEnrollmentId(
+    enrollmentId: string,
+  ): Promise<NullableType<Certificate>> {
+    const entity = await this.certificateRepository.findOne({
+      where: { enrollment: { id: enrollmentId } },
+    });
+
+    return entity ? CertificateMapper.toDomain(entity) : null;
+  }
+
+  async findByEnrollmentIds(enrollmentIds: string[]): Promise<Certificate[]> {
+    if (!enrollmentIds.length) {
+      return [];
+    }
+
+    const entities = await this.certificateRepository.find({
+      where: { enrollment: { id: In(enrollmentIds) } },
+    });
+
+    return entities.map((entity) => CertificateMapper.toDomain(entity));
+  }
+
+  /** Certificate numbers restart their sequence each calendar year. */
+  async nextSequenceValue(): Promise<number> {
+    const [{ nextval }]: { nextval: string }[] =
+      await this.certificateRepository.query(
+        `SELECT nextval('certificate_number_seq')`,
+      );
+
+    // Postgres returns bigint as a string to avoid precision loss.
+    return Number(nextval);
+  }
+
   async update(
     id: Certificate['id'],
     payload: Partial<Certificate>,
@@ -68,7 +112,7 @@ export class CertificateRelationalRepository implements CertificateRepository {
       this.certificateRepository.create(
         CertificateMapper.toPersistence({
           ...CertificateMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

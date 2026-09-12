@@ -93,6 +93,20 @@ export class CourseGroupAssignmentsService {
     return this.courseGroupAssignmentRepository.findByCourseId(courseId);
   }
 
+  /** Epic 4.4 §1.3 — one query for a whole catalog page's `groupIds`. */
+  findGroupIdsByCourseIds(courseIds: string[]) {
+    return this.courseGroupAssignmentRepository.findGroupIdsByCourseIds(
+      courseIds,
+    );
+  }
+
+  /** Epic 4.5 §1.3 — the single group shown on a My Learning card. */
+  findPrimaryGroupByCourseIds(courseIds: string[]) {
+    return this.courseGroupAssignmentRepository.findPrimaryGroupByCourseIds(
+      courseIds,
+    );
+  }
+
   removeByCourseId(courseId: string) {
     return this.courseGroupAssignmentRepository.removeByCourseId(courseId);
   }

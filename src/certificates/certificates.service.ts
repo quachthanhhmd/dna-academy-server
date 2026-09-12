@@ -19,6 +19,7 @@ import {
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
 import { CertificateRepository } from './infrastructure/persistence/certificate.repository';
+import { omitUndefined } from '../utils/omit-undefined';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { Certificate } from './domain/certificate';
 
@@ -114,6 +115,8 @@ export class CertificatesService {
 
       certificateNumber: createCertificateDto.certificateNumber,
 
+      finalGradePct: createCertificateDto.finalGradePct ?? null,
+
       course,
 
       student,
@@ -141,6 +144,24 @@ export class CertificatesService {
 
   findByIds(ids: Certificate['id'][]) {
     return this.certificateRepository.findByIds(ids);
+  }
+
+  /** Epic 4.1 §3.2 — public verification reads the snapshot by number. */
+  findByNumber(certificateNumber: string) {
+    return this.certificateRepository.findByNumber(certificateNumber);
+  }
+
+  findByEnrollmentId(enrollmentId: string) {
+    return this.certificateRepository.findByEnrollmentId(enrollmentId);
+  }
+
+  /** Epic 4.5 BE-1 — one query for a whole dashboard page. */
+  findByEnrollmentIds(enrollmentIds: string[]) {
+    return this.certificateRepository.findByEnrollmentIds(enrollmentIds);
+  }
+
+  nextSequenceValue() {
+    return this.certificateRepository.nextSequenceValue();
   }
 
   async update(
@@ -221,27 +242,35 @@ export class CertificatesService {
       enrollment = enrollmentObject;
     }
 
-    return this.certificateRepository.update(id, {
-      // Do not remove comment below.
-      // <updating-property-payload />
-      issuedAt: updateCertificateDto.issuedAt,
+    return this.certificateRepository.update(
+      id,
+      // The repository merges `{ ...current, ...payload }`, so a key present
+      // with an undefined value erases the stored one. Only send what the
+      // caller actually set; an explicit null still comes through.
+      omitUndefined({
+        // Do not remove comment below.
+        // <updating-property-payload />
+        issuedAt: updateCertificateDto.issuedAt,
 
-      file,
+        file,
 
-      completionDate: updateCertificateDto.completionDate,
+        completionDate: updateCertificateDto.completionDate,
 
-      courseTitleSnapshot: updateCertificateDto.courseTitleSnapshot,
+        courseTitleSnapshot: updateCertificateDto.courseTitleSnapshot,
 
-      studentNameSnapshot: updateCertificateDto.studentNameSnapshot,
+        studentNameSnapshot: updateCertificateDto.studentNameSnapshot,
 
-      certificateNumber: updateCertificateDto.certificateNumber,
+        certificateNumber: updateCertificateDto.certificateNumber,
 
-      course,
+        finalGradePct: updateCertificateDto.finalGradePct,
 
-      student,
+        course,
 
-      enrollment,
-    });
+        student,
+
+        enrollment,
+      }),
+    );
   }
 
   remove(id: Certificate['id']) {

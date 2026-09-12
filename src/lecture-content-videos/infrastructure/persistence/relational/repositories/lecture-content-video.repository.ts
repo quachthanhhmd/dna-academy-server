@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { LectureContentVideoEntity } from '../entities/lecture-content-video.entity';
@@ -82,7 +83,7 @@ export class LectureContentVideoRelationalRepository implements LectureContentVi
       this.lectureContentVideoRepository.create(
         LectureContentVideoMapper.toPersistence({
           ...LectureContentVideoMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

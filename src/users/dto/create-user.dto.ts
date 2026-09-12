@@ -13,14 +13,25 @@ import {
   IsString,
   IsBoolean,
   IsDate,
+  IsIn,
   IsNumber,
 } from 'class-validator';
 import { FileDto } from '../../files/dto/file.dto';
 import { RoleDto } from '../../roles/dto/role.dto';
 import { StatusDto } from '../../statuses/dto/status.dto';
 import { lowerCaseTransformer } from '../../utils/transformers/lower-case.transformer';
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from '../../utils/i18n/locale';
 
 export class CreateUserDto {
+  @ApiPropertyOptional({
+    type: () => String,
+    default: DEFAULT_LOCALE,
+    description: 'Preferred UI locale. Defaults to the platform default (vi).',
+  })
+  @IsOptional()
+  @IsIn(SUPPORTED_LOCALES as string[])
+  locale?: string;
+
   @ApiPropertyOptional({
     type: () => Boolean,
     default: false,

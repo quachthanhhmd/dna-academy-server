@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { CareerReflectionQuestionEntity } from '../entities/career-reflection-question.entity';
@@ -62,6 +63,53 @@ export class CareerReflectionQuestionRelationalRepository implements CareerRefle
     );
   }
 
+  /** Course-specific questions plus the global ones (courseId IS NULL). */
+  async findForCourse(courseId: string): Promise<CareerReflectionQuestion[]> {
+    const entities = await this.careerReflectionQuestionRepository
+      .createQueryBuilder('question')
+      .where('question.isActive = true')
+      .andWhere(
+        '(question.courseId = :courseId OR question.courseId IS NULL)',
+        { courseId },
+      )
+      .orderBy('question.displayOrder', 'ASC')
+      .getMany();
+
+    return entities.map((entity) =>
+      CareerReflectionQuestionMapper.toDomain(entity),
+    );
+  }
+
+  async findForAdmin(filters: {
+    courseId?: string;
+    isActive?: boolean;
+  }): Promise<CareerReflectionQuestion[]> {
+    const query = this.careerReflectionQuestionRepository
+      .createQueryBuilder('question')
+      .leftJoinAndSelect('question.course', 'course');
+
+    if (filters.courseId) {
+      query.andWhere('question.courseId = :courseId', {
+        courseId: filters.courseId,
+      });
+    }
+
+    if (filters.isActive !== undefined) {
+      query.andWhere('question.isActive = :isActive', {
+        isActive: filters.isActive,
+      });
+    }
+
+    const entities = await query
+      .orderBy('question.displayOrder', 'ASC')
+      .addOrderBy('question.createdAt', 'ASC')
+      .getMany();
+
+    return entities.map((entity) =>
+      CareerReflectionQuestionMapper.toDomain(entity),
+    );
+  }
+
   async update(
     id: CareerReflectionQuestion['id'],
     payload: Partial<CareerReflectionQuestion>,
@@ -78,7 +126,7 @@ export class CareerReflectionQuestionRelationalRepository implements CareerRefle
       this.careerReflectionQuestionRepository.create(
         CareerReflectionQuestionMapper.toPersistence({
           ...CareerReflectionQuestionMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

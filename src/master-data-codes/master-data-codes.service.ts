@@ -15,6 +15,11 @@ import { UpdateMasterDataCodeDto } from './dto/update-master-data-code.dto';
 import { MasterDataCodeRepository } from './infrastructure/persistence/master-data-code.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { MasterDataCode } from './domain/master-data-code';
+import {
+  sanitizeTranslations,
+  withDefaultLocale,
+} from '../utils/i18n/translations';
+import { DeepPartial } from '../utils/types/deep-partial.type';
 
 @Injectable()
 export class MasterDataCodesService {
@@ -65,6 +70,18 @@ export class MasterDataCodesService {
     return this.masterDataCodeRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
+      // The default-locale key is seeded from `name` so a legacy caller that
+      // sends no translations still satisfies the DB CHECK constraint.
+      nameTranslations: withDefaultLocale(
+        sanitizeTranslations(createMasterDataCodeDto.nameTranslations),
+        createMasterDataCodeDto.name,
+      ),
+
+      descriptionTranslations: withDefaultLocale(
+        sanitizeTranslations(createMasterDataCodeDto.descriptionTranslations),
+        createMasterDataCodeDto.description,
+      ),
+
       createdBy,
 
       displayOrder: createMasterDataCodeDto.displayOrder,
@@ -154,9 +171,13 @@ export class MasterDataCodesService {
       group = groupObject;
     }
 
-    return this.masterDataCodeRepository.update(id, {
+    const payload: DeepPartial<MasterDataCode> = {
       // Do not remove comment below.
       // <updating-property-payload />
+      nameTranslations: updateMasterDataCodeDto.nameTranslations,
+
+      descriptionTranslations: updateMasterDataCodeDto.descriptionTranslations,
+
       createdBy,
 
       displayOrder: updateMasterDataCodeDto.displayOrder,
@@ -172,7 +193,21 @@ export class MasterDataCodesService {
       code: updateMasterDataCodeDto.code,
 
       group,
-    });
+    };
+
+    // A partial update DTO carries every declared field as an own
+    // property (undefined when the caller omitted it), and the
+    // repository merges `{ ...current, ...payload }`. Strip the
+    // undefined keys so an untouched column — notably the Epic 6
+    // translation maps, which are NOT NULL with a CHECK constraint —
+    // cannot be clobbered.
+    for (const key of Object.keys(payload) as (keyof MasterDataCode)[]) {
+      if (payload[key] === undefined) {
+        delete payload[key];
+      }
+    }
+
+    return this.masterDataCodeRepository.update(id, payload);
   }
 
   remove(id: MasterDataCode['id']) {

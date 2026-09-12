@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 
 import { FindOptionsWhere, Repository, In } from 'typeorm';
@@ -112,7 +113,7 @@ export class UsersRelationalRepository implements UserRepository {
       this.usersRepository.create(
         UserMapper.toPersistence({
           ...UserMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

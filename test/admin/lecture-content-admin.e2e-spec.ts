@@ -1,8 +1,7 @@
 import { describe, expect, it, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
-
-const SUPER_ADMIN_ROLE_ID = 3;
+import { loginSeededSuperAdmin, makeSuperAdmin } from '../utils/admin';
 
 describe('Admin / Lecture Content', () => {
   const app = APP_URL;
@@ -22,29 +21,26 @@ describe('Admin / Lecture Content', () => {
     return { token: body.token as string, userId: body.user.id as number };
   };
 
+  let seededAdminToken: string;
+
   let superAdminToken: string;
   let courseId: string;
   let sectionId: string;
   let lectureId: string;
 
   beforeAll(async () => {
+    seededAdminToken = await loginSeededSuperAdmin(app);
     const superAdmin = await registerAndLogin(
       `lecture-content.super.${runId}@example.com`,
     );
     superAdminToken = superAdmin.token;
-    await request(app)
-      .post('/api/v1/user-roles')
-      .auth(superAdminToken, { type: 'bearer' })
-      .send({
-        user: { id: superAdmin.userId },
-        role: { id: SUPER_ADMIN_ROLE_ID },
-      })
-      .expect(201);
+    await makeSuperAdmin(app, seededAdminToken, superAdmin.userId);
 
     const { body: course } = await request(app)
       .post('/api/v1/admin/courses')
       .auth(superAdminToken, { type: 'bearer' })
       .send({
+        courseId: `LCT-${runId}`,
         title: `Lecture Content Test ${runId}`,
         language: 'en',
         price: 0,
@@ -67,7 +63,9 @@ describe('Admin / Lecture Content', () => {
       .send({
         title: 'Lecture',
         lectureType: 'video',
-        durationSecs: 0,
+        // Epic 4.2 §3.4 — a video lecture must carry a real duration; 0 is
+        // now rejected, which is what this fixture used to send.
+        durationSecs: 600,
         isPreview: false,
         requiresCompletion: true,
         displayOrder: 1,
@@ -122,7 +120,7 @@ describe('Admin / Lecture Content', () => {
         quizQuestions: [
           {
             questionText: 'What is 2+2?',
-            questionType: 'single_choice',
+            questionType: 'multiple_choice',
             isRequired: true,
             displayOrder: 1,
             options: [
@@ -168,7 +166,7 @@ describe('Admin / Lecture Content', () => {
         quizQuestions: [
           {
             questionText: 'What is the capital of France?',
-            questionType: 'short_text',
+            questionType: 'short_answer',
             isRequired: true,
             displayOrder: 1,
           },

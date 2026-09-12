@@ -6,6 +6,13 @@ import { MasterDataCode } from '../../master-data-codes/domain/master-data-code'
 import { ApiProperty } from '@nestjs/swagger';
 
 export class Course {
+  @ApiProperty({
+    type: () => String,
+    nullable: true,
+    example: 'DNA-101',
+  })
+  courseId?: string | null;
+
   @Exclude({ toPlainOnly: true })
   createdBy?: User | null;
 
@@ -14,6 +21,21 @@ export class Course {
 
   @Exclude({ toPlainOnly: true })
   publishedAt?: Date | null;
+
+  @Exclude({ toPlainOnly: true })
+  unpublishedAt?: Date | null;
+
+  @Exclude({ toPlainOnly: true })
+  unpublishedBy?: User | null;
+
+  @ApiProperty({
+    type: () => Boolean,
+    nullable: false,
+    description:
+      'When true, a lecture only unlocks once the previous required lecture ' +
+      'is completed (Epic 4 v2).',
+  })
+  requiresSequentialCompletion: boolean;
 
   @Exclude({ toPlainOnly: true })
   avgRating?: number | null;
@@ -29,12 +51,6 @@ export class Course {
 
   @Exclude({ toPlainOnly: true })
   totalSections?: number;
-
-  @ApiProperty({
-    type: () => User,
-    nullable: true,
-  })
-  instructor?: User | null;
 
   @ApiProperty({
     type: () => MasterDataCode,

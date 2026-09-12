@@ -18,10 +18,18 @@ export abstract class QuizSaveRepository {
 
   abstract findByIds(ids: QuizSave['id'][]): Promise<QuizSave[]>;
 
+  abstract findByEnrollmentAndLecture(
+    enrollmentId: string,
+    lectureId: string,
+  ): Promise<NullableType<QuizSave>>;
+
   abstract update(
     id: QuizSave['id'],
     payload: DeepPartial<QuizSave>,
   ): Promise<QuizSave | null>;
 
   abstract remove(id: QuizSave['id']): Promise<void>;
+
+  /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
+  abstract removeByEnrollmentId(enrollmentId: string): Promise<void>;
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
+import { loginSeededSuperAdmin, makeSuperAdmin } from '../utils/admin';
 
 const SUPER_ADMIN_ROLE_ID = 3;
 
@@ -22,24 +23,18 @@ describe('Admin / User Roles', () => {
     return { token: body.token as string, userId: body.user.id as number };
   };
 
-  const assignRole = async (token: string, userId: number, roleId: number) => {
-    await request(app)
-      .post('/api/v1/user-roles')
-      .auth(token, { type: 'bearer' })
-      .send({ user: { id: userId }, role: { id: roleId } })
-      .expect(201);
-  };
-
+  let seededAdminToken: string;
   let superAdminToken: string;
   let targetUserId: number;
   let customRoleId: number;
 
   beforeAll(async () => {
+    seededAdminToken = await loginSeededSuperAdmin(app);
     const superAdmin = await registerAndLogin(
       `user-roles-admin.super.${runId}@example.com`,
     );
     superAdminToken = superAdmin.token;
-    await assignRole(superAdminToken, superAdmin.userId, SUPER_ADMIN_ROLE_ID);
+    await makeSuperAdmin(app, seededAdminToken, superAdmin.userId);
 
     const target = await registerAndLogin(
       `user-roles-admin.target.${runId}@example.com`,

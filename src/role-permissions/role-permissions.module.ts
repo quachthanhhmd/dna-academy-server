@@ -5,7 +5,6 @@ import {
   Module,
 } from '@nestjs/common';
 import { RolePermissionsService } from './role-permissions.service';
-import { RolePermissionsController } from './role-permissions.controller';
 import { RelationalRolePermissionPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -17,7 +16,9 @@ import { RelationalRolePermissionPersistenceModule } from './infrastructure/pers
     // do not remove this comment
     RelationalRolePermissionPersistenceModule,
   ],
-  controllers: [RolePermissionsController],
+  // No controller on purpose — same reason as UserRolesModule. Granting a
+  // permission to a role lives on PUT /api/v1/admin/roles/:id/permissions,
+  // behind PermissionGuard.
   providers: [RolePermissionsService],
   exports: [RolePermissionsService, RelationalRolePermissionPersistenceModule],
 })

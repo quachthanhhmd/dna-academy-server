@@ -20,10 +20,28 @@ export abstract class LectureProgressRepository {
 
   abstract findByIds(ids: LectureProgress['id'][]): Promise<LectureProgress[]>;
 
+  abstract findByEnrollmentId(enrollmentId: string): Promise<LectureProgress[]>;
+
+  /**
+   * Epic 4.5 BE-1 — one query for a whole dashboard page. The per-row form
+   * above is an N+1 the moment more than one card is on screen.
+   */
+  abstract findByEnrollmentIds(
+    enrollmentIds: string[],
+  ): Promise<LectureProgress[]>;
+
+  abstract findByEnrollmentAndLecture(
+    enrollmentId: string,
+    lectureId: string,
+  ): Promise<NullableType<LectureProgress>>;
+
   abstract update(
     id: LectureProgress['id'],
     payload: DeepPartial<LectureProgress>,
   ): Promise<LectureProgress | null>;
 
   abstract remove(id: LectureProgress['id']): Promise<void>;
+
+  /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
+  abstract removeByEnrollmentId(enrollmentId: string): Promise<void>;
 }

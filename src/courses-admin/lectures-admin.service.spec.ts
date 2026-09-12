@@ -240,4 +240,115 @@ describe('LecturesAdminService', () => {
       );
     });
   });
+
+  /**
+   * Epic 4.2 §3.4 — BUG-09. All 22 lectures of the imported MIT course showed
+   * `1:15:00` because the value was typed once by the import script. YouTube
+   * oEmbed does not return duration, so there is nowhere to read it from — but
+   * a zero is at least visibly wrong rather than plausibly wrong, and a video
+   * that claims to last no time is never right.
+   */
+  describe('video duration guard (BUG-09)', () => {
+    const base = {
+      title: 'Lecture',
+      lectureType: 'video',
+      durationSecs: 600,
+      isPreview: false,
+      requiresCompletion: true,
+      displayOrder: 1,
+    };
+
+    beforeEach(() => {
+      coursesService.findById.mockResolvedValue(course);
+      sectionsService.findById.mockResolvedValue(section);
+      lecturesService.create.mockResolvedValue({ id: 'lecture-1' });
+      lecturesService.update.mockResolvedValue({ id: 'lecture-1' });
+      lecturesService.findBySectionId.mockResolvedValue([
+        { id: 'lecture-1', lectureType: 'video', durationSecs: 600 },
+      ]);
+      lecturesService.findById.mockResolvedValue({
+        id: 'lecture-1',
+        lectureType: 'video',
+        durationSecs: 600,
+        section: { id: 'section-1' },
+      });
+    });
+
+    it('should accept a video with a real duration', async () => {
+      await expect(
+        service.create('course-1', 'section-1', base as never),
+      ).resolves.toBeDefined();
+    });
+
+    it('should reject a video with zero duration', async () => {
+      await expect(
+        service.create('course-1', 'section-1', {
+          ...base,
+          durationSecs: 0,
+        } as never),
+      ).rejects.toMatchObject({
+        response: { errors: { durationSecs: 'requiredForVideo' } },
+      });
+
+      expect(lecturesService.create).not.toHaveBeenCalled();
+    });
+
+    // A non-video lecture legitimately has no duration — a quiz is as long as
+    // the student takes.
+    it.each(['quiz', 'reflection', 'article', 'pdf_document'])(
+      'should allow a %s lecture to have zero duration',
+      async (lectureType) => {
+        await expect(
+          service.create('course-1', 'section-1', {
+            ...base,
+            lectureType,
+            durationSecs: 0,
+          } as never),
+        ).resolves.toBeDefined();
+      },
+    );
+
+    it('should reject a patch that zeroes a video duration', async () => {
+      await expect(
+        service.update('course-1', 'section-1', 'lecture-1', {
+          durationSecs: 0,
+        } as never),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+
+      expect(lecturesService.update).not.toHaveBeenCalled();
+    });
+
+    // The rule spans two fields, so a patch is judged on the row it produces.
+    it('should reject a patch that switches a zero-duration lecture to video', async () => {
+      lecturesService.findById.mockResolvedValue({
+        id: 'lecture-1',
+        lectureType: 'quiz',
+        durationSecs: 0,
+        section: { id: 'section-1' },
+      });
+
+      await expect(
+        service.update('course-1', 'section-1', 'lecture-1', {
+          lectureType: 'video',
+        } as never),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+
+    it('should allow a patch that switches a video to a quiz and drops the duration', async () => {
+      await expect(
+        service.update('course-1', 'section-1', 'lecture-1', {
+          lectureType: 'quiz',
+          durationSecs: 0,
+        } as never),
+      ).resolves.toBeDefined();
+    });
+
+    it('should leave an unrelated patch alone', async () => {
+      await expect(
+        service.update('course-1', 'section-1', 'lecture-1', {
+          title: 'Renamed',
+        } as never),
+      ).resolves.toBeDefined();
+    });
+  });
 });

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { ReflectionQuestionEntity } from '../entities/reflection-question.entity';
@@ -87,7 +88,7 @@ export class ReflectionQuestionRelationalRepository implements ReflectionQuestio
       this.reflectionQuestionRepository.create(
         ReflectionQuestionMapper.toPersistence({
           ...ReflectionQuestionMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

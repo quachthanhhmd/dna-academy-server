@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { PermissionEntity } from '../entities/permission.entity';
@@ -74,7 +75,7 @@ export class PermissionRelationalRepository implements PermissionRepository {
       this.permissionRepository.create(
         PermissionMapper.toPersistence({
           ...PermissionMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

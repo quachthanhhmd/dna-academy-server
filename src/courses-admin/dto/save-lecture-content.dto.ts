@@ -8,9 +8,12 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { LECTURE_TYPES } from './create-lecture-admin.dto';
+import { QUESTION_TYPES } from '../../quiz-questions/quiz-question-types';
 
 export class QuizAnswerOptionInputDto {
   @ApiProperty()
@@ -35,10 +38,12 @@ export class QuizQuestionInputDto {
 
   @ApiProperty({
     description:
-      'FE-defined question type, e.g. single_choice, multiple_choice, short_text, rating, file_upload.',
+      'Must be one of the types the grader understands. See Epic 4 v2.1 ' +
+      '§2.4 — an unknown type is skipped entirely when scoring.',
+    enum: QUESTION_TYPES,
   })
   @IsNotEmpty()
-  @IsString()
+  @IsIn(QUESTION_TYPES)
   questionType: string;
 
   @ApiProperty()
@@ -73,6 +78,15 @@ export class QuizQuestionInputDto {
   @IsOptional()
   @IsInt()
   minWordCount?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Epic 4 v2.3 — shown to students only after they submit. Plain text; ' +
+      'line breaks are preserved and the client renders it escaped.',
+  })
+  @IsOptional()
+  @IsString()
+  explanation?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -141,10 +155,27 @@ export class SaveLectureContentDto {
   isDownloadable?: boolean;
 
   // quiz
-  @ApiPropertyOptional({ description: 'Required when lectureType=quiz.' })
+  @ApiPropertyOptional({
+    description:
+      'Required when lectureType=quiz. Legacy — not used for grading.',
+    deprecated: true,
+  })
   @IsOptional()
   @IsInt()
   passingScore?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Epic 4 v2.1 — the pass mark grading actually uses, 0-100. Omitted ' +
+      'on create falls back to QUIZ_PASS_THRESHOLD_DEFAULT.',
+    minimum: 0,
+    maximum: 100,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  passThresholdPercent?: number;
 
   @ApiPropertyOptional({ description: 'Required when lectureType=quiz.' })
   @IsOptional()
@@ -155,6 +186,17 @@ export class SaveLectureContentDto {
   @IsOptional()
   @IsString()
   instructions?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Epic 4 v2 — quiz countdown in seconds. Omit or null for no limit, ' +
+      'which hides the timer in the player.',
+    minimum: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  timeLimitSecs?: number;
 
   @ApiPropertyOptional({ type: [QuizQuestionInputDto] })
   @IsOptional()

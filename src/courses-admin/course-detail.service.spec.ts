@@ -12,6 +12,7 @@ describe('CourseDetailService', () => {
   let courseRequirementsService: { findByCourseId: jest.Mock<any> };
   let courseTargetLearnersService: { findByCourseId: jest.Mock<any> };
   let courseGroupAssignmentsService: { findByCourseId: jest.Mock<any> };
+  let courseInstructorsService: { findViewByCourseId: jest.Mock<any> };
 
   beforeEach(() => {
     coursesService = { findById: jest.fn() };
@@ -21,6 +22,11 @@ describe('CourseDetailService', () => {
     courseRequirementsService = { findByCourseId: jest.fn() };
     courseTargetLearnersService = { findByCourseId: jest.fn() };
     courseGroupAssignmentsService = { findByCourseId: jest.fn() };
+    courseInstructorsService = { findViewByCourseId: jest.fn() };
+    courseInstructorsService.findViewByCourseId.mockResolvedValue({
+      primaryInstructor: null,
+      coInstructors: [],
+    });
 
     service = new CourseDetailService(
       coursesService as any,
@@ -30,7 +36,26 @@ describe('CourseDetailService', () => {
       courseRequirementsService as any,
       courseTargetLearnersService as any,
       courseGroupAssignmentsService as any,
+      courseInstructorsService as any,
     );
+  });
+
+  it('should expose the primary and co-instructors on the detail payload', async () => {
+    coursesService.findById.mockResolvedValue({ id: 'course-1' });
+    sectionsService.findByCourseId.mockResolvedValue([]);
+    courseLearningOutcomesService.findByCourseId.mockResolvedValue([]);
+    courseRequirementsService.findByCourseId.mockResolvedValue([]);
+    courseTargetLearnersService.findByCourseId.mockResolvedValue([]);
+    courseGroupAssignmentsService.findByCourseId.mockResolvedValue([]);
+    courseInstructorsService.findViewByCourseId.mockResolvedValue({
+      primaryInstructor: { id: 'ins-1' },
+      coInstructors: [{ id: 'ins-2' }],
+    });
+
+    const result = await service.findDetail('course-1');
+
+    expect(result.primaryInstructor).toEqual({ id: 'ins-1' });
+    expect(result.coInstructors).toEqual([{ id: 'ins-2' }]);
   });
 
   it('should 404 when the course does not exist', async () => {

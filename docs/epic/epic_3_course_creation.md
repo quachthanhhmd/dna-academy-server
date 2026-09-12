@@ -24,6 +24,7 @@
 **Generate entities:**
 ```
 npm run generate:resource:relational -- --name Course
+npm run add:property:to-relational -- --name Course --property courseId --kind primitive --type string --isAddToDto true --isOptional true --isNullable true
 npm run add:property:to-relational -- --name Course --property slug --kind primitive --type string --isAddToDto false --isOptional false --isNullable false
 npm run add:property:to-relational -- --name Course --property title --kind primitive --type string --isAddToDto true --isOptional false --isNullable false
 npm run add:property:to-relational -- --name Course --property shortDescription --kind primitive --type string --isAddToDto true --isOptional true --isNullable true
@@ -44,6 +45,14 @@ npm run add:property:to-relational -- --name Course --property totalDurationSecs
 npm run add:property:to-relational -- --name Course --property publishedAt --kind primitive --type Date --isAddToDto false --isOptional true --isNullable true
 npm run add:property:to-relational -- --name Course --property publishedBy --kind reference --type User --referenceType manyToOne --isAddToDto false --isOptional true --isNullable true --shouldAutoLoad false
 ```
+
+**Course ID (`courseId`)**: client-supplied business code (e.g. `DNA-101`), distinct from the
+generated UUID primary key `id`. Required on `POST /admin/courses`, trimmed, max 50 chars.
+It must be unique across all courses — `CoursesAdminService` looks it up before saving and
+rejects a collision with `422 { errors: { courseId: 'alreadyExists' } }`; a unique index
+(`IDX_course_courseId_unique`) on `course."courseId"` is the DB-level backstop. The column is
+nullable so pre-existing rows survive the migration and Postgres keeps allowing multiple NULLs.
+Editable via `PATCH /admin/courses/:id` (re-checked, skipping the course's own current value).
 
 **Slug generation**: on `POST /admin/courses`, auto-generate slug from title using `slugify` library.
 Check uniqueness in `courses` table. Append `-2`, `-3` etc. if collision.
@@ -173,7 +182,8 @@ Manages all mutable state for the course creation/edit flow. Scoped to the edito
 ```ts
 interface CourseEditorStore {
   // Course overview fields
-  courseId: string | null
+  id: string | null                 // UUID of the course being edited (null on /create)
+  courseId: string                  // business course code, e.g. "DNA-101" — user-entered, unique
   title: string
   shortDescription: string
   fullDescription: string
@@ -242,6 +252,7 @@ interface CourseEditorStore {
 
 **Usage rules:**
 - `loadCourse(course)` called once on page mount from `GET /admin/courses/:id`
+- ⚠️ `id` (the UUID used in every route) and `courseId` (the user-entered business code) are **different fields** — this store previously called the UUID `courseId`, so double-check any existing reference when wiring the code field in.
 - Every field change sets `isDirty = true`
 - "Save Draft" button calls API then sets `isDirty = false`, `lastSavedAt = now`
 - `resetEditor()` called in `useEffect` cleanup on unmount
@@ -274,6 +285,7 @@ interface MasterDataStore {
 **`/admin/courses/create`** and **`/admin/courses/:id/edit`** — Course editor (multi-tab layout):
 
 **Tab 1: Overview**
+- Course ID — required text input (e.g. `DNA-101`), max 50 chars. Surface the server's `422 { errors: { courseId: 'alreadyExists' } }` as an inline "This course ID is already taken" field error rather than a toast.
 - Title, short description, full description (rich text editor)
 - Thumbnail URL upload field
 - YouTube intro video URL (validate on blur → show preview)
@@ -346,6 +358,7 @@ interface MasterDataStore {
 
 | Requirement | Implementation |
 |---|---|
+| Unique course ID entered by the admin | `courseId` on `POST/PATCH /admin/courses`; uniqueness check in `CoursesAdminService` + unique index on `course."courseId"`; duplicate → `422 { errors: { courseId: 'alreadyExists' } }` |
 | Auto-generate unique URL slug on course create | `slugify(title)` + uniqueness check in `CoursesService` |
 | Validate YouTube URL on intro video | YouTube oEmbed check in BE service |
 | Save as Draft without all fields | `POST /admin/courses` allows partial save |
@@ -367,7 +380,7 @@ Everything below reflects the **actual running implementation** (verified agains
 ### Conventions
 
 - Base path: `/api/v1` (e.g. `http://localhost:3001/api/v1/admin/courses`).
-- Auth: `Authorization: Bearer <token>` header. All routes below additionally require the calling user to hold the `courses` permission for the relevant action (`view`/`create`/`edit`/`delete`/`publish`) via the Epic 2 role/permission system — see `POST /admin/user-roles` and `PUT /admin/roles/:id/permissions`. A logged-in user without the right permission gets `403 { code: 'PERMISSION_DENIED', required: { module, action } }`.
+- Auth: `Authorization: Bearer <token>` header. All routes below additionally require the calling user to hold the `courses` permission for the relevant action (`view`/`create`/`edit`/`delete`/`publish`) via the Epic 2 role/permission system — see `PUT /admin/users/:id/roles` and `PUT /admin/roles/:id/permissions` in the Epic 2 API guide. A logged-in user without the right permission gets `403 { code: 'PERMISSION_DENIED', required: { module, action } }`.
 - All bodies are JSON (`Content-Type: application/json`).
 - **Validation errors** (`422`) normally look like:
   ```json
@@ -377,13 +390,50 @@ Everything below reflects the **actual running implementation** (verified agains
 - **Not-found errors** (`404`) look like: `{ "status": 404, "error": "courseNotFound" | "sectionNotFound" | "lectureNotFound" }`.
 - **Section-delete conflict** (`409`): `{ "code": "SECTION_HAS_LECTURES" }` — see §4.
 - IDs for `courses`/`sections`/`lectures`/lecture-content rows are UUIDs (strings); `instructorId` is the numeric `users.id`.
+- ⚠️ **`id` vs `courseId`**: a course's `id` is the server-generated UUID used in every route (`/admin/courses/:id`). `courseId` is a separate, user-entered business code (e.g. `DNA-101`) that is unique across all courses. Never put `courseId` in a URL path.
 - `levelId`/`categoryId`/`groupIds` are `master_data_code` ids — fetch options via the Epic 2 endpoint `GET /master-data-codes?groupKey=course_level|course_category|course_group` (public/any-logged-in-user read).
+
+### 0. File uploads — `POST /api/v1/files/upload` (Cloudflare R2)
+
+`thumbnailUrl` (course) and `fileUrl` (`pdf_document` lecture content) are plain
+strings on the course/lecture payloads — the API never receives the binary on
+those endpoints. Upload the file first, then send the returned URL.
+
+Storage is **Cloudflare R2** (`FILE_DRIVER=r2`). Allowed: `jpg`, `jpeg`, `png`,
+`gif`, `webp`, `avif`, `svg`, `pdf`; max size `FILE_MAX_SIZE` (25mb default).
+
+**`FILE_DRIVER=r2`** — multipart upload through the API (default):
+
+```
+POST /api/v1/files/upload      Authorization: Bearer <token>
+Content-Type: multipart/form-data      field: file
+```
+
+Response `201`:
+
+```json
+{ "file": { "id": "uuid", "path": "https://cdn.example.com/9f2c….png" } }
+```
+
+`file.path` is the URL to store in `thumbnailUrl` / `fileUrl`. It is a permanent
+public URL when the bucket is exposed via `R2_PUBLIC_URL`; otherwise it is a
+presigned GET URL valid for one hour, so re-read it from the API rather than
+caching it.
+
+**`FILE_DRIVER=r2-presigned`** — for large PDFs, the browser uploads straight to
+R2: `POST /api/v1/files/upload` with `{ "fileName", "fileSize", "contentType" }`
+returns `{ file, uploadSignedUrl }`; `PUT` the bytes to `uploadSignedUrl` (same
+`Content-Type`, valid one hour), then use `file.path`.
+
+Errors: `422 { errors: { file: "cantUploadFileType" } }` for a rejected
+extension, `413` when over the size limit.
 
 ### 1. Course CRUD — `POST/GET/PATCH /admin/courses`
 
 **`POST /admin/courses`** — create (always starts `status: 'draft'`).
 ```json
 {
+  "courseId": "DNA-101",
   "title": "Intro to TypeScript",
   "shortDescription": "Learn the basics",
   "fullDescription": "<p>...</p>",
@@ -398,7 +448,12 @@ Everything below reflects the **actual running implementation** (verified agains
   "instructorId": 7
 }
 ```
-- `title`, `language`, `price`, `hasCertificate`, `enrollmentOpen` are required; everything else is optional.
+- `courseId`, `title`, `language`, `price`, `hasCertificate`, `enrollmentOpen` are required; everything else is optional.
+- **`courseId`** is the human-readable course code you choose (e.g. `DNA-101`) — **not** the UUID `id`. It is trimmed server-side, capped at 50 chars, and must be **unique across all courses**. A duplicate is rejected with:
+  ```json
+  { "status": 422, "errors": { "courseId": "alreadyExists" } }
+  ```
+  An empty/missing `courseId` is a plain `422` validation error from the DTO. Note this is the only uniqueness rule the client owns — unlike `slug`, the server does **not** auto-suffix a taken `courseId`, so surface the error on the field and let the admin pick another code.
 - `slug` is auto-generated from `title` (`slugify`, lowercased, collisions suffixed `-2`, `-3`, ...) — not settable by the client.
 - `introVideoUrl`, if given, is validated via the YouTube oEmbed API; an unreachable/invalid video → `422 { errors: { introVideoUrl: ... } }` (message from `YoutubeService`).
 - `levelId`/`categoryId` must be **active** `master_data_code` rows in the matching group, else `422 { errors: { levelId: "notExists" } }` (same for `categoryId`).
@@ -414,7 +469,7 @@ Response `200`: `{ "data": Course[], "hasNextPage": boolean }`.
 **`GET /admin/courses/:id`** — full detail, including nested curriculum. Response `200`:
 ```json
 {
-  "id": "...", "slug": "...", "title": "...", "status": "draft",
+  "id": "...", "courseId": "DNA-101", "slug": "...", "title": "...", "status": "draft",
   "shortDescription": "...", "fullDescription": "...", "thumbnailUrl": "...",
   "introVideoUrl": "...", "language": "en", "price": 0, "isFree": true,
   "hasCertificate": false, "enrollmentOpen": true,
@@ -444,6 +499,8 @@ Response `200`: `{ "data": Course[], "hasNextPage": boolean }`.
 > Note: `GET /admin/courses` (list) items use the plain `Course` shape (no `sections`/lists nesting) — only the single-course `GET /admin/courses/:id` includes the full curriculum + lists. Also note: **lecture-level content is not embedded here** — `lectureType` tells you which content sub-form to render, but you must call the content endpoint separately if you need the saved content payload (there is currently no `GET` for it; see the caveat in §5).
 
 **`PATCH /admin/courses/:id`** — partial update, any subset of the `POST` body fields. Omitted fields are left untouched (server strips `undefined` keys before merging, so there is no risk of accidentally nulling other fields). Same `introVideoUrl`/`levelId`/`categoryId`/`instructorId` validation as create. Response `200`: full `Course` object.
+
+`courseId` may be changed here and is re-checked for uniqueness, same `422 { errors: { courseId: "alreadyExists" } }` on collision. Re-sending the course's own current `courseId` is a no-op, not a conflict — so a form that always PATCHes the whole overview tab is safe.
 
 ### 2. Course Supporting Lists
 
@@ -535,7 +592,7 @@ Possible codes: `title`, `shortDescription`, `thumbnailUrl`, `levelId`, `categor
 
 ### Suggested FE flow
 
-1. `/admin/courses` → `GET /admin/courses?status=&levelId=&categoryId=` for the table; "Create Course" → `POST /admin/courses` with just `title`/`language`/`price`/`hasCertificate`/`enrollmentOpen`, then redirect straight into the editor.
+1. `/admin/courses` → `GET /admin/courses?status=&levelId=&categoryId=` for the table; "Create Course" → `POST /admin/courses` with just `courseId`/`title`/`language`/`price`/`hasCertificate`/`enrollmentOpen`, then redirect straight into the editor. If the create comes back `422` with `errors.courseId === 'alreadyExists'`, keep the admin on the create form with the error attached to the Course ID field — do not redirect.
 2. `/admin/courses/:id/edit` → `GET /admin/courses/:id` once on mount, feed the full response into `useCourseEditorStore.loadCourse(...)`.
 3. Tab 1 (Overview) → `PATCH /admin/courses/:id` on save; Tab 2 (Lists) → the three `PUT .../outcomes|requirements|target-learners` plus `PUT .../groups`.
 4. Tab 3 (Curriculum) → section/lecture CRUD + `.../reorder` + `.../move`; lecture drawer save → `PATCH /admin/lectures/:id/content`. If the response has `incompatibleContentCleared: true` and this wasn't expected, surface a toast ("previous content for this lecture was removed").

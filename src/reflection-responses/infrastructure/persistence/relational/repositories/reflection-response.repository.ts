@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { ReflectionResponseEntity } from '../entities/reflection-response.entity';
@@ -56,6 +57,16 @@ export class ReflectionResponseRelationalRepository implements ReflectionRespons
     return entities.map((entity) => ReflectionResponseMapper.toDomain(entity));
   }
 
+  async findByEnrollmentId(
+    enrollmentId: string,
+  ): Promise<ReflectionResponse[]> {
+    const entities = await this.reflectionResponseRepository.find({
+      where: { enrollment: { id: enrollmentId } },
+    });
+
+    return entities.map((entity) => ReflectionResponseMapper.toDomain(entity));
+  }
+
   async update(
     id: ReflectionResponse['id'],
     payload: Partial<ReflectionResponse>,
@@ -72,7 +83,7 @@ export class ReflectionResponseRelationalRepository implements ReflectionRespons
       this.reflectionResponseRepository.create(
         ReflectionResponseMapper.toPersistence({
           ...ReflectionResponseMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );
@@ -82,5 +93,11 @@ export class ReflectionResponseRelationalRepository implements ReflectionRespons
 
   async remove(id: ReflectionResponse['id']): Promise<void> {
     await this.reflectionResponseRepository.delete(id);
+  }
+
+  async removeByEnrollmentId(enrollmentId: string): Promise<void> {
+    await this.reflectionResponseRepository.delete({
+      enrollment: { id: enrollmentId },
+    });
   }
 }

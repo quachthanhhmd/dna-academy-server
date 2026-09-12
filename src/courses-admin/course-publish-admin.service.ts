@@ -15,6 +15,7 @@ import { LectureContentDocumentsService } from '../lecture-content-documents/lec
 import { LectureContentQuizzesService } from '../lecture-content-quizzes/lecture-content-quizzes.service';
 import { LectureContentReflectionsService } from '../lecture-content-reflections/lecture-content-reflections.service';
 import { User } from '../users/domain/user';
+import { CourseInstructorsService } from '../course-instructors/course-instructors.service';
 
 @Injectable()
 export class CoursePublishAdminService {
@@ -27,6 +28,7 @@ export class CoursePublishAdminService {
     private readonly lectureContentDocumentsService: LectureContentDocumentsService,
     private readonly lectureContentQuizzesService: LectureContentQuizzesService,
     private readonly lectureContentReflectionsService: LectureContentReflectionsService,
+    private readonly courseInstructorsService: CourseInstructorsService,
   ) {}
 
   async publish(courseId: Course['id'], userId: User['id']) {
@@ -70,6 +72,12 @@ export class CoursePublishAdminService {
     if (!course.thumbnailUrl) missingItems.push('thumbnailUrl');
     if (!course.level) missingItems.push('levelId');
     if (!course.category) missingItems.push('categoryId');
+
+    // Epic 5 makes the primary instructor optional on a draft but mandatory
+    // before the course is visible to students.
+    const { primaryInstructor } =
+      await this.courseInstructorsService.findViewByCourseId(course.id);
+    if (!primaryInstructor) missingItems.push('primaryInstructor');
 
     const sections = await this.sectionsService.findByCourseId(course.id);
     const lecturesPerSection = await Promise.all(

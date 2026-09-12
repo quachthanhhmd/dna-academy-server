@@ -22,6 +22,18 @@ export abstract class CareerReflectionQuestionRepository {
     ids: CareerReflectionQuestion['id'][],
   ): Promise<CareerReflectionQuestion[]>;
 
+  /**
+   * Epic 4.1 §3.2 — the admin listing. Unlike `findForCourse` this does not
+   * force `isActive = true` and does not fold in the global questions, because
+   * an author needs to see and edit both states.
+   */
+  abstract findForAdmin(filters: {
+    courseId?: string;
+    isActive?: boolean;
+  }): Promise<CareerReflectionQuestion[]>;
+
+  abstract findForCourse(courseId: string): Promise<CareerReflectionQuestion[]>;
+
   abstract update(
     id: CareerReflectionQuestion['id'],
     payload: DeepPartial<CareerReflectionQuestion>,

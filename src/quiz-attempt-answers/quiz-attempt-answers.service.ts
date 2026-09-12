@@ -176,6 +176,19 @@ export class QuizAttemptAnswersService {
     return this.quizAttemptAnswerRepository.findByIds(ids);
   }
 
+  findByAttemptId(attemptId: string) {
+    return this.quizAttemptAnswerRepository.findByAttemptId(attemptId);
+  }
+
+  removeByAttemptId(attemptId: string) {
+    return this.quizAttemptAnswerRepository.removeByAttemptId(attemptId);
+  }
+
+  /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
+  removeByEnrollmentId(enrollmentId: string) {
+    return this.quizAttemptAnswerRepository.removeByEnrollmentId(enrollmentId);
+  }
+
   async update(
     id: QuizAttemptAnswer['id'],
 

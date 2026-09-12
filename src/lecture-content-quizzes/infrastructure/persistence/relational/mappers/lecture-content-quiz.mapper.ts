@@ -11,6 +11,10 @@ export class LectureContentQuizMapper {
 
     domainEntity.passingScore = raw.passingScore;
 
+    domainEntity.passThresholdPercent = raw.passThresholdPercent;
+
+    domainEntity.timeLimitSecs = raw.timeLimitSecs;
+
     domainEntity.instructions = raw.instructions;
 
     if (raw.lecture) {
@@ -31,6 +35,10 @@ export class LectureContentQuizMapper {
     persistenceEntity.allowResume = domainEntity.allowResume;
 
     persistenceEntity.passingScore = domainEntity.passingScore;
+
+    persistenceEntity.passThresholdPercent = domainEntity.passThresholdPercent;
+
+    persistenceEntity.timeLimitSecs = domainEntity.timeLimitSecs;
 
     persistenceEntity.instructions = domainEntity.instructions;
 

@@ -9,6 +9,8 @@ import { CourseEntity } from '../entities/course.entity';
 export class CourseMapper {
   static toDomain(raw: CourseEntity): Course {
     const domainEntity = new Course();
+    domainEntity.courseId = raw.courseId;
+
     if (raw.createdBy) {
       domainEntity.createdBy = UserMapper.toDomain(raw.createdBy);
     } else if (raw.createdBy === null) {
@@ -23,6 +25,17 @@ export class CourseMapper {
 
     domainEntity.publishedAt = raw.publishedAt;
 
+    domainEntity.unpublishedAt = raw.unpublishedAt;
+
+    if (raw.unpublishedBy) {
+      domainEntity.unpublishedBy = UserMapper.toDomain(raw.unpublishedBy);
+    } else if (raw.unpublishedBy === null) {
+      domainEntity.unpublishedBy = null;
+    }
+
+    domainEntity.requiresSequentialCompletion =
+      raw.requiresSequentialCompletion;
+
     domainEntity.avgRating = raw.avgRating;
 
     domainEntity.totalEnrollments = raw.totalEnrollments;
@@ -32,12 +45,6 @@ export class CourseMapper {
     domainEntity.totalLectures = raw.totalLectures;
 
     domainEntity.totalSections = raw.totalSections;
-
-    if (raw.instructor) {
-      domainEntity.instructor = UserMapper.toDomain(raw.instructor);
-    } else if (raw.instructor === null) {
-      domainEntity.instructor = null;
-    }
 
     if (raw.category) {
       domainEntity.category = MasterDataCodeMapper.toDomain(raw.category);
@@ -84,6 +91,8 @@ export class CourseMapper {
 
   static toPersistence(domainEntity: Course): CourseEntity {
     const persistenceEntity = new CourseEntity();
+    persistenceEntity.courseId = domainEntity.courseId;
+
     if (domainEntity.createdBy) {
       persistenceEntity.createdBy = UserMapper.toPersistence(
         domainEntity.createdBy,
@@ -102,6 +111,19 @@ export class CourseMapper {
 
     persistenceEntity.publishedAt = domainEntity.publishedAt;
 
+    persistenceEntity.unpublishedAt = domainEntity.unpublishedAt;
+
+    if (domainEntity.unpublishedBy) {
+      persistenceEntity.unpublishedBy = UserMapper.toPersistence(
+        domainEntity.unpublishedBy,
+      );
+    } else if (domainEntity.unpublishedBy === null) {
+      persistenceEntity.unpublishedBy = null;
+    }
+
+    persistenceEntity.requiresSequentialCompletion =
+      domainEntity.requiresSequentialCompletion;
+
     persistenceEntity.avgRating = domainEntity.avgRating;
 
     persistenceEntity.totalEnrollments = domainEntity.totalEnrollments;
@@ -111,14 +133,6 @@ export class CourseMapper {
     persistenceEntity.totalLectures = domainEntity.totalLectures;
 
     persistenceEntity.totalSections = domainEntity.totalSections;
-
-    if (domainEntity.instructor) {
-      persistenceEntity.instructor = UserMapper.toPersistence(
-        domainEntity.instructor,
-      );
-    } else if (domainEntity.instructor === null) {
-      persistenceEntity.instructor = null;
-    }
 
     if (domainEntity.category) {
       persistenceEntity.category = MasterDataCodeMapper.toPersistence(

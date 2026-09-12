@@ -628,6 +628,20 @@ export class AuthService {
     return this.sessionService.deleteById(data.sessionId);
   }
 
+  /**
+   * Epic 6 UC-I18N-05 — persist the caller's preferred UI locale. The value is
+   * validated by the DTO against the supported set, so an unknown locale never
+   * reaches the column.
+   */
+  async updateLocale(
+    userId: User['id'],
+    locale: string,
+  ): Promise<ProfileResponseDto> {
+    await this.usersService.update(userId, { locale });
+
+    return this.getProfile(userId);
+  }
+
   async getProfile(userId: User['id']): Promise<ProfileResponseDto> {
     const user = await this.usersService.findById(userId);
 

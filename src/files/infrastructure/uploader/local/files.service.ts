@@ -26,11 +26,14 @@ export class FilesLocalService {
       });
     }
 
+    const apiPrefix = this.configService.get('app.apiPrefix', { infer: true });
+
     return {
       file: await this.fileRepository.create({
-        path: `/${this.configService.get('app.apiPrefix', {
-          infer: true,
-        })}/v1/${file.path}`,
+        // Built from the download route, not from file.path — the on-disk
+        // directory is configurable (FILE_LOCAL_PATH) while this URL must keep
+        // matching GET /:apiPrefix/v1/files/:path.
+        path: `/${apiPrefix}/v1/files/${file.filename}`,
       }),
     };
   }

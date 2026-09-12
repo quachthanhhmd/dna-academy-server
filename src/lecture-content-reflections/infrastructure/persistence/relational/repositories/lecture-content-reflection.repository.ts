@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { LectureContentReflectionEntity } from '../entities/lecture-content-reflection.entity';
@@ -88,7 +89,7 @@ export class LectureContentReflectionRelationalRepository implements LectureCont
       this.lectureContentReflectionRepository.create(
         LectureContentReflectionMapper.toPersistence({
           ...LectureContentReflectionMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

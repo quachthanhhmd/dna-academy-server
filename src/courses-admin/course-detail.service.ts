@@ -7,6 +7,7 @@ import { CourseLearningOutcomesService } from '../course-learning-outcomes/cours
 import { CourseRequirementsService } from '../course-requirements/course-requirements.service';
 import { CourseTargetLearnersService } from '../course-target-learners/course-target-learners.service';
 import { CourseGroupAssignmentsService } from '../course-group-assignments/course-group-assignments.service';
+import { CourseInstructorsService } from '../course-instructors/course-instructors.service';
 
 @Injectable()
 export class CourseDetailService {
@@ -18,6 +19,7 @@ export class CourseDetailService {
     private readonly courseRequirementsService: CourseRequirementsService,
     private readonly courseTargetLearnersService: CourseTargetLearnersService,
     private readonly courseGroupAssignmentsService: CourseGroupAssignmentsService,
+    private readonly courseInstructorsService: CourseInstructorsService,
   ) {}
 
   async findDetail(courseId: Course['id']) {
@@ -36,12 +38,14 @@ export class CourseDetailService {
       requirements,
       targetLearners,
       groupAssignments,
+      instructors,
     ] = await Promise.all([
       this.sectionsService.findByCourseId(courseId),
       this.courseLearningOutcomesService.findByCourseId(courseId),
       this.courseRequirementsService.findByCourseId(courseId),
       this.courseTargetLearnersService.findByCourseId(courseId),
       this.courseGroupAssignmentsService.findByCourseId(courseId),
+      this.courseInstructorsService.findViewByCourseId(courseId),
     ]);
 
     const sectionsWithLectures = await Promise.all(
@@ -58,6 +62,8 @@ export class CourseDetailService {
       requirements,
       targetLearners,
       groupIds: groupAssignments.map((assignment) => assignment.group.id),
+      primaryInstructor: instructors.primaryInstructor,
+      coInstructors: instructors.coInstructors,
     };
   }
 }

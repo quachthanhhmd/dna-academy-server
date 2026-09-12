@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -16,7 +17,9 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { MasterDataAdminService } from './master-data-admin.service';
 import { PermissionGuard } from '../authorization/permission.guard';
@@ -26,6 +29,10 @@ import { MasterDataCode } from '../master-data-codes/domain/master-data-code';
 import { MasterDataCodeWithCountDto } from './dto/master-data-code-with-count.dto';
 import { CreateMasterDataAdminCodeDto } from './dto/create-master-data-admin-code.dto';
 import { UpdateMasterDataAdminCodeDto } from './dto/update-master-data-admin-code.dto';
+import {
+  LocaleCoverageDto,
+  TranslationCoverageDto,
+} from './dto/translation-coverage.dto';
 
 @ApiTags('Admin / Master Data')
 @ApiBearerAuth()
@@ -61,6 +68,34 @@ export class MasterDataAdminController {
     @Param('groupKey') groupKey: string,
   ): Promise<MasterDataCodeWithCountDto[]> {
     return this.masterDataAdminService.findCodesForGroup(groupKey);
+  }
+
+  @ApiOperation({
+    summary: 'Per-locale translation coverage for a group',
+    description:
+      'Epic 6 §2.2.3 — powers the "missing translation" badge on ADM_MAS_13. ' +
+      'Counts active codes only unless includeInactive=true.',
+  })
+  @RequirePermission('master_data', 'view')
+  @Get('groups/:groupKey/translation-coverage')
+  @ApiParam({ name: 'groupKey', type: String })
+  @ApiQuery({ name: 'includeInactive', type: Boolean, required: false })
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      additionalProperties: { $ref: getSchemaPath(LocaleCoverageDto) },
+      example: { en: { total: 42, translated: 30, missingIds: ['uuid'] } },
+    },
+  })
+  @ApiNotFoundResponse()
+  translationCoverage(
+    @Param('groupKey') groupKey: string,
+    @Query('includeInactive') includeInactive?: string,
+  ): Promise<TranslationCoverageDto> {
+    return this.masterDataAdminService.translationCoverage(
+      groupKey,
+      includeInactive === 'true',
+    );
   }
 
   @ApiOperation({ summary: 'Create a code within a group' })

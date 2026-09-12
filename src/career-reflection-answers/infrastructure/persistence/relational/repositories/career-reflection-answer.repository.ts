@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { CareerReflectionAnswerEntity } from '../entities/career-reflection-answer.entity';
@@ -60,6 +61,18 @@ export class CareerReflectionAnswerRelationalRepository implements CareerReflect
     );
   }
 
+  async findByEnrollmentId(
+    enrollmentId: string,
+  ): Promise<CareerReflectionAnswer[]> {
+    const entities = await this.careerReflectionAnswerRepository.find({
+      where: { enrollment: { id: enrollmentId } },
+    });
+
+    return entities.map((entity) =>
+      CareerReflectionAnswerMapper.toDomain(entity),
+    );
+  }
+
   async update(
     id: CareerReflectionAnswer['id'],
     payload: Partial<CareerReflectionAnswer>,
@@ -76,7 +89,7 @@ export class CareerReflectionAnswerRelationalRepository implements CareerReflect
       this.careerReflectionAnswerRepository.create(
         CareerReflectionAnswerMapper.toPersistence({
           ...CareerReflectionAnswerMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );
@@ -86,5 +99,11 @@ export class CareerReflectionAnswerRelationalRepository implements CareerReflect
 
   async remove(id: CareerReflectionAnswer['id']): Promise<void> {
     await this.careerReflectionAnswerRepository.delete(id);
+  }
+
+  async removeByEnrollmentId(enrollmentId: string): Promise<void> {
+    await this.careerReflectionAnswerRepository.delete({
+      enrollment: { id: enrollmentId },
+    });
   }
 }

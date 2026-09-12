@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { SectionEntity } from '../entities/section.entity';
@@ -80,7 +81,7 @@ export class SectionRelationalRepository implements SectionRepository {
       this.sectionRepository.create(
         SectionMapper.toPersistence({
           ...SectionMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

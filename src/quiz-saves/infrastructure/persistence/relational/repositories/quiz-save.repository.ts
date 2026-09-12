@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { QuizSaveEntity } from '../entities/quiz-save.entity';
@@ -52,6 +53,20 @@ export class QuizSaveRelationalRepository implements QuizSaveRepository {
     return entities.map((entity) => QuizSaveMapper.toDomain(entity));
   }
 
+  async findByEnrollmentAndLecture(
+    enrollmentId: string,
+    lectureId: string,
+  ): Promise<NullableType<QuizSave>> {
+    const entity = await this.quizSaveRepository.findOne({
+      where: {
+        enrollment: { id: enrollmentId },
+        lecture: { id: lectureId },
+      },
+    });
+
+    return entity ? QuizSaveMapper.toDomain(entity) : null;
+  }
+
   async update(
     id: QuizSave['id'],
     payload: Partial<QuizSave>,
@@ -68,7 +83,7 @@ export class QuizSaveRelationalRepository implements QuizSaveRepository {
       this.quizSaveRepository.create(
         QuizSaveMapper.toPersistence({
           ...QuizSaveMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );
@@ -78,5 +93,9 @@ export class QuizSaveRelationalRepository implements QuizSaveRepository {
 
   async remove(id: QuizSave['id']): Promise<void> {
     await this.quizSaveRepository.delete(id);
+  }
+
+  async removeByEnrollmentId(enrollmentId: string): Promise<void> {
+    await this.quizSaveRepository.delete({ enrollment: { id: enrollmentId } });
   }
 }

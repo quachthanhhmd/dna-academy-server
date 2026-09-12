@@ -9,8 +9,8 @@ import { CoursesService } from '../courses/courses.service';
 import { Course } from '../courses/domain/course';
 import { MasterDataCodesService } from '../master-data-codes/master-data-codes.service';
 import { MasterDataCode } from '../master-data-codes/domain/master-data-code';
-import { UsersService } from '../users/users.service';
 import { User } from '../users/domain/user';
+import { CourseInstructorsAdminService } from './course-instructors-admin.service';
 import { YoutubeService } from '../youtube/youtube.service';
 import { CreateCourseAdminDto } from './dto/create-course-admin.dto';
 import { UpdateCourseAdminDto } from './dto/update-course-admin.dto';
@@ -21,11 +21,13 @@ export class CoursesAdminService {
   constructor(
     private readonly coursesService: CoursesService,
     private readonly masterDataCodesService: MasterDataCodesService,
-    private readonly usersService: UsersService,
     private readonly youtubeService: YoutubeService,
+    private readonly courseInstructorsAdminService: CourseInstructorsAdminService,
   ) {}
 
   async create(dto: CreateCourseAdminDto, createdByUserId: User['id']) {
+    await this.assertCourseIdAvailable(dto.courseId);
+
     if (dto.introVideoUrl) {
       await this.youtubeService.validateAndExtractVideoId(dto.introVideoUrl);
     }
@@ -40,13 +42,17 @@ export class CoursesAdminService {
           'categoryId',
         )
       : undefined;
-    const instructor = dto.instructorId
-      ? await this.resolveInstructor(dto.instructorId)
-      : undefined;
+    // Validated before the course row is written so a bad instructor payload
+    // cannot leave an orphaned draft behind.
+    await this.courseInstructorsAdminService.validateAssignable({
+      primaryInstructorId: dto.primaryInstructorId,
+      coInstructorIds: dto.coInstructorIds,
+    });
 
     const slug = await this.generateUniqueSlug(dto.title);
 
-    return this.coursesService.create({
+    const course = await this.coursesService.create({
+      courseId: dto.courseId,
       title: dto.title,
       shortDescription: dto.shortDescription,
       fullDescription: dto.fullDescription,
@@ -57,17 +63,25 @@ export class CoursesAdminService {
       isFree: dto.price === 0,
       hasCertificate: dto.hasCertificate,
       enrollmentOpen: dto.enrollmentOpen,
+      // Epic 4 v2 §2.1 — drives SequentialLockService in the player.
+      requiresSequentialCompletion: dto.requiresSequentialCompletion ?? false,
       status: 'draft',
       slug,
       level,
       category,
-      instructor,
       createdBy: { id: createdByUserId },
       totalSections: 0,
       totalLectures: 0,
       totalDurationSecs: 0,
       totalEnrollments: 0,
     });
+
+    await this.courseInstructorsAdminService.assign(course.id, {
+      primaryInstructorId: dto.primaryInstructorId,
+      coInstructorIds: dto.coInstructorIds,
+    });
+
+    return course;
   }
 
   findAllWithFilters(query: FindAllCoursesAdminDto) {
@@ -91,6 +105,10 @@ export class CoursesAdminService {
   async update(id: Course['id'], dto: UpdateCourseAdminDto) {
     const course = await this.findOrThrow(id);
 
+    if (dto.courseId !== undefined && dto.courseId !== course.courseId) {
+      await this.assertCourseIdAvailable(dto.courseId);
+    }
+
     if (dto.introVideoUrl && dto.introVideoUrl !== course.introVideoUrl) {
       await this.youtubeService.validateAndExtractVideoId(dto.introVideoUrl);
     }
@@ -111,24 +129,17 @@ export class CoursesAdminService {
             'categoryId',
           )
         : undefined;
-    const instructor =
-      dto.instructorId !== undefined
-        ? await this.resolveInstructor(dto.instructorId)
-        : undefined;
-
     const payload: Partial<Course> = { ...dto };
     delete (payload as Partial<UpdateCourseAdminDto>).levelId;
     delete (payload as Partial<UpdateCourseAdminDto>).categoryId;
-    delete (payload as Partial<UpdateCourseAdminDto>).instructorId;
+    delete (payload as Partial<UpdateCourseAdminDto>).primaryInstructorId;
+    delete (payload as Partial<UpdateCourseAdminDto>).coInstructorIds;
 
     if (level !== undefined) {
       payload.level = level;
     }
     if (category !== undefined) {
       payload.category = category;
-    }
-    if (instructor !== undefined) {
-      payload.instructor = instructor;
     }
     if (dto.price !== undefined) {
       payload.isFree = dto.price === 0;
@@ -144,7 +155,25 @@ export class CoursesAdminService {
       }
     }
 
-    return this.coursesService.update(id, payload);
+    const updated = await this.coursesService.update(id, payload);
+
+    await this.courseInstructorsAdminService.assign(id, {
+      primaryInstructorId: dto.primaryInstructorId,
+      coInstructorIds: dto.coInstructorIds,
+    });
+
+    return updated;
+  }
+
+  private async assertCourseIdAvailable(courseId: string): Promise<void> {
+    const existing = await this.coursesService.findByCourseId(courseId);
+
+    if (existing) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { courseId: 'alreadyExists' },
+      });
+    }
   }
 
   private async generateUniqueSlug(title: string): Promise<string> {
@@ -175,19 +204,6 @@ export class CoursesAdminService {
     }
 
     return code;
-  }
-
-  private async resolveInstructor(instructorId: number): Promise<User> {
-    const user = await this.usersService.findById(instructorId);
-
-    if (!user) {
-      throw new UnprocessableEntityException({
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        errors: { instructorId: 'notExists' },
-      });
-    }
-
-    return user;
   }
 
   private async findOrThrow(id: Course['id']): Promise<Course> {

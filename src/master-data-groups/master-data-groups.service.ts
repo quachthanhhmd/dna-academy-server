@@ -12,6 +12,11 @@ import { UpdateMasterDataGroupDto } from './dto/update-master-data-group.dto';
 import { MasterDataGroupRepository } from './infrastructure/persistence/master-data-group.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { MasterDataGroup } from './domain/master-data-group';
+import {
+  sanitizeTranslations,
+  withDefaultLocale,
+} from '../utils/i18n/translations';
+import { DeepPartial } from '../utils/types/deep-partial.type';
 
 @Injectable()
 export class MasterDataGroupsService {
@@ -47,6 +52,16 @@ export class MasterDataGroupsService {
     return this.masterDataGroupRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
+      nameTranslations: withDefaultLocale(
+        sanitizeTranslations(createMasterDataGroupDto.nameTranslations),
+        createMasterDataGroupDto.name,
+      ),
+
+      descriptionTranslations: withDefaultLocale(
+        sanitizeTranslations(createMasterDataGroupDto.descriptionTranslations),
+        createMasterDataGroupDto.description,
+      ),
+
       createdBy,
 
       displayOrder: createMasterDataGroupDto.displayOrder,
@@ -112,9 +127,13 @@ export class MasterDataGroupsService {
       createdBy = null;
     }
 
-    return this.masterDataGroupRepository.update(id, {
+    const payload: DeepPartial<MasterDataGroup> = {
       // Do not remove comment below.
       // <updating-property-payload />
+      nameTranslations: updateMasterDataGroupDto.nameTranslations,
+
+      descriptionTranslations: updateMasterDataGroupDto.descriptionTranslations,
+
       createdBy,
 
       displayOrder: updateMasterDataGroupDto.displayOrder,
@@ -126,7 +145,21 @@ export class MasterDataGroupsService {
       name: updateMasterDataGroupDto.name,
 
       groupKey: updateMasterDataGroupDto.groupKey,
-    });
+    };
+
+    // A partial update DTO carries every declared field as an own
+    // property (undefined when the caller omitted it), and the
+    // repository merges `{ ...current, ...payload }`. Strip the
+    // undefined keys so an untouched column — notably the Epic 6
+    // translation maps, which are NOT NULL with a CHECK constraint —
+    // cannot be clobbered.
+    for (const key of Object.keys(payload) as (keyof MasterDataGroup)[]) {
+      if (payload[key] === undefined) {
+        delete payload[key];
+      }
+    }
+
+    return this.masterDataGroupRepository.update(id, payload);
   }
 
   remove(id: MasterDataGroup['id']) {

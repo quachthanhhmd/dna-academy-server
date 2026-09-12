@@ -94,6 +94,22 @@ export class LectureProgressesService {
     return this.lectureProgressRepository.findByIds(ids);
   }
 
+  findByEnrollmentId(enrollmentId: string) {
+    return this.lectureProgressRepository.findByEnrollmentId(enrollmentId);
+  }
+
+  /** Epic 4.5 BE-1 — one query for a whole dashboard page. */
+  findByEnrollmentIds(enrollmentIds: string[]) {
+    return this.lectureProgressRepository.findByEnrollmentIds(enrollmentIds);
+  }
+
+  findByEnrollmentAndLecture(enrollmentId: string, lectureId: string) {
+    return this.lectureProgressRepository.findByEnrollmentAndLecture(
+      enrollmentId,
+      lectureId,
+    );
+  }
+
   async update(
     id: LectureProgress['id'],
 
@@ -155,5 +171,10 @@ export class LectureProgressesService {
 
   remove(id: LectureProgress['id']) {
     return this.lectureProgressRepository.remove(id);
+  }
+
+  /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
+  removeByEnrollmentId(enrollmentId: string) {
+    return this.lectureProgressRepository.removeByEnrollmentId(enrollmentId);
   }
 }

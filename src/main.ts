@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './load-env';
 import {
   ClassSerializerInterceptor,
   ValidationPipe,
@@ -39,7 +39,14 @@ async function bootstrap() {
   const options = new DocumentBuilder()
     .setTitle('DNA Academy API')
     .setDescription(
-      'DNA Academy backend API. Endpoints under "Auth" cover Epic 1 (registration, email/Facebook login, and student onboarding).',
+      [
+        'DNA Academy backend API.',
+        '',
+        '- **Auth** — Epic 1: registration, email/Facebook login, student onboarding.',
+        '- **Admin / Roles**, **Admin / Master Data** — Epic 2: roles, permissions and master data.',
+        '- **Admin / Courses** — Epic 3: course authoring, curriculum and publishing.',
+        '- **Course Catalog** — Epic 4: public course discovery, course overview and student enrollment.',
+      ].join('\n'),
     )
     .setVersion('1.0')
     .addBearerAuth()

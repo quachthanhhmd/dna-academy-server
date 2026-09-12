@@ -5,6 +5,7 @@ import { EnrollmentEntity } from '../../../../../enrollments/infrastructure/pers
 import {
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   ManyToOne,
@@ -12,6 +13,10 @@ import {
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
+@Index('IDX_lecture_progress_enrollment_status', ['enrollment', 'status'])
+@Index('UX_lecture_progress_enrollment_lecture', ['enrollment', 'lecture'], {
+  unique: true,
+})
 @Entity({
   name: 'lecture_progress',
 })

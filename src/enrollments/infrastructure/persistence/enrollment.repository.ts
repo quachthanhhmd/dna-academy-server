@@ -18,6 +18,33 @@ export abstract class EnrollmentRepository {
 
   abstract findByIds(ids: Enrollment['id'][]): Promise<Enrollment[]>;
 
+  abstract findByStudentAndCourse(
+    studentId: number,
+    courseId: string,
+  ): Promise<NullableType<Enrollment>>;
+
+  abstract findByStudentId(studentId: number): Promise<Enrollment[]>;
+
+  /**
+   * Which of the given courses this student holds a live enrollment in —
+   * Epic 4.4 §1.4 option A, the catalog's `isEnrolled` badge. `cancelled` is
+   * excluded: a student who left a course is not enrolled in it, and the
+   * partial unique index already treats those rows as not counting.
+   */
+  abstract findEnrolledCourseIds(
+    studentId: number,
+    courseIds: string[],
+  ): Promise<Set<string>>;
+
+  /**
+   * Number of distinct students enrolled across the given courses. Used for
+   * the instructor "total students" counter, where a student taking two of an
+   * instructor's courses must only be counted once.
+   */
+  abstract countDistinctStudentsByCourseIds(
+    courseIds: string[],
+  ): Promise<number>;
+
   abstract update(
     id: Enrollment['id'],
     payload: DeepPartial<Enrollment>,

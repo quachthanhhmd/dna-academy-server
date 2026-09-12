@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { QuizAttemptAnswerEntity } from '../entities/quiz-attempt-answer.entity';
@@ -56,6 +57,34 @@ export class QuizAttemptAnswerRelationalRepository implements QuizAttemptAnswerR
     return entities.map((entity) => QuizAttemptAnswerMapper.toDomain(entity));
   }
 
+  async findByAttemptId(attemptId: string): Promise<QuizAttemptAnswer[]> {
+    const entities = await this.quizAttemptAnswerRepository.find({
+      where: { attempt: { id: attemptId } },
+    });
+
+    return entities.map((entity) => QuizAttemptAnswerMapper.toDomain(entity));
+  }
+
+  async removeByAttemptId(attemptId: string): Promise<void> {
+    await this.quizAttemptAnswerRepository.delete({
+      attempt: { id: attemptId },
+    });
+  }
+
+  async removeByEnrollmentId(enrollmentId: string): Promise<void> {
+    // One statement rather than a fetch-then-delete loop: an enrollment can
+    // hold many attempts and the answers must go before the attempts they
+    // point at.
+    await this.quizAttemptAnswerRepository
+      .createQueryBuilder()
+      .delete()
+      .where(
+        '"attemptId" IN (SELECT "id" FROM "quiz_attempt" WHERE "enrollmentId" = :enrollmentId)',
+        { enrollmentId },
+      )
+      .execute();
+  }
+
   async update(
     id: QuizAttemptAnswer['id'],
     payload: Partial<QuizAttemptAnswer>,
@@ -72,7 +101,7 @@ export class QuizAttemptAnswerRelationalRepository implements QuizAttemptAnswerR
       this.quizAttemptAnswerRepository.create(
         QuizAttemptAnswerMapper.toPersistence({
           ...QuizAttemptAnswerMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

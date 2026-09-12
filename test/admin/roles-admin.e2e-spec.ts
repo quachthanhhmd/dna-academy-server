@@ -1,6 +1,11 @@
 import { describe, expect, it, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
+import {
+  loginSeededSuperAdmin,
+  makeSuperAdmin,
+  setUserRoles,
+} from '../utils/admin';
 
 const SUPER_ADMIN_ROLE_ID = 3;
 
@@ -22,27 +27,17 @@ describe('Admin / Roles', () => {
     return { token: body.token as string, userId: body.user.id as number };
   };
 
-  const assignRole = async (token: string, userId: number, roleId: number) => {
-    await request(app)
-      .post('/api/v1/user-roles')
-      .auth(token, { type: 'bearer' })
-      .send({
-        user: { id: userId },
-        role: { id: roleId },
-        assignedAt: new Date().toISOString(),
-      })
-      .expect(201);
-  };
-
+  let seededAdminToken: string;
   let superAdminToken: string;
   let plainUserToken: string;
 
   beforeAll(async () => {
+    seededAdminToken = await loginSeededSuperAdmin(app);
     const superAdmin = await registerAndLogin(
       `roles-admin.super.${runId}@example.com`,
     );
     superAdminToken = superAdmin.token;
-    await assignRole(superAdminToken, superAdmin.userId, SUPER_ADMIN_ROLE_ID);
+    await makeSuperAdmin(app, seededAdminToken, superAdmin.userId);
 
     const plainUser = await registerAndLogin(
       `roles-admin.plain.${runId}@example.com`,
@@ -171,7 +166,7 @@ describe('Admin / Roles', () => {
       const member = await registerAndLogin(
         `roles-admin.member.${runId}@example.com`,
       );
-      await assignRole(superAdminToken, member.userId, roleId);
+      await setUserRoles(app, superAdminToken, member.userId, [roleId]);
 
       await request(app)
         .delete(`/api/v1/admin/roles/${roleId}`)
@@ -181,17 +176,9 @@ describe('Admin / Roles', () => {
           expect(body.code).toBe('ROLE_HAS_USERS');
         });
 
-      // clean up the assignment so the next test can delete the role
-      const { body: userRoles } = await request(app)
-        .get(`/api/v1/user-roles?limit=50`)
-        .auth(superAdminToken, { type: 'bearer' });
-      const assignment = userRoles.data.find(
-        (ur) => ur.user.id === member.userId && ur.role.id === roleId,
-      );
-      await request(app)
-        .delete(`/api/v1/user-roles/${assignment.id}`)
-        .auth(superAdminToken, { type: 'bearer' })
-        .expect(200);
+      // Clear the assignment so the next test can delete the role. PUT
+      // replaces the whole set, so an empty array is the removal.
+      await setUserRoles(app, superAdminToken, member.userId, []);
     });
 
     it('should delete a role with no assigned users: DELETE /admin/roles/:id', async () => {

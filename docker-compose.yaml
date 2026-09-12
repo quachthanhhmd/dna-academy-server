@@ -34,8 +34,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    # The selected environment file, injected into the container.
+    # Defaults to env/.env.local when ENV_FILE is not set.
+    env_file:
+      - ${ENV_FILE:-./env/.env.local}
     ports:
       - ${APP_PORT}:${APP_PORT}
+    volumes:
+      # FILE_DRIVER=local writes here; without a volume every uploaded file is
+      # lost when the container is rebuilt.
+      - boilerplate-uploads:/usr/src/app/upload
 
 volumes:
   boilerplate-db:
+  boilerplate-uploads:

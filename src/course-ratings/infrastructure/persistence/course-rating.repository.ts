@@ -20,6 +20,19 @@ export abstract class CourseRatingRepository {
 
   abstract findByIds(ids: CourseRating['id'][]): Promise<CourseRating[]>;
 
+  abstract findByEnrollmentId(
+    enrollmentId: string,
+  ): Promise<NullableType<CourseRating>>;
+
+  abstract findApprovedByCourseId(
+    courseId: string,
+    paginationOptions: IPaginationOptions,
+  ): Promise<{ data: CourseRating[]; total: number }>;
+
+  abstract averageForCourse(
+    courseId: string,
+  ): Promise<{ average: number | null; count: number }>;
+
   abstract update(
     id: CourseRating['id'],
     payload: DeepPartial<CourseRating>,

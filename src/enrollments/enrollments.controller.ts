@@ -22,6 +22,8 @@ import {
 } from '@nestjs/swagger';
 import { Enrollment } from './domain/enrollment';
 import { AuthGuard } from '@nestjs/passport';
+import { PermissionGuard } from '../authorization/permission.guard';
+import { RequirePermission } from '../authorization/require-permission.decorator';
 import { OnboardingGuard } from '../auth/guards/onboarding.guard';
 import {
   InfinityPaginationResponse,
@@ -32,7 +34,14 @@ import { FindAllEnrollmentsDto } from './dto/find-all-enrollments.dto';
 
 @ApiTags('Enrollments')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
+/**
+ * Boilerplate-generated CRUD. It is admin-only: every route here reads or
+ * writes another student's learning record, and none of it enforces the rules
+ * the /learning endpoints do (sequential locking, grading, word counts,
+ * completion detection). Students use the purpose-built modules instead.
+ */
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@RequirePermission('courses', 'edit')
 @Controller({
   path: 'enrollments',
   version: '1',

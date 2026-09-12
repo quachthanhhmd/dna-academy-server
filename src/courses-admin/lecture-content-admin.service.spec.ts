@@ -248,6 +248,148 @@ describe('LectureContentAdminService', () => {
       ).rejects.toBeInstanceOf(UnprocessableEntityException);
     });
 
+    it('should persist the optional quiz time limit', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('quiz'));
+      lectureContentQuizzesService.create.mockResolvedValue({ id: 'q-1' });
+      quizQuestionsService.findByLectureId.mockResolvedValueOnce([]);
+
+      await service.save('lecture-1', {
+        lectureType: 'quiz',
+        passingScore: 70,
+        allowResume: true,
+        timeLimitSecs: 900,
+      } as any);
+
+      expect(lectureContentQuizzesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ timeLimitSecs: 900 }),
+      );
+    });
+
+    it('should store a null time limit when none is given', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('quiz'));
+      lectureContentQuizzesService.create.mockResolvedValue({ id: 'q-1' });
+      quizQuestionsService.findByLectureId.mockResolvedValueOnce([]);
+
+      await service.save('lecture-1', {
+        lectureType: 'quiz',
+        passingScore: 70,
+        allowResume: true,
+      } as any);
+
+      expect(lectureContentQuizzesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ timeLimitSecs: null }),
+      );
+    });
+
+    // Epic 4 v2.3 §5.8 — ADM_CUR_15 gains an "Explanation" textarea per
+    // question. It is the only way the column can ever be populated.
+    it('should persist a question explanation', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('quiz'));
+      lectureContentQuizzesService.create.mockResolvedValue({ id: 'q-1' });
+      quizQuestionsService.findByLectureId.mockResolvedValueOnce([]);
+      quizQuestionsService.create.mockResolvedValue({ id: 'question-1' });
+
+      await service.save('lecture-1', {
+        lectureType: 'quiz',
+        passingScore: 70,
+        allowResume: true,
+        quizQuestions: [
+          {
+            questionText: 'Q1?',
+            questionType: 'multiple_choice',
+            isRequired: true,
+            displayOrder: 1,
+            explanation: 'A follows from B.',
+          },
+        ],
+      } as any);
+
+      expect(quizQuestionsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ explanation: 'A follows from B.' }),
+      );
+    });
+
+    it('should clear the explanation when the textarea is emptied', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('quiz'));
+      lectureContentQuizzesService.create.mockResolvedValue({ id: 'q-1' });
+      quizQuestionsService.findByLectureId.mockResolvedValueOnce([]);
+      quizQuestionsService.create.mockResolvedValue({ id: 'question-1' });
+
+      await service.save('lecture-1', {
+        lectureType: 'quiz',
+        passingScore: 70,
+        allowResume: true,
+        quizQuestions: [
+          {
+            questionText: 'Q1?',
+            questionType: 'multiple_choice',
+            isRequired: true,
+            displayOrder: 1,
+          },
+        ],
+      } as any);
+
+      expect(quizQuestionsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ explanation: null }),
+      );
+    });
+
+    // Epic 4 v2.1 §5.8 — ADM_CUR_15 gains a "Pass threshold (%)" input. It has
+    // to reach the column, or the threshold is readable but never writable.
+    it('should persist the pass threshold from the editor', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('quiz'));
+      lectureContentQuizzesService.create.mockResolvedValue({ id: 'q-1' });
+      quizQuestionsService.findByLectureId.mockResolvedValueOnce([]);
+
+      await service.save('lecture-1', {
+        lectureType: 'quiz',
+        passingScore: 70,
+        passThresholdPercent: 85,
+        allowResume: true,
+      } as any);
+
+      expect(lectureContentQuizzesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ passThresholdPercent: 85 }),
+      );
+    });
+
+    it('should leave the threshold to the env default when the editor omits it', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('quiz'));
+      lectureContentQuizzesService.create.mockResolvedValue({ id: 'q-1' });
+      quizQuestionsService.findByLectureId.mockResolvedValueOnce([]);
+
+      await service.save('lecture-1', {
+        lectureType: 'quiz',
+        passingScore: 70,
+        allowResume: true,
+      } as any);
+
+      expect(lectureContentQuizzesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ passThresholdPercent: undefined }),
+      );
+    });
+
+    it('should persist an explicit zero threshold rather than dropping it', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('quiz'));
+      lectureContentQuizzesService.update.mockResolvedValue({ id: 'q-1' });
+      lectureContentQuizzesService.findByLectureId.mockResolvedValue({
+        id: 'q-1',
+      });
+      quizQuestionsService.findByLectureId.mockResolvedValueOnce([]);
+
+      await service.save('lecture-1', {
+        lectureType: 'quiz',
+        passingScore: 70,
+        passThresholdPercent: 0,
+        allowResume: true,
+      } as any);
+
+      expect(lectureContentQuizzesService.update).toHaveBeenCalledWith(
+        'q-1',
+        expect.objectContaining({ passThresholdPercent: 0 }),
+      );
+    });
+
     it('should upsert quiz content and replace questions + options', async () => {
       lecturesService.findById.mockResolvedValue(lecture('quiz'));
       lectureContentQuizzesService.create.mockResolvedValue({ id: 'q-1' });
@@ -265,7 +407,7 @@ describe('LectureContentAdminService', () => {
         quizQuestions: [
           {
             questionText: 'Q1?',
-            questionType: 'single_choice',
+            questionType: 'multiple_choice',
             isRequired: true,
             displayOrder: 1,
             options: [

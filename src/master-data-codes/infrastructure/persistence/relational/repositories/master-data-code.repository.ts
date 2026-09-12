@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository, In } from 'typeorm';
 import { MasterDataCodeEntity } from '../entities/master-data-code.entity';
@@ -95,7 +96,7 @@ export class MasterDataCodeRelationalRepository implements MasterDataCodeReposit
       this.masterDataCodeRepository.create(
         MasterDataCodeMapper.toPersistence({
           ...MasterDataCodeMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

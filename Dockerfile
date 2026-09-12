@@ -16,7 +16,8 @@ RUN sed -i 's/\r//g' /opt/wait-for-it.sh
 RUN sed -i 's/\r//g' /opt/startup.relational.dev.sh
 
 WORKDIR /usr/src/app
-RUN if [ ! -f .env ]; then cp env-example-relational .env; fi
+# No env file is baked into the image: docker-compose injects the selected
+# env/.env.<name> file at runtime via `env_file:`.
 RUN npm run build
 
 CMD ["/opt/startup.relational.dev.sh"]

@@ -5,12 +5,16 @@ import {
   // do not remove this comment
   Module,
 } from '@nestjs/common';
+import { AuthorizationModule } from '../authorization/authorization.module';
 import { CourseRatingsService } from './course-ratings.service';
 import { CourseRatingsController } from './course-ratings.controller';
 import { RelationalCourseRatingPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
   imports: [
+    // PermissionGuard is applied via @UseGuards on this module's controller,
+    // so Nest builds it here and needs its own dependencies in scope.
+    AuthorizationModule,
     CoursesModule,
 
     UsersModule,

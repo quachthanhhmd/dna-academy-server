@@ -1,16 +1,31 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
-  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  MaxLength,
   Min,
 } from 'class-validator';
 
 export class CreateCourseAdminDto {
+  @ApiProperty({
+    example: 'DNA-101',
+    description:
+      'Human-readable course code, unique across all courses. Distinct from ' +
+      'the generated UUID `id`. Duplicates are rejected with 422 ' +
+      '{ errors: { courseId: "alreadyExists" } }.',
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(50)
+  courseId: string;
+
   @ApiProperty({ example: 'Intro to TypeScript' })
   @IsNotEmpty()
   @IsString()
@@ -57,6 +72,16 @@ export class CreateCourseAdminDto {
   enrollmentOpen: boolean;
 
   @ApiPropertyOptional({
+    default: false,
+    description:
+      'Epic 4 v2 — when true the player refuses a lecture until the previous ' +
+      'required one is completed.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  requiresSequentialCompletion?: boolean;
+
+  @ApiPropertyOptional({
     description: 'master_data_code id from the course_level group.',
   })
   @IsOptional()
@@ -70,8 +95,23 @@ export class CreateCourseAdminDto {
   @IsUUID()
   categoryId?: string;
 
-  @ApiPropertyOptional({ description: 'User id of the instructor.' })
+  @ApiPropertyOptional({
+    description:
+      'instructors.id of the primary instructor. Optional while the course ' +
+      'is a draft, but required to publish it.',
+  })
   @IsOptional()
-  @IsInt()
-  instructorId?: number;
+  @IsUUID()
+  primaryInstructorId?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'instructors.id list of co-instructors. Must not contain ' +
+      'primaryInstructorId, and every id must belong to an active instructor.',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  coInstructorIds?: string[];
 }

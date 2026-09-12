@@ -11,6 +11,7 @@ import { S3Client } from '@aws-sdk/client-s3';
 import multerS3 from 'multer-s3';
 
 import { FilesS3Service } from './files.service';
+import { FileUploaderService } from '../file-uploader.service';
 
 import { RelationalFilePersistenceModule } from '../../persistence/relational/relational-persistence.module';
 import { AllConfigType } from '../../../../config/config.type';
@@ -74,7 +75,13 @@ import { AllConfigType } from '../../../../config/config.type';
     }),
   ],
   controllers: [FilesS3Controller],
-  providers: [FilesS3Service],
-  exports: [FilesS3Service],
+  providers: [
+    FilesS3Service,
+    // Lets a feature module upload through whichever driver is active.
+    { provide: FileUploaderService, useExisting: FilesS3Service },
+  ],
+  // MulterModule carries this driver's multer options, which any
+  // consumer's FileInterceptor needs in scope to store the bytes.
+  exports: [FilesS3Service, FileUploaderService, MulterModule],
 })
 export class FilesS3Module {}
