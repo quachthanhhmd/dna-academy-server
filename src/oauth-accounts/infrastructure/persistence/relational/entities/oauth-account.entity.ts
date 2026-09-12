@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   Column,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
@@ -15,44 +16,50 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class OauthAccountEntity extends EntityRelationalHelper {
   @Column({
+    name: 'token_expires_at',
     nullable: true,
     type: Date,
   })
   tokenExpiresAt?: Date | null;
 
   @Column({
+    name: 'refresh_token',
     nullable: true,
     type: String,
   })
   refreshToken?: string | null;
 
   @Column({
+    name: 'access_token',
     nullable: true,
     type: String,
   })
   accessToken?: string | null;
 
   @Column({
+    name: 'provider_uid',
     nullable: false,
     type: String,
   })
   providerUid: string;
 
   @Column({
+    name: 'provider',
     nullable: false,
     type: String,
   })
   provider: string;
 
   @ManyToOne(() => UserEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'user_id' })
   user: UserEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

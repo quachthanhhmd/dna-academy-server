@@ -16,33 +16,36 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class LectureContentDocumentEntity extends EntityRelationalHelper {
   @Column({
+    name: 'is_downloadable',
     nullable: false,
     type: Boolean,
   })
   isDownloadable: boolean;
 
   @Column({
+    name: 'file_name',
     nullable: true,
     type: String,
   })
   fileName?: string | null;
 
   @Column({
+    name: 'file_url',
     nullable: false,
     type: String,
   })
   fileUrl: string;
 
   @OneToOne(() => LectureEntity, { eager: true, nullable: false })
-  @JoinColumn()
+  @JoinColumn({ name: 'lecture_id' })
   lecture: LectureEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

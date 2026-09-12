@@ -16,21 +16,22 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class LectureContentReflectionEntity extends EntityRelationalHelper {
   @Column({
+    name: 'min_response_length',
     nullable: false,
     type: Number,
   })
   minResponseLength: number;
 
   @OneToOne(() => LectureEntity, { eager: true, nullable: false })
-  @JoinColumn()
+  @JoinColumn({ name: 'lecture_id' })
   lecture: LectureEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

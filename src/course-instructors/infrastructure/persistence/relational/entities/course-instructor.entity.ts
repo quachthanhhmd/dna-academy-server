@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   Column,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
@@ -40,12 +41,15 @@ export class CourseInstructorEntity extends EntityRelationalHelper {
     nullable: false,
     onDelete: 'CASCADE',
   })
+  @JoinColumn({ name: 'course_id' })
   course: CourseEntity;
 
   @ManyToOne(() => InstructorEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'instructor_id' })
   instructor: InstructorEntity;
 
   @Column({
+    name: 'role',
     nullable: false,
     type: String,
     default: 'primary',
@@ -53,6 +57,7 @@ export class CourseInstructorEntity extends EntityRelationalHelper {
   role: string;
 
   @Column({
+    name: 'display_order',
     nullable: false,
     type: Number,
     default: 0,
@@ -62,9 +67,9 @@ export class CourseInstructorEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

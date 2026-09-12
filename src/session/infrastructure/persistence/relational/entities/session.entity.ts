@@ -7,6 +7,7 @@ import {
   DeleteDateColumn,
   Column,
   UpdateDateColumn,
+  JoinColumn,
 } from 'typeorm';
 import { UserEntity } from '../../../../../users/infrastructure/persistence/relational/entities/user.entity';
 
@@ -22,18 +23,19 @@ export class SessionEntity extends EntityRelationalHelper {
   @ManyToOne(() => UserEntity, {
     eager: true,
   })
+  @JoinColumn({ name: 'user_id' })
   @Index()
   user: UserEntity;
 
-  @Column()
+  @Column({ name: 'hash' })
   hash: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn({ name: 'deleted_at' })
   deletedAt: Date;
 }

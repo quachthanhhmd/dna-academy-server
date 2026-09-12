@@ -9,6 +9,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
@@ -28,17 +29,19 @@ export class InstructorExpertiseEntity extends EntityRelationalHelper {
     nullable: false,
     onDelete: 'CASCADE',
   })
+  @JoinColumn({ name: 'instructor_id' })
   instructor: InstructorEntity;
 
   @ManyToOne(() => MasterDataCodeEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'expertise_code_id' })
   expertiseCode: MasterDataCodeEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

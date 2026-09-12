@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   Column,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
@@ -17,18 +18,21 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class CareerReflectionAnswerEntity extends EntityRelationalHelper {
   @Column({
+    name: 'submitted_at',
     nullable: false,
     type: Date,
   })
   submittedAt?: Date;
 
   @Column({
+    name: 'text_answer',
     nullable: true,
     type: String,
   })
   textAnswer?: string | null;
 
   @Column({
+    name: 'rating_answer',
     nullable: true,
     type: Number,
   })
@@ -38,17 +42,19 @@ export class CareerReflectionAnswerEntity extends EntityRelationalHelper {
     eager: true,
     nullable: false,
   })
+  @JoinColumn({ name: 'question_id' })
   question: CareerReflectionQuestionEntity;
 
   @ManyToOne(() => EnrollmentEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'enrollment_id' })
   enrollment: EnrollmentEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

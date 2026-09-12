@@ -9,6 +9,6 @@ export class StatusEntity extends EntityRelationalHelper {
   @PrimaryColumn()
   id: number;
 
-  @Column()
+  @Column({ name: 'name' })
   name?: string;
 }

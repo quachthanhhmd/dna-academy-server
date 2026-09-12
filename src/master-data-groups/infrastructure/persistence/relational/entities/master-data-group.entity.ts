@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
   Column,
   ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 import { TranslationMap } from '../../../../../utils/i18n/translation-map.type';
@@ -16,28 +17,32 @@ import { TranslationMap } from '../../../../../utils/i18n/translation-map.type';
 // layer seeds it, this is the last line of defense.
 @Check(
   'CK_master_data_group_name_has_default_locale',
-  `"nameTranslations" ? 'vi'`,
+  `"name_translations" ? 'vi'`,
 )
 @Entity({
   name: 'master_data_group',
 })
 export class MasterDataGroupEntity extends EntityRelationalHelper {
   @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @JoinColumn({ name: 'created_by_id' })
   createdBy?: UserEntity | null;
 
   @Column({
+    name: 'display_order',
     nullable: false,
     type: Number,
   })
   displayOrder: number;
 
   @Column({
+    name: 'is_active',
     nullable: false,
     type: Boolean,
   })
   isActive: boolean;
 
   @Column({
+    name: 'description',
     nullable: true,
     type: String,
   })
@@ -45,6 +50,7 @@ export class MasterDataGroupEntity extends EntityRelationalHelper {
 
   // Epic 6 — see the identical pair on MasterDataCodeEntity.
   @Column({
+    name: 'name_translations',
     nullable: false,
     type: 'jsonb',
     default: {},
@@ -52,6 +58,7 @@ export class MasterDataGroupEntity extends EntityRelationalHelper {
   nameTranslations: TranslationMap;
 
   @Column({
+    name: 'description_translations',
     nullable: false,
     type: 'jsonb',
     default: {},
@@ -59,12 +66,14 @@ export class MasterDataGroupEntity extends EntityRelationalHelper {
   descriptionTranslations: TranslationMap;
 
   @Column({
+    name: 'name',
     nullable: false,
     type: String,
   })
   name: string;
 
   @Column({
+    name: 'group_key',
     nullable: false,
     type: String,
   })
@@ -73,9 +82,9 @@ export class MasterDataGroupEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

@@ -23,45 +23,51 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class CourseRatingEntity extends EntityRelationalHelper {
   @Column({
+    name: 'submitted_at',
     nullable: false,
     type: Date,
   })
   submittedAt?: Date;
 
   @Column({
+    name: 'review_status',
     nullable: false,
     type: String,
   })
   reviewStatus: string;
 
   @Column({
+    name: 'review_text',
     nullable: true,
     type: String,
   })
   reviewText?: string | null;
 
   @Column({
+    name: 'rating',
     nullable: false,
     type: Number,
   })
   rating: number;
 
   @ManyToOne(() => CourseEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'course_id' })
   course: CourseEntity;
 
   @ManyToOne(() => UserEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'student_id' })
   student: UserEntity;
 
   @OneToOne(() => EnrollmentEntity, { eager: true, nullable: false })
-  @JoinColumn()
+  @JoinColumn({ name: 'enrollment_id' })
   enrollment: EnrollmentEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

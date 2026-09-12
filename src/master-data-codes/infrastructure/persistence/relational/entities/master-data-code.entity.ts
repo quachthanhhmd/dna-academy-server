@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   Column,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 import { TranslationMap } from '../../../../../utils/i18n/translation-map.type';
@@ -24,34 +25,39 @@ import { TranslationMap } from '../../../../../utils/i18n/translation-map.type';
 // layer seeds it, this is the last line of defense.
 @Check(
   'CK_master_data_code_name_has_default_locale',
-  `"nameTranslations" ? 'vi'`,
+  `"name_translations" ? 'vi'`,
 )
 @Entity({
   name: 'master_data_code',
 })
 export class MasterDataCodeEntity extends EntityRelationalHelper {
   @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @JoinColumn({ name: 'created_by_id' })
   createdBy?: UserEntity | null;
 
   @Column({
+    name: 'display_order',
     nullable: false,
     type: Number,
   })
   displayOrder: number;
 
   @Column({
+    name: 'is_active',
     nullable: false,
     type: Boolean,
   })
   isActive: boolean;
 
   @Column({
+    name: 'thumbnail_url',
     nullable: true,
     type: String,
   })
   thumbnailUrl?: string | null;
 
   @Column({
+    name: 'description',
     nullable: true,
     type: String,
   })
@@ -61,6 +67,7 @@ export class MasterDataCodeEntity extends EntityRelationalHelper {
   // locale lives here as { "<locale>": "<value>" }. The DB CHECK constraint
   // added by the migration guarantees the `vi` key is always present.
   @Column({
+    name: 'name_translations',
     nullable: false,
     type: 'jsonb',
     default: {},
@@ -68,6 +75,7 @@ export class MasterDataCodeEntity extends EntityRelationalHelper {
   nameTranslations: TranslationMap;
 
   @Column({
+    name: 'description_translations',
     nullable: false,
     type: 'jsonb',
     default: {},
@@ -75,26 +83,29 @@ export class MasterDataCodeEntity extends EntityRelationalHelper {
   descriptionTranslations: TranslationMap;
 
   @Column({
+    name: 'name',
     nullable: false,
     type: String,
   })
   name: string;
 
   @Column({
+    name: 'code',
     nullable: false,
     type: String,
   })
   code: string;
 
   @ManyToOne(() => MasterDataGroupEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'group_id' })
   group: MasterDataGroupEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

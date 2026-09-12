@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
@@ -16,17 +17,19 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class CourseGroupAssignmentEntity extends EntityRelationalHelper {
   @ManyToOne(() => MasterDataCodeEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'group_id' })
   group: MasterDataCodeEntity;
 
   @ManyToOne(() => CourseEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'course_id' })
   course: CourseEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

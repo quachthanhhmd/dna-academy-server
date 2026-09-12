@@ -1,5 +1,21 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
-import { COURSE_SEARCH_VECTOR_EXPRESSION } from '../../courses/infrastructure/persistence/relational/course-search.sql';
+/**
+ * The generation expression **as it was when this migration ran**, frozen here
+ * as a literal rather than imported from `course-search.sql`.
+ *
+ * A migration describes a transition between two fixed schema states, so it
+ * cannot depend on a constant the application is free to change: the columns
+ * were still camelCase at this point in history, and
+ * `RenameColumnsToSnakeCase` (which runs later) is what moves both the column
+ * and the `typeorm_metadata` row to their snake_case spelling. Importing the
+ * live constant would rewrite this migration's SQL every time that constant
+ * moved, and a fresh database would fail here on columns that do not exist
+ * yet.
+ */
+const COURSE_SEARCH_VECTOR_EXPRESSION =
+  `setweight(to_tsvector('vi_unaccent', coalesce("title", '')), 'A') || ` +
+  `setweight(to_tsvector('vi_unaccent', coalesce("shortDescription", '')), 'B') || ` +
+  `setweight(to_tsvector('vi_unaccent', coalesce("fullDescription", '')), 'C')`;
 
 /**
  * Epic 4.4 §1.5 — Vietnamese-aware full-text search for the course catalog.

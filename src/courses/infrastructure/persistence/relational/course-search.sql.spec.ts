@@ -40,21 +40,21 @@ describe('course search SQL', () => {
 
   it('should match the stored vector against that tsquery', () => {
     expect(searchMatchSql('course')).toBe(
-      `course."searchVector" @@ ${searchQuerySql()}`,
+      `course."search_vector" @@ ${searchQuerySql()}`,
     );
   });
 
   it('should rank against the identical tsquery it matched on', () => {
     expect(searchRankSql('course')).toContain(searchQuerySql());
     expect(searchRankSql('course')).toBe(
-      `ts_rank(course."searchVector", ${searchQuerySql()})`,
+      `ts_rank(course."search_vector", ${searchQuerySql()})`,
     );
   });
 
   it('should unaccent both the column and the bound term', () => {
-    const sql = unaccentIlikeSql('"i"."fullName"', 'searchLike');
+    const sql = unaccentIlikeSql('"i"."full_name"', 'searchLike');
 
-    expect(sql).toBe('unaccent("i"."fullName") ILIKE unaccent(:searchLike)');
+    expect(sql).toBe('unaccent("i"."full_name") ILIKE unaccent(:searchLike)');
   });
 
   /**
@@ -72,8 +72,8 @@ describe('course search SQL', () => {
   it('should keep the generation expression byte-identical to the migration', () => {
     expect(COURSE_SEARCH_VECTOR_EXPRESSION).toBe(
       `setweight(to_tsvector('vi_unaccent', coalesce("title", '')), 'A') || ` +
-        `setweight(to_tsvector('vi_unaccent', coalesce("shortDescription", '')), 'B') || ` +
-        `setweight(to_tsvector('vi_unaccent', coalesce("fullDescription", '')), 'C')`,
+        `setweight(to_tsvector('vi_unaccent', coalesce("short_description", '')), 'B') || ` +
+        `setweight(to_tsvector('vi_unaccent', coalesce("full_description", '')), 'C')`,
     );
   });
 
@@ -82,7 +82,7 @@ describe('course search SQL', () => {
 
     expect(weights.map((match) => match[1])).toEqual(['A', 'B', 'C']);
     expect(COURSE_SEARCH_VECTOR_EXPRESSION.indexOf('"title"')).toBeLessThan(
-      COURSE_SEARCH_VECTOR_EXPRESSION.indexOf('"fullDescription"'),
+      COURSE_SEARCH_VECTOR_EXPRESSION.indexOf('"full_description"'),
     );
   });
 
@@ -91,7 +91,7 @@ describe('course search SQL', () => {
   });
 
   it('should honour the alias it is given', () => {
-    expect(searchMatchSql('c')).toContain('c."searchVector"');
-    expect(searchRankSql('c')).toContain('c."searchVector"');
+    expect(searchMatchSql('c')).toContain('c."search_vector"');
+    expect(searchRankSql('c')).toContain('c."search_vector"');
   });
 });

@@ -79,7 +79,7 @@ export class QuizAttemptAnswerRelationalRepository implements QuizAttemptAnswerR
       .createQueryBuilder()
       .delete()
       .where(
-        '"attemptId" IN (SELECT "id" FROM "quiz_attempt" WHERE "enrollmentId" = :enrollmentId)',
+        '"attempt_id" IN (SELECT "id" FROM "quiz_attempt" WHERE "enrollment_id" = :enrollmentId)',
         { enrollmentId },
       )
       .execute();

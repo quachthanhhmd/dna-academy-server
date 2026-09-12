@@ -11,6 +11,6 @@ export class FileEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ name: 'path' })
   path: string;
 }

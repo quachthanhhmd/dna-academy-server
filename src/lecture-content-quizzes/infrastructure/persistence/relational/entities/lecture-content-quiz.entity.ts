@@ -12,22 +12,24 @@ import {
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
-@Check('CK_quiz_passing_score_0_100', `"passingScore" BETWEEN 0 AND 100`)
+@Check('CK_quiz_passing_score_0_100', `"passing_score" BETWEEN 0 AND 100`)
 @Check(
   'CK_quiz_pass_threshold_0_100',
-  `"passThresholdPercent" BETWEEN 0 AND 100`,
+  `"pass_threshold_percent" BETWEEN 0 AND 100`,
 )
 @Entity({
   name: 'lecture_content_quiz',
 })
 export class LectureContentQuizEntity extends EntityRelationalHelper {
   @Column({
+    name: 'allow_resume',
     nullable: false,
     type: Boolean,
   })
   allowResume: boolean;
 
   @Column({
+    name: 'passing_score',
     nullable: false,
     type: Number,
   })
@@ -37,6 +39,7 @@ export class LectureContentQuizEntity extends EntityRelationalHelper {
   // default is a fixed 70 so the migration is deterministic; the application
   // overrides it from QUIZ_PASS_THRESHOLD_DEFAULT when creating a row.
   @Column({
+    name: 'pass_threshold_percent',
     nullable: false,
     type: 'smallint',
     default: 70,
@@ -45,27 +48,29 @@ export class LectureContentQuizEntity extends EntityRelationalHelper {
 
   // Epic 4 v2 §2.1 — NULL means the quiz is untimed and the FE hides the timer.
   @Column({
+    name: 'time_limit_secs',
     nullable: true,
     type: Number,
   })
   timeLimitSecs?: number | null;
 
   @Column({
+    name: 'instructions',
     nullable: true,
     type: String,
   })
   instructions?: string | null;
 
   @OneToOne(() => LectureEntity, { eager: true, nullable: false })
-  @JoinColumn()
+  @JoinColumn({ name: 'lecture_id' })
   lecture: LectureEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

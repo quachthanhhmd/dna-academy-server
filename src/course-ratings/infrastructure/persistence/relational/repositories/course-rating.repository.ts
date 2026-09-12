@@ -88,7 +88,7 @@ export class CourseRatingRelationalRepository implements CourseRatingRepository 
       .createQueryBuilder('rating')
       .select('AVG(rating.rating)', 'average')
       .addSelect('COUNT(rating.id)', 'count')
-      .where('rating.courseId = :courseId', { courseId })
+      .where('rating.course = :courseId', { courseId })
       .getRawOne<{ average: string | null; count: string }>();
 
     return {

@@ -63,8 +63,8 @@ export class InstructorRelationalRepository implements InstructorRepository {
       query.andWhere(
         `EXISTS (
           SELECT 1 FROM "instructor_expertise" "ie"
-          WHERE "ie"."instructorId" = instructor.id
-            AND "ie"."expertiseCodeId" = :expertiseCodeId
+          WHERE "ie"."instructor_id" = instructor.id
+            AND "ie"."expertise_code_id" = :expertiseCodeId
         )`,
         { expertiseCodeId: filterOptions.expertiseCodeId },
       );
@@ -74,8 +74,8 @@ export class InstructorRelationalRepository implements InstructorRepository {
       query.andWhere(
         `EXISTS (
           SELECT 1 FROM "course_instructor" "ci"
-          JOIN "course" "c" ON "c"."id" = "ci"."courseId"
-          WHERE "ci"."instructorId" = instructor.id
+          JOIN "course" "c" ON "c"."id" = "ci"."course_id"
+          WHERE "ci"."instructor_id" = instructor.id
             AND "c"."status" = 'published'
         )`,
       );

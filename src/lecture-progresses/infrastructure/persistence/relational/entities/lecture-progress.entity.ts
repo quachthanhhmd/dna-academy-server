@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   Column,
+  JoinColumn,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
@@ -22,41 +23,47 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class LectureProgressEntity extends EntityRelationalHelper {
   @Column({
+    name: 'watch_duration_secs',
     nullable: false,
     type: Number,
   })
   watchDurationSecs?: number;
 
   @Column({
+    name: 'completed_at',
     nullable: true,
     type: Date,
   })
   completedAt?: Date | null;
 
   @Column({
+    name: 'started_at',
     nullable: true,
     type: Date,
   })
   startedAt?: Date | null;
 
   @Column({
+    name: 'status',
     nullable: false,
     type: String,
   })
   status: string;
 
   @ManyToOne(() => LectureEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'lecture_id' })
   lecture: LectureEntity;
 
   @ManyToOne(() => EnrollmentEntity, { eager: true, nullable: false })
+  @JoinColumn({ name: 'enrollment_id' })
   enrollment: EnrollmentEntity;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

@@ -12,12 +12,14 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 export class ModuleEntity extends EntityRelationalHelper {
   @Column({
+    name: 'label',
     nullable: true,
     type: String,
   })
   label?: string | null;
 
   @Column({
+    name: 'name',
     nullable: false,
     type: String,
   })
@@ -26,9 +28,9 @@ export class ModuleEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

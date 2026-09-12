@@ -122,7 +122,7 @@ export class LectureRelationalRepository implements LectureRepository {
     const raw = await this.lectureRepository
       .createQueryBuilder('lecture')
       .innerJoin('lecture.section', 'section')
-      .where('section.courseId = :courseId', { courseId })
+      .where('section.course = :courseId', { courseId })
       .select('COUNT(lecture.id)', 'totalLectures')
       .addSelect('COALESCE(SUM(lecture.durationSecs), 0)', 'totalDurationSecs')
       .getRawOne<{ totalLectures: string; totalDurationSecs: string }>();
@@ -141,8 +141,8 @@ export class LectureRelationalRepository implements LectureRepository {
     const rows = await this.lectureRepository
       .createQueryBuilder('lecture')
       .innerJoin('lecture.section', 'section')
-      .select('DISTINCT section.courseId', 'courseId')
-      .where('section.courseId IN (:...courseIds)', { courseIds })
+      .select('DISTINCT section.course', 'courseId')
+      .where('section.course IN (:...courseIds)', { courseIds })
       .andWhere('lecture.isPreview = true')
       .getRawMany<{ courseId: string }>();
 
