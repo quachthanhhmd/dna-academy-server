@@ -1,0 +1,56 @@
+# Epic 4.2 §4.1 — the isolated test stack.
+#
+# The e2e suite ran against the dev database and no spec had an `afterAll`, so
+# every run left rows behind: 585 `course_level` codes against ~4 real ones,
+# 304 `course_category`, 242 published courses. Admin dropdowns became unusable
+# and the course-import script picked a junk row. That is BUG-04, and it is
+# also why the journey was only ever exercised once — which is how a P0 in it
+# shipped green.
+#
+# Everything here is disposable. `npm run test:db:reset` drops the volume, so
+# nothing accumulates and nothing needs cleaning up by hand.
+#
+#   npm run test:e2e       → this stack, :3002
+#   npm run test:e2e:dev   → the dev stack, :3001 (old behaviour)
+
+name: dna-academy-test
+
+services:
+  postgres-test:
+    image: postgres:17.9-alpine
+    ports:
+      # 5433 on the host so it cannot collide with the dev database.
+      - 5433:5432
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: dna_academy_test
+    # No named volume on purpose: the database dies with the container, which
+    # is the entire point of this file.
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U admin -d dna_academy_test']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  maildev-test:
+    build:
+      context: .
+      dockerfile: maildev.Dockerfile
+    ports:
+      - 1081:1080
+      - 1026:1025
+
+  api-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - ./env/.env.test
+    ports:
+      - 3002:3002
+    depends_on:
+      postgres-test:
+        condition: service_healthy

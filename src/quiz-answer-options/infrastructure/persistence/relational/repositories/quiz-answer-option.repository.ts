@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { QuizAnswerOptionEntity } from '../entities/quiz-answer-option.entity';
@@ -63,6 +64,19 @@ export class QuizAnswerOptionRelationalRepository implements QuizAnswerOptionRep
     });
   }
 
+  async findByQuestionIds(questionIds: string[]): Promise<QuizAnswerOption[]> {
+    if (!questionIds.length) {
+      return [];
+    }
+
+    const entities = await this.quizAnswerOptionRepository.find({
+      where: { question: { id: In(questionIds) } },
+      order: { displayOrder: 'ASC' },
+    });
+
+    return entities.map((entity) => QuizAnswerOptionMapper.toDomain(entity));
+  }
+
   async update(
     id: QuizAnswerOption['id'],
     payload: Partial<QuizAnswerOption>,
@@ -79,7 +93,7 @@ export class QuizAnswerOptionRelationalRepository implements QuizAnswerOptionRep
       this.quizAnswerOptionRepository.create(
         QuizAnswerOptionMapper.toPersistence({
           ...QuizAnswerOptionMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

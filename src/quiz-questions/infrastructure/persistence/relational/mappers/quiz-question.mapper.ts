@@ -15,6 +15,8 @@ export class QuizQuestionMapper {
 
     domainEntity.minWordCount = raw.minWordCount;
 
+    domainEntity.explanation = raw.explanation;
+
     domainEntity.ratingLabelMax = raw.ratingLabelMax;
 
     domainEntity.ratingLabelMin = raw.ratingLabelMin;
@@ -49,6 +51,8 @@ export class QuizQuestionMapper {
     persistenceEntity.allowedMimeTypes = domainEntity.allowedMimeTypes;
 
     persistenceEntity.minWordCount = domainEntity.minWordCount;
+
+    persistenceEntity.explanation = domainEntity.explanation;
 
     persistenceEntity.ratingLabelMax = domainEntity.ratingLabelMax;
 

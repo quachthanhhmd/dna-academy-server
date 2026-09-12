@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { OauthAccountEntity } from '../entities/oauth-account.entity';
@@ -79,7 +80,7 @@ export class OauthAccountRelationalRepository implements OauthAccountRepository 
       this.oauthAccountRepository.create(
         OauthAccountMapper.toPersistence({
           ...OauthAccountMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

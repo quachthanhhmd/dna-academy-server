@@ -29,6 +29,7 @@ Belongs to the [bc boilerplates](https://bcboilerplates.com/) ecosystem
 
 - [Features](#features)
 - [Environments](#environments)
+- [Database migrations & master data](#database-migrations--master-data)
 - [File uploads](#file-uploads)
 - [Contributors](#contributors)
 - [Support](#support)
@@ -108,6 +109,86 @@ APP_ENV=develop npm run start:dev        # env/.env.develop
 APP_ENV=develop npm run migration:run
 ENV_FILE=./env/.env.staging npm run seed:run:relational
 ```
+
+## Database migrations & master data
+
+Schema changes live in [src/database/migrations](src/database/migrations) and
+run through the TypeORM CLI. Reference data (roles, statuses, permission
+modules, and the bilingual master data of Epic 6) lives in
+[src/database/seeds/relational](src/database/seeds/relational).
+
+### Deploying to the develop site
+
+Run these two commands, in this order, after pulling the new build:
+
+```bash
+APP_ENV=develop npm run migration:run          # 1. schema + data backfill
+APP_ENV=develop npm run seed:run:relational    # 2. reference data (upsert)
+```
+
+Swap `APP_ENV=develop` for `ENV_FILE=./env/.env.staging` (or any other env
+file) to target a different environment.
+
+> Running the app also triggers the master data seed automatically on boot
+> (`MasterDataStartupSeedService`), so step 2 is only needed when you want the
+> new labels in place *before* the new build starts serving traffic. Running it
+> twice is harmless.
+
+### Both commands are safe to re-run
+
+- `migration:run` only executes migrations absent from the `migrations` table.
+- The seeds **upsert — they never delete and re-insert**. A master data row
+  keeps its `id` across every run, which matters because `course.levelId`,
+  `course.categoryId`, `course_group_assignment.groupId`,
+  `instructor_expertise.expertiseCodeId`, `student_profile.educationStageCodeId`
+  and `student_career_interest.careerInterestId` all reference it. Deleting and
+  re-inserting would orphan every one of those foreign keys.
+- A translation an admin edited through `/admin/master-data` is **never**
+  overwritten by a later seed run. The only exception is documented in
+  [merge-seed-translations.ts](src/database/seeds/relational/shared/merge-seed-translations.ts):
+  a `vi` value still byte-identical to the seed's English wording is the
+  artifact of the Epic 6 backfill and gets replaced with the real Vietnamese.
+
+### Rolling back
+
+```bash
+APP_ENV=develop npm run migration:revert       # reverts the last migration only
+```
+
+`AddI18nMasterData` drops the translation columns and `user.locale`. The plain
+`name` / `description` columns are kept in sync with the default locale
+throughout, so a revert loses the non-default translations but never the
+Vietnamese text the app renders.
+
+### Bilingual master data (Epic 6)
+
+`master_data_group` and `master_data_code` carry `nameTranslations` and
+`descriptionTranslations` JSONB columns (`{"vi": "Cơ bản", "en": "Beginner"}`).
+The plain `name` / `description` columns hold the **default locale (`vi`)** and
+act as the last-resort fallback; a DB CHECK constraint guarantees the `vi` key
+is always present.
+
+Request locale is resolved in this order — first match wins:
+
+1. `?locale=` query parameter
+2. `X-Locale` request header
+3. the authenticated user's `users.locale`
+4. `Accept-Language`
+5. `vi`
+
+The resolved value is echoed back as `Content-Language`, and every localized
+response sends `Vary: X-Locale, Accept-Language` — **make sure any CDN or
+reverse proxy in front of the API honours it**, or one visitor's language will
+be cached for everyone.
+
+```bash
+curl localhost:3001/api/v1/i18n/locales                        # supported locales
+curl localhost:3001/api/v1/master-data/codes?groupKey=course_level            # vi
+curl -H 'X-Locale: en' localhost:3001/api/v1/master-data/codes?groupKey=course_level   # en
+```
+
+Supported locales come from `APP_SUPPORTED_LOCALES` (default `vi,en`). Adding a
+locale is a config change plus translation data — never a schema change.
 
 ## File uploads
 

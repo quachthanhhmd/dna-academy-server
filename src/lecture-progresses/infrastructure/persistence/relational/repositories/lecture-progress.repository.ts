@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { LectureProgressEntity } from '../entities/lecture-progress.entity';
@@ -54,6 +55,43 @@ export class LectureProgressRelationalRepository implements LectureProgressRepos
     return entities.map((entity) => LectureProgressMapper.toDomain(entity));
   }
 
+  async findByEnrollmentId(enrollmentId: string): Promise<LectureProgress[]> {
+    const entities = await this.lectureProgressRepository.find({
+      where: { enrollment: { id: enrollmentId } },
+    });
+
+    return entities.map((entity) => LectureProgressMapper.toDomain(entity));
+  }
+
+  async findByEnrollmentIds(
+    enrollmentIds: string[],
+  ): Promise<LectureProgress[]> {
+    // `IN ()` is a syntax error, so an empty page short-circuits.
+    if (!enrollmentIds.length) {
+      return [];
+    }
+
+    const entities = await this.lectureProgressRepository.find({
+      where: { enrollment: { id: In(enrollmentIds) } },
+    });
+
+    return entities.map((entity) => LectureProgressMapper.toDomain(entity));
+  }
+
+  async findByEnrollmentAndLecture(
+    enrollmentId: string,
+    lectureId: string,
+  ): Promise<NullableType<LectureProgress>> {
+    const entity = await this.lectureProgressRepository.findOne({
+      where: {
+        enrollment: { id: enrollmentId },
+        lecture: { id: lectureId },
+      },
+    });
+
+    return entity ? LectureProgressMapper.toDomain(entity) : null;
+  }
+
   async update(
     id: LectureProgress['id'],
     payload: Partial<LectureProgress>,
@@ -70,7 +108,7 @@ export class LectureProgressRelationalRepository implements LectureProgressRepos
       this.lectureProgressRepository.create(
         LectureProgressMapper.toPersistence({
           ...LectureProgressMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );
@@ -80,5 +118,11 @@ export class LectureProgressRelationalRepository implements LectureProgressRepos
 
   async remove(id: LectureProgress['id']): Promise<void> {
     await this.lectureProgressRepository.delete(id);
+  }
+
+  async removeByEnrollmentId(enrollmentId: string): Promise<void> {
+    await this.lectureProgressRepository.delete({
+      enrollment: { id: enrollmentId },
+    });
   }
 }

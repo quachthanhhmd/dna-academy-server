@@ -18,8 +18,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config';
 import { FilesLocalService } from './files.service';
 import { FileResponseDto } from './dto/file-response.dto';
+import { AllConfigType } from '../../../../config/config.type';
 
 @ApiTags('Files')
 @Controller({
@@ -27,7 +29,10 @@ import { FileResponseDto } from './dto/file-response.dto';
   version: '1',
 })
 export class FilesLocalController {
-  constructor(private readonly filesService: FilesLocalService) {}
+  constructor(
+    private readonly filesService: FilesLocalService,
+    private readonly configService: ConfigService<AllConfigType>,
+  ) {}
 
   @ApiCreatedResponse({
     type: FileResponseDto,
@@ -57,6 +62,10 @@ export class FilesLocalController {
   @Get(':path')
   @ApiExcludeEndpoint()
   download(@Param('path') path, @Response() response) {
-    return response.sendFile(path, { root: './files' });
+    return response.sendFile(path, {
+      root: this.configService.getOrThrow('file.localUploadPath', {
+        infer: true,
+      }),
+    });
   }
 }

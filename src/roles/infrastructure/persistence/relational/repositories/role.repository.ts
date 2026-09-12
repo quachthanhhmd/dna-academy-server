@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { RoleEntity } from '../entities/role.entity';
@@ -82,7 +83,7 @@ export class RoleRelationalRepository implements RoleRepository {
       this.roleRepository.create(
         RoleMapper.toPersistence({
           ...RoleMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

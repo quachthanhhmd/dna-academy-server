@@ -1,8 +1,7 @@
 import { describe, expect, it, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
-
-const SUPER_ADMIN_ROLE_ID = 3;
+import { loginSeededSuperAdmin, makeSuperAdmin } from '../utils/admin';
 
 describe('Admin / Course Groups', () => {
   const app = APP_URL;
@@ -22,6 +21,8 @@ describe('Admin / Course Groups', () => {
     return { token: body.token as string, userId: body.user.id as number };
   };
 
+  let seededAdminToken: string;
+
   let superAdminToken: string;
   let courseId: string;
   let groupCodeAId: string;
@@ -29,23 +30,18 @@ describe('Admin / Course Groups', () => {
   let wrongGroupCodeId: string;
 
   beforeAll(async () => {
+    seededAdminToken = await loginSeededSuperAdmin(app);
     const superAdmin = await registerAndLogin(
       `course-groups.super.${runId}@example.com`,
     );
     superAdminToken = superAdmin.token;
-    await request(app)
-      .post('/api/v1/user-roles')
-      .auth(superAdminToken, { type: 'bearer' })
-      .send({
-        user: { id: superAdmin.userId },
-        role: { id: SUPER_ADMIN_ROLE_ID },
-      })
-      .expect(201);
+    await makeSuperAdmin(app, seededAdminToken, superAdmin.userId);
 
     const { body: course } = await request(app)
       .post('/api/v1/admin/courses')
       .auth(superAdminToken, { type: 'bearer' })
       .send({
+        courseId: `GRP-${runId}`,
         title: `Course Groups Test ${runId}`,
         language: 'en',
         price: 0,

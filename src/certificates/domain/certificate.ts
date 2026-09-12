@@ -44,6 +44,16 @@ export class Certificate {
   certificateNumber: string;
 
   @ApiProperty({
+    type: () => Number,
+    nullable: true,
+    example: 96,
+    description:
+      'Epic 4.5 — frozen at issue time. Never recomputed, whatever the ' +
+      'student does afterwards.',
+  })
+  finalGradePct?: number | null;
+
+  @ApiProperty({
     type: () => Course,
     nullable: false,
   })

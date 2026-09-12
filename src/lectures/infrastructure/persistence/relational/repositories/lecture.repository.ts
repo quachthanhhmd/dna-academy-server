@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { LectureEntity } from '../entities/lecture.entity';
@@ -61,6 +62,54 @@ export class LectureRelationalRepository implements LectureRepository {
     return entities.map((entity) => LectureMapper.toDomain(entity));
   }
 
+  async findOrderedByCourseIds(
+    courseIds: string[],
+  ): Promise<Map<string, (Lecture & { sectionTitle: string })[]>> {
+    const byCourse = new Map<string, (Lecture & { sectionTitle: string })[]>(
+      courseIds.map((courseId) => [courseId, []]),
+    );
+
+    if (!courseIds.length) {
+      return byCourse;
+    }
+
+    // Ordering is done by the database, in the same key order the curriculum
+    // service uses, so the caller can trust the array as course reading order
+    // without re-sorting.
+    // `section.course` is eager on the entity, but eager relations are not
+    // applied by the query builder — so the course has to be joined and
+    // selected explicitly or every row comes back without one.
+    const entities = await this.lectureRepository
+      .createQueryBuilder('lecture')
+      .innerJoinAndSelect('lecture.section', 'section')
+      .innerJoinAndSelect('section.course', 'course')
+      .where('course.id IN (:...courseIds)', { courseIds })
+      .orderBy('section.displayOrder', 'ASC')
+      .addOrderBy('lecture.displayOrder', 'ASC')
+      .getMany();
+
+    for (const entity of entities) {
+      const courseId = entity.section?.course?.id;
+
+      if (!courseId) {
+        continue;
+      }
+
+      const bucket = byCourse.get(courseId);
+
+      if (!bucket) {
+        continue;
+      }
+
+      bucket.push({
+        ...LectureMapper.toDomain(entity),
+        sectionTitle: entity.section.title,
+      });
+    }
+
+    return byCourse;
+  }
+
   async countBySectionId(sectionId: string): Promise<number> {
     return this.lectureRepository.count({
       where: { section: { id: sectionId } },
@@ -84,6 +133,22 @@ export class LectureRelationalRepository implements LectureRepository {
     };
   }
 
+  async findPreviewCourseIds(courseIds: string[]): Promise<Set<string>> {
+    if (!courseIds.length) {
+      return new Set();
+    }
+
+    const rows = await this.lectureRepository
+      .createQueryBuilder('lecture')
+      .innerJoin('lecture.section', 'section')
+      .select('DISTINCT section.courseId', 'courseId')
+      .where('section.courseId IN (:...courseIds)', { courseIds })
+      .andWhere('lecture.isPreview = true')
+      .getRawMany<{ courseId: string }>();
+
+    return new Set(rows.map((row) => row.courseId));
+  }
+
   async removeBySectionId(sectionId: string): Promise<void> {
     await this.lectureRepository.delete({ section: { id: sectionId } });
   }
@@ -101,7 +166,7 @@ export class LectureRelationalRepository implements LectureRepository {
       this.lectureRepository.create(
         LectureMapper.toPersistence({
           ...LectureMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

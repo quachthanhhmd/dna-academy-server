@@ -16,11 +16,21 @@ import { FileEntity } from '../../../../../files/infrastructure/persistence/rela
 
 import { AuthProvidersEnum } from '../../../../../auth/auth-providers.enum';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
+import { DEFAULT_LOCALE } from '../../../../../utils/i18n/locale';
 
 @Entity({
   name: 'user',
 })
 export class UserEntity extends EntityRelationalHelper {
+  // Epic 6: preferred UI locale. Defaults to the platform default (vi) so
+  // every pre-existing row is valid without a backfill of its own.
+  @Column({
+    nullable: false,
+    type: String,
+    default: DEFAULT_LOCALE,
+  })
+  locale: string;
+
   @Column({
     nullable: false,
     type: Boolean,

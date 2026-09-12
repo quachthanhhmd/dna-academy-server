@@ -21,6 +21,8 @@ import {
 } from '@nestjs/swagger';
 import { QuizAttemptAnswer } from './domain/quiz-attempt-answer';
 import { AuthGuard } from '@nestjs/passport';
+import { PermissionGuard } from '../authorization/permission.guard';
+import { RequirePermission } from '../authorization/require-permission.decorator';
 import {
   InfinityPaginationResponse,
   InfinityPaginationResponseDto,
@@ -30,7 +32,14 @@ import { FindAllQuizAttemptAnswersDto } from './dto/find-all-quiz-attempt-answer
 
 @ApiTags('Quizattemptanswers')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'))
+/**
+ * Boilerplate-generated CRUD. It is admin-only: every route here reads or
+ * writes another student's learning record, and none of it enforces the rules
+ * the /learning endpoints do (sequential locking, grading, word counts,
+ * completion detection). Students use the purpose-built modules instead.
+ */
+@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@RequirePermission('courses', 'edit')
 @Controller({
   path: 'quiz-attempt-answers',
   version: '1',

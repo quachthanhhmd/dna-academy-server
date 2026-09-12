@@ -3,6 +3,7 @@ import { SectionEntity } from '../../../../../sections/infrastructure/persistenc
 import {
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   ManyToOne,
@@ -10,6 +11,7 @@ import {
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
+@Index('IDX_lecture_section_display_order', ['section', 'displayOrder'])
 @Entity({
   name: 'lecture',
 })

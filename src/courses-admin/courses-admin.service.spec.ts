@@ -13,10 +13,14 @@ describe('CoursesAdminService', () => {
     update: jest.Mock<any>;
     findById: jest.Mock<any>;
     findBySlug: jest.Mock<any>;
+    findByCourseId: jest.Mock<any>;
     findAllWithPagination: jest.Mock<any>;
   };
   let masterDataCodesService: { findById: jest.Mock<any> };
-  let usersService: { findById: jest.Mock<any> };
+  let courseInstructorsAdminService: {
+    assign: jest.Mock<any>;
+    validateAssignable: jest.Mock<any>;
+  };
   let youtubeService: { validateAndExtractVideoId: jest.Mock<any> };
 
   const levelCode = {
@@ -36,22 +40,37 @@ describe('CoursesAdminService', () => {
       update: jest.fn(),
       findById: jest.fn(),
       findBySlug: jest.fn(),
+      findByCourseId: jest.fn(),
       findAllWithPagination: jest.fn(),
     };
     masterDataCodesService = { findById: jest.fn() };
-    usersService = { findById: jest.fn() };
+    courseInstructorsAdminService = {
+      assign: jest.fn(),
+      validateAssignable: jest.fn(),
+    };
+    courseInstructorsAdminService.assign.mockResolvedValue({
+      primaryInstructor: null,
+      coInstructors: [],
+    });
+    courseInstructorsAdminService.validateAssignable.mockResolvedValue(
+      undefined,
+    );
     youtubeService = { validateAndExtractVideoId: jest.fn() };
+
+    // No course claims the incoming courseId unless a test says otherwise.
+    coursesService.findByCourseId.mockResolvedValue(null);
 
     service = new CoursesAdminService(
       coursesService as any,
       masterDataCodesService as any,
-      usersService as any,
       youtubeService as any,
+      courseInstructorsAdminService as any,
     );
   });
 
   describe('create', () => {
     const baseDto = {
+      courseId: 'DNA-101',
       title: 'Intro to TypeScript',
       language: 'en',
       price: 0,
@@ -73,6 +92,31 @@ describe('CoursesAdminService', () => {
           title: 'Intro to TypeScript',
           createdBy: { id: 7 },
         }),
+      );
+    });
+
+    it('should carry requiresSequentialCompletion through to the course', async () => {
+      coursesService.findBySlug.mockResolvedValue(null);
+      coursesService.create.mockResolvedValue({ id: 'course-1' });
+
+      await service.create(
+        { ...baseDto, requiresSequentialCompletion: true } as any,
+        7,
+      );
+
+      expect(coursesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ requiresSequentialCompletion: true }),
+      );
+    });
+
+    it('should default requiresSequentialCompletion to false', async () => {
+      coursesService.findBySlug.mockResolvedValue(null);
+      coursesService.create.mockResolvedValue({ id: 'course-1' });
+
+      await service.create(baseDto as any, 7);
+
+      expect(coursesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ requiresSequentialCompletion: false }),
       );
     });
 
@@ -120,6 +164,39 @@ describe('CoursesAdminService', () => {
       );
     });
 
+    it('should pass the courseId through to the created course', async () => {
+      coursesService.findBySlug.mockResolvedValue(null);
+      coursesService.create.mockResolvedValue({ id: 'course-1' });
+
+      await service.create(baseDto as any, 7);
+
+      expect(coursesService.findByCourseId).toHaveBeenCalledWith('DNA-101');
+      expect(coursesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ courseId: 'DNA-101' }),
+      );
+    });
+
+    it('should reject a courseId already taken by another course', async () => {
+      coursesService.findByCourseId.mockResolvedValue({ id: 'existing' });
+
+      await expect(service.create(baseDto as any, 7)).rejects.toMatchObject({
+        response: { errors: { courseId: 'alreadyExists' } },
+      });
+      expect(coursesService.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject a duplicate courseId before spending a YouTube oEmbed call', async () => {
+      coursesService.findByCourseId.mockResolvedValue({ id: 'existing' });
+
+      await expect(
+        service.create(
+          { ...baseDto, introVideoUrl: 'https://youtu.be/abc123' } as any,
+          7,
+        ),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(youtubeService.validateAndExtractVideoId).not.toHaveBeenCalled();
+    });
+
     it('should reject a levelId that is not an active course_level code', async () => {
       masterDataCodesService.findById.mockResolvedValue({
         ...levelCode,
@@ -132,12 +209,34 @@ describe('CoursesAdminService', () => {
       expect(coursesService.create).not.toHaveBeenCalled();
     });
 
-    it('should reject an unknown instructorId', async () => {
-      usersService.findById.mockResolvedValue(null);
+    it('should validate the instructor payload before writing the course row', async () => {
+      courseInstructorsAdminService.validateAssignable.mockRejectedValue(
+        new UnprocessableEntityException(),
+      );
 
       await expect(
-        service.create({ ...baseDto, instructorId: 99 } as any, 7),
+        service.create({ ...baseDto, primaryInstructorId: 'ins-1' } as any, 7),
       ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(coursesService.create).not.toHaveBeenCalled();
+    });
+
+    it('should assign the primary and co-instructors to the new course', async () => {
+      coursesService.findBySlug.mockResolvedValue(null);
+      coursesService.create.mockResolvedValue({ id: 'course-1' });
+
+      await service.create(
+        {
+          ...baseDto,
+          primaryInstructorId: 'ins-1',
+          coInstructorIds: ['ins-2'],
+        } as any,
+        7,
+      );
+
+      expect(courseInstructorsAdminService.assign).toHaveBeenCalledWith(
+        'course-1',
+        { primaryInstructorId: 'ins-1', coInstructorIds: ['ins-2'] },
+      );
     });
 
     it('should validate introVideoUrl via YouTube oEmbed before saving', async () => {
@@ -211,7 +310,8 @@ describe('CoursesAdminService', () => {
         language: undefined,
         levelId: undefined,
         categoryId: undefined,
-        instructorId: undefined,
+        primaryInstructorId: undefined,
+        coInstructorIds: undefined,
         price: undefined,
         shortDescription: 'Only this changes',
       } as any);
@@ -224,6 +324,8 @@ describe('CoursesAdminService', () => {
       expect('enrollmentOpen' in payload).toBe(false);
       expect('language' in payload).toBe(false);
       expect(payload.shortDescription).toBe('Only this changes');
+      expect('primaryInstructorId' in payload).toBe(false);
+      expect('coInstructorIds' in payload).toBe(false);
     });
 
     it('should not regenerate the slug even when the title changes', async () => {
@@ -239,6 +341,38 @@ describe('CoursesAdminService', () => {
       expect(coursesService.update).toHaveBeenCalledWith(
         'course-1',
         expect.not.objectContaining({ slug: expect.anything() }),
+      );
+    });
+
+    it('should reject a courseId already taken by another course', async () => {
+      coursesService.findById.mockResolvedValue({
+        id: 'course-1',
+        courseId: 'DNA-101',
+      });
+      coursesService.findByCourseId.mockResolvedValue({ id: 'course-2' });
+
+      await expect(
+        service.update('course-1', { courseId: 'DNA-202' } as any),
+      ).rejects.toMatchObject({
+        response: { errors: { courseId: 'alreadyExists' } },
+      });
+      expect(coursesService.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow re-sending the course its own unchanged courseId', async () => {
+      coursesService.findById.mockResolvedValue({
+        id: 'course-1',
+        courseId: 'DNA-101',
+      });
+      coursesService.findByCourseId.mockResolvedValue({ id: 'course-1' });
+      coursesService.update.mockResolvedValue({ id: 'course-1' });
+
+      await service.update('course-1', { courseId: 'DNA-101' } as any);
+
+      expect(coursesService.findByCourseId).not.toHaveBeenCalled();
+      expect(coursesService.update).toHaveBeenCalledWith(
+        'course-1',
+        expect.objectContaining({ courseId: 'DNA-101' }),
       );
     });
 

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { StudentCareerInterestEntity } from '../entities/student-career-interest.entity';
@@ -89,7 +90,7 @@ export class StudentCareerInterestRelationalRepository implements StudentCareerI
       this.studentCareerInterestRepository.create(
         StudentCareerInterestMapper.toPersistence({
           ...StudentCareerInterestMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

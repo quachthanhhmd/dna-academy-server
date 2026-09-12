@@ -35,6 +35,9 @@ import { OnboardingGuard } from './guards/onboarding.guard';
     AnonymousStrategy,
     OnboardingGuard,
   ],
-  exports: [AuthService, OnboardingGuard],
+  // Re-export UsersModule so any module that only imports AuthModule to use
+  // OnboardingGuard still has the guard's own dependency visible to Nest's DI
+  // (guards applied via @UseGuards are instantiated in the consumer's context).
+  exports: [AuthService, OnboardingGuard, UsersModule],
 })
 export class AuthModule {}

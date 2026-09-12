@@ -163,9 +163,12 @@ describe('Student Onboarding (Epic 1)', () => {
         });
     });
 
-    it('should block enrollment with 403 ONBOARDING_REQUIRED: POST /enrollments', async () => {
+    it('should block enrollment with 403 ONBOARDING_REQUIRED: POST /courses/:slug/enroll', async () => {
+      // The real enrolment route. The generated /enrollments CRUD used to be
+      // reachable by any logged-in user; it is admin-only now, so asserting
+      // the onboarding guard there would only prove the permission guard.
       await request(app)
-        .post('/api/v1/enrollments')
+        .post('/api/v1/courses/any-slug/enroll')
         .auth(token, { type: 'bearer' })
         .send({})
         .expect(403)
@@ -273,13 +276,13 @@ describe('Student Onboarding (Epic 1)', () => {
           expect(body.user.onboardingDone).toBe(true);
         });
 
-      // Re-attempting enrollment for the now onboarding-complete student
-      // should clear the guard and fail validation instead of 403.
+      // Re-attempting enrolment for the now onboarding-complete student
+      // should clear the guard and fall through to "no such course".
       await request(app)
-        .post('/api/v1/enrollments')
+        .post('/api/v1/courses/any-slug/enroll')
         .auth(token, { type: 'bearer' })
         .send({})
-        .expect(422);
+        .expect(404);
     });
 
     it('should replace career interests on a second onboarding submission instead of appending', async () => {

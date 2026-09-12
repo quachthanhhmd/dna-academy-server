@@ -5,15 +5,26 @@ import { CourseEntity } from '../../../../../courses/infrastructure/persistence/
 import { UserEntity } from '../../../../../users/infrastructure/persistence/relational/entities/user.entity';
 
 import {
+  Check,
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   ManyToOne,
   Column,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
+import { ENROLLMENT_SOURCES } from '../../../../enrollment.constants';
 
+// Epic 4 v2 §2.1 — one live enrollment per (student, course); a cancelled row
+// does not block re-enrolling.
+@Index('UX_enrollment_active', ['student', 'course'], {
+  unique: true,
+  where: `"status" <> 'cancelled'`,
+})
+@Index('IDX_enrollment_student_status', ['student', 'status'])
+@Check('CK_enrollment_progress_0_100', `"progressPct" BETWEEN 0 AND 100`)
 @Entity({
   name: 'enrollment',
 })
@@ -47,7 +58,9 @@ export class EnrollmentEntity extends EntityRelationalHelper {
 
   @Column({
     nullable: true,
-    type: String,
+    type: 'enum',
+    enum: ENROLLMENT_SOURCES,
+    enumName: 'enrollment_source_enum',
   })
   enrollmentSource?: string | null;
 

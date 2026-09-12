@@ -36,6 +36,7 @@ lerna-debug.log*
 
 .data
 /files
+/upload
 .env
 # Per-environment files, only the template is committed
 /env/.env.*

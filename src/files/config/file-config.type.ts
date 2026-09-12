@@ -28,5 +28,10 @@ export type FileConfig = {
    * hands out short-lived presigned GET URLs.
    */
   r2PublicUrl?: string;
+  /**
+   * Destination directory for the `local` driver, relative to the working
+   * directory. Created on boot if missing.
+   */
+  localUploadPath: string;
   maxFileSize: number;
 };

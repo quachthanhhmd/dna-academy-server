@@ -24,6 +24,10 @@ export abstract class QuizAnswerOptionRepository {
 
   abstract removeByQuestionIds(questionIds: string[]): Promise<void>;
 
+  abstract findByQuestionIds(
+    questionIds: string[],
+  ): Promise<QuizAnswerOption[]>;
+
   abstract update(
     id: QuizAnswerOption['id'],
     payload: DeepPartial<QuizAnswerOption>,

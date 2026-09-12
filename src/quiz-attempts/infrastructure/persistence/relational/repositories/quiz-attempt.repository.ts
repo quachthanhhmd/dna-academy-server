@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, IsNull, Not } from 'typeorm';
 import { QuizAttemptEntity } from '../entities/quiz-attempt.entity';
 import { NullableType } from '../../../../../utils/types/nullable.type';
 import { QuizAttempt } from '../../../../domain/quiz-attempt';
@@ -52,6 +53,38 @@ export class QuizAttemptRelationalRepository implements QuizAttemptRepository {
     return entities.map((entity) => QuizAttemptMapper.toDomain(entity));
   }
 
+  async findByEnrollmentAndLecture(
+    enrollmentId: string,
+    lectureId: string,
+  ): Promise<QuizAttempt[]> {
+    const entities = await this.quizAttemptRepository.find({
+      where: {
+        enrollment: { id: enrollmentId },
+        lecture: { id: lectureId },
+      },
+      order: { createdAt: 'DESC' },
+    });
+
+    return entities.map((entity) => QuizAttemptMapper.toDomain(entity));
+  }
+
+  async findSubmittedByEnrollmentIds(
+    enrollmentIds: string[],
+  ): Promise<QuizAttempt[]> {
+    if (!enrollmentIds.length) {
+      return [];
+    }
+
+    const entities = await this.quizAttemptRepository.find({
+      where: {
+        enrollment: { id: In(enrollmentIds) },
+        submittedAt: Not(IsNull()),
+      },
+    });
+
+    return entities.map((entity) => QuizAttemptMapper.toDomain(entity));
+  }
+
   async update(
     id: QuizAttempt['id'],
     payload: Partial<QuizAttempt>,
@@ -68,7 +101,7 @@ export class QuizAttemptRelationalRepository implements QuizAttemptRepository {
       this.quizAttemptRepository.create(
         QuizAttemptMapper.toPersistence({
           ...QuizAttemptMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );
@@ -78,5 +111,11 @@ export class QuizAttemptRelationalRepository implements QuizAttemptRepository {
 
   async remove(id: QuizAttempt['id']): Promise<void> {
     await this.quizAttemptRepository.delete(id);
+  }
+
+  async removeByEnrollmentId(enrollmentId: string): Promise<void> {
+    await this.quizAttemptRepository.delete({
+      enrollment: { id: enrollmentId },
+    });
   }
 }

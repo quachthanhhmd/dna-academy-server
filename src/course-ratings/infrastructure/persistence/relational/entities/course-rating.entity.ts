@@ -5,6 +5,7 @@ import { UserEntity } from '../../../../../users/infrastructure/persistence/rela
 import { EnrollmentEntity } from '../../../../../enrollments/infrastructure/persistence/relational/entities/enrollment.entity';
 
 import {
+  Check,
   CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
@@ -16,6 +17,7 @@ import {
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
+@Check('CK_course_rating_1_5', `"rating" BETWEEN 1 AND 5`)
 @Entity({
   name: 'course_rating',
 })

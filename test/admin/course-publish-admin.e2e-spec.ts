@@ -1,8 +1,7 @@
 import { describe, expect, it, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
-
-const SUPER_ADMIN_ROLE_ID = 3;
+import { loginSeededSuperAdmin, makeSuperAdmin } from '../utils/admin';
 
 describe('Admin / Course Publish', () => {
   const app = APP_URL;
@@ -22,30 +21,29 @@ describe('Admin / Course Publish', () => {
     return { token: body.token as string, userId: body.user.id as number };
   };
 
+  let seededAdminToken: string;
+
   let superAdminToken: string;
   let levelId: string;
   let categoryId: string;
+  let instructorId: string;
 
   beforeAll(async () => {
+    seededAdminToken = await loginSeededSuperAdmin(app);
     const superAdmin = await registerAndLogin(
       `course-publish.super.${runId}@example.com`,
     );
     superAdminToken = superAdmin.token;
-    await request(app)
-      .post('/api/v1/user-roles')
-      .auth(superAdminToken, { type: 'bearer' })
-      .send({
-        user: { id: superAdmin.userId },
-        role: { id: SUPER_ADMIN_ROLE_ID },
-      })
-      .expect(201);
+    await makeSuperAdmin(app, seededAdminToken, superAdmin.userId);
 
     const { body: level } = await request(app)
       .post('/api/v1/admin/master-data/groups/course_level/codes')
       .auth(superAdminToken, { type: 'bearer' })
       .send({
         code: `level_${runId}`,
-        name: 'Level',
+        // Unique per run: master data names are unique within a group, so a
+        // constant here makes the suite fail on its second run.
+        name: `Level ${runId}`,
         displayOrder: 1,
         isActive: true,
       })
@@ -57,19 +55,31 @@ describe('Admin / Course Publish', () => {
       .auth(superAdminToken, { type: 'bearer' })
       .send({
         code: `category_${runId}`,
-        name: 'Category',
+        name: `Category ${runId}`,
         displayOrder: 1,
         isActive: true,
       })
       .expect(201);
     categoryId = category.id;
+
+    const { body: instructor } = await request(app)
+      .post('/api/v1/admin/instructors')
+      .auth(superAdminToken, { type: 'bearer' })
+      .send({ fullName: `Publish Instructor ${runId}` })
+      .expect(201);
+    instructorId = instructor.id;
   });
 
+  let courseCodeSeq = 0;
+
   const createCourse = async (title: string) => {
+    courseCodeSeq += 1;
+
     const { body: course } = await request(app)
       .post('/api/v1/admin/courses')
       .auth(superAdminToken, { type: 'bearer' })
       .send({
+        courseId: `PUB-${runId}-${courseCodeSeq}`,
         title,
         language: 'en',
         price: 0,
@@ -95,6 +105,7 @@ describe('Admin / Course Publish', () => {
             'thumbnailUrl',
             'levelId',
             'categoryId',
+            'primaryInstructor',
             'curriculum',
           ]),
         );
@@ -112,6 +123,7 @@ describe('Admin / Course Publish', () => {
         thumbnailUrl: 'https://example.com/thumb.png',
         levelId,
         categoryId,
+        primaryInstructorId: instructorId,
       })
       .expect(200);
 
@@ -170,6 +182,7 @@ describe('Admin / Course Publish', () => {
         thumbnailUrl: 'https://example.com/thumb.png',
         levelId,
         categoryId,
+        primaryInstructorId: instructorId,
       })
       .expect(200);
 

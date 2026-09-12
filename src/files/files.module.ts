@@ -31,6 +31,13 @@ const infrastructureUploaderModule =
     infrastructureUploaderModule,
   ],
   providers: [FilesService],
-  exports: [FilesService, RelationalFilePersistenceModule],
+  // Re-exported so a feature module that imports FilesModule can inject
+  // FileUploaderService and use FileInterceptor with the active driver's
+  // multer options. Absent under the presigned drivers — inject @Optional().
+  exports: [
+    FilesService,
+    RelationalFilePersistenceModule,
+    infrastructureUploaderModule,
+  ],
 })
 export class FilesModule {}

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { CourseLearningOutcomeEntity } from '../entities/course-learning-outcome.entity';
@@ -93,7 +94,7 @@ export class CourseLearningOutcomeRelationalRepository implements CourseLearning
       this.courseLearningOutcomeRepository.create(
         CourseLearningOutcomeMapper.toPersistence({
           ...CourseLearningOutcomeMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

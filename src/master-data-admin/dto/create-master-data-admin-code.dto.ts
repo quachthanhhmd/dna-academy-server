@@ -1,3 +1,5 @@
+import { TranslationMap } from '../../utils/i18n/translation-map.type';
+import { IsTranslationMap } from '../../utils/i18n/is-translation-map.validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
@@ -13,10 +15,15 @@ export class CreateMasterDataAdminCodeDto {
   @IsString()
   code: string;
 
-  @ApiProperty({ example: 'Beginner' })
-  @IsNotEmpty()
+  @ApiPropertyOptional({
+    example: 'Cơ bản',
+    description:
+      'Shorthand for the default locale (vi). Optional when ' +
+      '`nameTranslations.vi` is supplied instead.',
+  })
+  @IsOptional()
   @IsString()
-  name: string;
+  name?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -37,4 +44,29 @@ export class CreateMasterDataAdminCodeDto {
   @IsOptional()
   @IsInt()
   displayOrder?: number;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    example: { vi: 'Cơ bản', en: 'Beginner' },
+    description:
+      'Per-locale names. `nameTranslations.vi` is required — either directly ' +
+      'or via the `name` shorthand. Sending a blank value for a locale ' +
+      'removes that translation.',
+  })
+  @IsOptional()
+  @IsTranslationMap()
+  nameTranslations?: TranslationMap;
+
+  @ApiPropertyOptional({
+    type: 'object',
+    additionalProperties: { type: 'string' },
+    example: {
+      vi: 'Dành cho người mới bắt đầu.',
+      en: 'For first-time learners.',
+    },
+  })
+  @IsOptional()
+  @IsTranslationMap()
+  descriptionTranslations?: TranslationMap;
 }

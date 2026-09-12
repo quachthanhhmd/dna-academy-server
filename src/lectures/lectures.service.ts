@@ -88,12 +88,22 @@ export class LecturesService {
     return this.lectureRepository.findBySectionId(sectionId);
   }
 
+  /** Epic 4.5 BE-1 — one join for a whole dashboard page. */
+  findOrderedByCourseIds(courseIds: string[]) {
+    return this.lectureRepository.findOrderedByCourseIds(courseIds);
+  }
+
   countBySectionId(sectionId: string) {
     return this.lectureRepository.countBySectionId(sectionId);
   }
 
   removeBySectionId(sectionId: string) {
     return this.lectureRepository.removeBySectionId(sectionId);
+  }
+
+  /** Epic 4.4 §1.3 — one query for a whole catalog page's `hasPreview`. */
+  findPreviewCourseIds(courseIds: string[]) {
+    return this.lectureRepository.findPreviewCourseIds(courseIds);
   }
 
   getCourseAggregates(courseId: string) {

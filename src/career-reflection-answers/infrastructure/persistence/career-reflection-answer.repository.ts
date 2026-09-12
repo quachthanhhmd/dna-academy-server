@@ -22,10 +22,17 @@ export abstract class CareerReflectionAnswerRepository {
     ids: CareerReflectionAnswer['id'][],
   ): Promise<CareerReflectionAnswer[]>;
 
+  abstract findByEnrollmentId(
+    enrollmentId: string,
+  ): Promise<CareerReflectionAnswer[]>;
+
   abstract update(
     id: CareerReflectionAnswer['id'],
     payload: DeepPartial<CareerReflectionAnswer>,
   ): Promise<CareerReflectionAnswer | null>;
 
   abstract remove(id: CareerReflectionAnswer['id']): Promise<void>;
+
+  /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
+  abstract removeByEnrollmentId(enrollmentId: string): Promise<void>;
 }

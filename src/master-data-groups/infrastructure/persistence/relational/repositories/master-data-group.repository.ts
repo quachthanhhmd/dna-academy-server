@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { MasterDataGroupEntity } from '../entities/master-data-group.entity';
@@ -80,7 +81,7 @@ export class MasterDataGroupRelationalRepository implements MasterDataGroupRepos
       this.masterDataGroupRepository.create(
         MasterDataGroupMapper.toPersistence({
           ...MasterDataGroupMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

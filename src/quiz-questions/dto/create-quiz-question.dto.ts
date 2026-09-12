@@ -56,6 +56,17 @@ export class CreateQuizQuestionDto {
   @ApiProperty({
     required: false,
     type: () => String,
+    description:
+      'Epic 4 v2.3 — shown to the student only after they submit. Plain ' +
+      'text; the client renders it escaped.',
+  })
+  @IsOptional()
+  @IsString()
+  explanation?: string | null;
+
+  @ApiProperty({
+    required: false,
+    type: () => String,
   })
   @IsOptional()
   @IsString()

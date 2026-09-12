@@ -9,6 +9,7 @@ import multerS3 from 'multer-s3';
 
 import { FilesR2Controller } from './files.controller';
 import { FilesR2Service } from './files.service';
+import { FileUploaderService } from '../file-uploader.service';
 import {
   ALLOWED_FILE_EXTENSIONS,
   buildObjectKey,
@@ -60,7 +61,13 @@ import { AllConfigType } from '../../../../config/config.type';
     }),
   ],
   controllers: [FilesR2Controller],
-  providers: [FilesR2Service],
-  exports: [FilesR2Service],
+  providers: [
+    FilesR2Service,
+    // Lets a feature module upload through whichever driver is active.
+    { provide: FileUploaderService, useExisting: FilesR2Service },
+  ],
+  // MulterModule carries this driver's multer options, which any
+  // consumer's FileInterceptor needs in scope to store the bytes.
+  exports: [FilesR2Service, FileUploaderService, MulterModule],
 })
 export class FilesR2Module {}

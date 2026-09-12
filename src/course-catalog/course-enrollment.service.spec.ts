@@ -39,9 +39,32 @@ describe('CourseEnrollmentService', () => {
     enrollmentsService.findByStudentAndCourse.mockResolvedValue(null);
     enrollmentsService.create.mockResolvedValue({ id: 'enrollment-1' });
 
+    // Epic 4.5 — the dashboard's batched loaders. This spec covers enrolment,
+    // so they answer empty and the card projection degrades to its defaults.
     service = new CourseEnrollmentService(
       coursesService as any,
       enrollmentsService as any,
+      {
+        findByEnrollmentId: jest.fn(),
+        findByEnrollmentIds: (jest.fn() as jest.Mock<any>).mockResolvedValue(
+          [],
+        ),
+      } as any,
+      {
+        findByEnrollmentIds: (jest.fn() as jest.Mock<any>).mockResolvedValue(
+          [],
+        ),
+      } as any,
+      {
+        findOrderedByCourseIds: (jest.fn() as jest.Mock<any>).mockResolvedValue(
+          new Map(),
+        ),
+      } as any,
+      {
+        findPrimaryGroupByCourseIds: (
+          jest.fn() as jest.Mock<any>
+        ).mockResolvedValue(new Map()),
+      } as any,
     );
   });
 
@@ -146,6 +169,39 @@ describe('CourseEnrollmentService', () => {
       expect(coursesService.update).not.toHaveBeenCalled();
     });
 
+    it('should let a student re-enroll after cancelling', async () => {
+      enrollmentsService.findByStudentAndCourse.mockResolvedValue({
+        id: 'enrollment-cancelled',
+        status: 'cancelled',
+      });
+
+      await expect(service.enroll('career-basics', 42)).resolves.toMatchObject({
+        enrollmentId: 'enrollment-1',
+      });
+      expect(enrollmentsService.create).toHaveBeenCalled();
+    });
+
+    it('should return the existing enrollment for a retry carrying an idempotency key', async () => {
+      enrollmentsService.findByStudentAndCourse.mockResolvedValue({
+        id: 'enrollment-existing',
+        status: 'enrolled',
+      });
+
+      await expect(
+        service.enroll('career-basics', 42, 'key-abc'),
+      ).resolves.toMatchObject({ enrollmentId: 'enrollment-existing' });
+      expect(enrollmentsService.create).not.toHaveBeenCalled();
+      expect(coursesService.update).not.toHaveBeenCalled();
+    });
+
+    it('should still 409 a retry with an idempotency key on a cancelled enrollment it just replaced', async () => {
+      enrollmentsService.findByStudentAndCourse.mockResolvedValue(null);
+
+      await expect(
+        service.enroll('career-basics', 42, 'key-abc'),
+      ).resolves.toMatchObject({ enrollmentId: 'enrollment-1' });
+    });
+
     it('should scope the duplicate check to the calling student', async () => {
       await service.enroll('career-basics', 42);
 
@@ -174,15 +230,16 @@ describe('CourseEnrollmentService', () => {
 
       const result = await service.findMyCourses(42);
 
-      expect(result).toEqual([
-        {
+      // Epic 4.5 §1.2 — the endpoint returns an envelope, not a bare array.
+      expect(result.data).toEqual([
+        expect.objectContaining({
           enrollmentId: 'enrollment-1',
-          course: {
+          course: expect.objectContaining({
             id: 'course-1',
             title: 'Career Basics',
             slug: 'career-basics',
             thumbnailUrl: 'https://cdn/t.png',
-          },
+          }),
           enrollmentDate,
           progressPct: 45.5,
           lastLectureId: 'lecture-9',
@@ -190,7 +247,7 @@ describe('CourseEnrollmentService', () => {
           lastAccessedAt: enrollmentDate,
           status: 'in_progress',
           completedAt: null,
-        },
+        }),
       ]);
     });
 
@@ -203,7 +260,7 @@ describe('CourseEnrollmentService', () => {
         },
       ]);
 
-      const [card] = await service.findMyCourses(42);
+      const [card] = (await service.findMyCourses(42)).data;
 
       expect(card.lastLectureId).toBeNull();
       expect(card.lastLectureTitle).toBeNull();
@@ -215,7 +272,10 @@ describe('CourseEnrollmentService', () => {
     it('should return an empty list when the student has no enrollments', async () => {
       enrollmentsService.findByStudentId.mockResolvedValue([]);
 
-      await expect(service.findMyCourses(42)).resolves.toEqual([]);
+      const result = await service.findMyCourses(42);
+
+      expect(result.data).toEqual([]);
+      expect(result.counts).toEqual({ all: 0, inProgress: 0, completed: 0 });
       expect(enrollmentsService.findByStudentId).toHaveBeenCalledWith(42);
     });
   });

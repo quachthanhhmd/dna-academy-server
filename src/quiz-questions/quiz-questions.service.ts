@@ -50,6 +50,8 @@ export class QuizQuestionsService {
 
       minWordCount: createQuizQuestionDto.minWordCount,
 
+      explanation: createQuizQuestionDto.explanation,
+
       ratingLabelMax: createQuizQuestionDto.ratingLabelMax,
 
       ratingLabelMin: createQuizQuestionDto.ratingLabelMin,
@@ -132,6 +134,8 @@ export class QuizQuestionsService {
       allowedMimeTypes: updateQuizQuestionDto.allowedMimeTypes,
 
       minWordCount: updateQuizQuestionDto.minWordCount,
+
+      explanation: updateQuizQuestionDto.explanation,
 
       ratingLabelMax: updateQuizQuestionDto.ratingLabelMax,
 

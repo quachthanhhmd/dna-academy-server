@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 import { SessionEntity } from '../entities/session.entity';
@@ -52,7 +53,7 @@ export class SessionRelationalRepository implements SessionRepository {
       this.sessionRepository.create(
         SessionMapper.toPersistence({
           ...SessionMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

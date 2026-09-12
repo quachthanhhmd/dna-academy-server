@@ -114,6 +114,24 @@ export class CourseRatingsService {
     return this.courseRatingRepository.findByIds(ids);
   }
 
+  findByEnrollmentId(enrollmentId: string) {
+    return this.courseRatingRepository.findByEnrollmentId(enrollmentId);
+  }
+
+  findApprovedByCourseId(
+    courseId: string,
+    paginationOptions: IPaginationOptions,
+  ) {
+    return this.courseRatingRepository.findApprovedByCourseId(
+      courseId,
+      paginationOptions,
+    );
+  }
+
+  averageForCourse(courseId: string) {
+    return this.courseRatingRepository.averageForCourse(courseId);
+  }
+
   async update(
     id: CourseRating['id'],
 

@@ -65,6 +65,12 @@ export class CertificateEntity extends EntityRelationalHelper {
   @JoinColumn()
   enrollment: EnrollmentEntity;
 
+  // Epic 4.5 §1.5 — frozen at issue time and never recomputed, so the grade
+  // beside a certificate cannot drift from the certificate itself. NULL means
+  // the student submitted no quiz, which renders as no grade row at all.
+  @Column({ nullable: true, type: 'smallint' })
+  finalGradePct?: number | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

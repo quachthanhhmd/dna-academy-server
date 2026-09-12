@@ -15,6 +15,7 @@ describe('CoursePublishAdminService', () => {
   let lectureContentDocumentsService: { findByLectureId: jest.Mock<any> };
   let lectureContentQuizzesService: { findByLectureId: jest.Mock<any> };
   let lectureContentReflectionsService: { findByLectureId: jest.Mock<any> };
+  let courseInstructorsService: { findViewByCourseId: jest.Mock<any> };
 
   const completeCourse = {
     id: 'course-1',
@@ -61,6 +62,12 @@ describe('CoursePublishAdminService', () => {
     lectureContentReflectionsService = {
       findByLectureId: (jest.fn() as jest.Mock<any>).mockResolvedValue(null),
     };
+    courseInstructorsService = {
+      findViewByCourseId: (jest.fn() as jest.Mock<any>).mockResolvedValue({
+        primaryInstructor: { id: 'ins-1' },
+        coInstructors: [],
+      }),
+    };
 
     service = new CoursePublishAdminService(
       coursesService as any,
@@ -71,6 +78,7 @@ describe('CoursePublishAdminService', () => {
       lectureContentDocumentsService as any,
       lectureContentQuizzesService as any,
       lectureContentReflectionsService as any,
+      courseInstructorsService as any,
     );
   });
 
@@ -83,6 +91,18 @@ describe('CoursePublishAdminService', () => {
         publishedAt: expect.any(Date),
         publishedBy: { id: 42 },
       });
+    });
+
+    it('should reject with missingItems=primaryInstructor when none is assigned', async () => {
+      courseInstructorsService.findViewByCourseId.mockResolvedValue({
+        primaryInstructor: null,
+        coInstructors: [],
+      });
+
+      await expect(service.publish('course-1', 42)).rejects.toMatchObject({
+        response: { missingItems: ['primaryInstructor'] },
+      });
+      expect(coursesService.update).not.toHaveBeenCalled();
     });
 
     it('should throw 404 when the course does not exist', async () => {
@@ -160,6 +180,18 @@ describe('CoursePublishAdminService', () => {
       expect(coursesService.update).toHaveBeenCalledWith('course-1', {
         status: 'unpublished',
       });
+    });
+
+    it('should reject with missingItems=primaryInstructor when none is assigned', async () => {
+      courseInstructorsService.findViewByCourseId.mockResolvedValue({
+        primaryInstructor: null,
+        coInstructors: [],
+      });
+
+      await expect(service.publish('course-1', 42)).rejects.toMatchObject({
+        response: { missingItems: ['primaryInstructor'] },
+      });
+      expect(coursesService.update).not.toHaveBeenCalled();
     });
 
     it('should throw 404 when the course does not exist', async () => {

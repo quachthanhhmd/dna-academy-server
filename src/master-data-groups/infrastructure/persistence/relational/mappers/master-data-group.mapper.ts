@@ -2,6 +2,9 @@ import { MasterDataGroup } from '../../../../domain/master-data-group';
 import { UserMapper } from '../../../../../users/infrastructure/persistence/relational/mappers/user.mapper';
 
 import { MasterDataGroupEntity } from '../entities/master-data-group.entity';
+import { LocaleContext } from '../../../../../utils/i18n/locale-context';
+import { pickLocalized } from '../../../../../utils/i18n/pick-localized';
+import { DEFAULT_LOCALE } from '../../../../../utils/i18n/locale';
 
 export class MasterDataGroupMapper {
   static toDomain(raw: MasterDataGroupEntity): MasterDataGroup {
@@ -16,9 +19,22 @@ export class MasterDataGroupMapper {
 
     domainEntity.isActive = raw.isActive;
 
-    domainEntity.description = raw.description;
+    const locale = LocaleContext.current();
 
-    domainEntity.name = raw.name;
+    domainEntity.nameTranslations = raw.nameTranslations ?? {};
+    domainEntity.descriptionTranslations = raw.descriptionTranslations ?? {};
+
+    domainEntity.description = pickLocalized(
+      domainEntity.descriptionTranslations,
+      locale,
+      raw.description,
+    );
+
+    domainEntity.name = pickLocalized(
+      domainEntity.nameTranslations,
+      locale,
+      raw.name,
+    );
 
     domainEntity.groupKey = raw.groupKey;
 
@@ -43,9 +59,17 @@ export class MasterDataGroupMapper {
 
     persistenceEntity.isActive = domainEntity.isActive;
 
-    persistenceEntity.description = domainEntity.description;
+    // Locale-independent by design — see MasterDataCodeMapper.toPersistence.
+    persistenceEntity.nameTranslations = domainEntity.nameTranslations ?? {};
+    persistenceEntity.descriptionTranslations =
+      domainEntity.descriptionTranslations ?? {};
 
-    persistenceEntity.name = domainEntity.name;
+    persistenceEntity.description =
+      persistenceEntity.descriptionTranslations[DEFAULT_LOCALE] ??
+      domainEntity.description;
+
+    persistenceEntity.name =
+      persistenceEntity.nameTranslations[DEFAULT_LOCALE] ?? domainEntity.name;
 
     persistenceEntity.groupKey = domainEntity.groupKey;
 

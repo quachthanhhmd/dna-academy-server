@@ -1,10 +1,19 @@
 import { describe, expect, it, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
-
-const SUPER_ADMIN_ROLE_ID = 3;
+import { createdIds, deactivateMasterDataCodes } from '../utils/cleanup';
+import { loginSeededSuperAdmin, makeSuperAdmin } from '../utils/admin';
 
 describe('Admin / Master Data', () => {
+  afterAll(async () => {
+    await deactivateMasterDataCodes(
+      APP_URL,
+      superAdminToken,
+      'course_level',
+      tracked.all(),
+    );
+  });
+
   const app = APP_URL;
   const runId = Date.now();
 
@@ -22,26 +31,27 @@ describe('Admin / Master Data', () => {
     return { token: body.token as string, userId: body.user.id as number };
   };
 
+  let seededAdminToken: string;
+
   let superAdminToken: string;
   let plainUserToken: string;
 
   beforeAll(async () => {
+    seededAdminToken = await loginSeededSuperAdmin(app);
     const superAdmin = await registerAndLogin(
       `md-admin.super.${runId}@example.com`,
     );
     superAdminToken = superAdmin.token;
-    await request(app)
-      .post('/api/v1/user-roles')
-      .auth(superAdminToken, { type: 'bearer' })
-      .send({
-        user: { id: superAdmin.userId },
-        role: { id: SUPER_ADMIN_ROLE_ID },
-      })
-      .expect(201);
+    await makeSuperAdmin(app, seededAdminToken, superAdmin.userId);
 
     const plain = await registerAndLogin(`md-admin.plain.${runId}@example.com`);
     plainUserToken = plain.token;
   });
+
+  // Epic 4.2 §4.1 — every spec used to leave its rows behind. The isolated
+  // test stack is the real fix; this is belt and braces for anyone running
+  // one file against a longer-lived database.
+  const tracked = createdIds();
 
   it('should list the 7 seeded groups: GET /admin/master-data/groups', async () => {
     await request(app)
@@ -88,6 +98,8 @@ describe('Admin / Master Data', () => {
         .auth(superAdminToken, { type: 'bearer' })
         .send({ code: `beginner_${runId}`, name: codeName, displayOrder: 1 })
         .expect(201);
+
+      tracked.track(body);
 
       expect(body.isActive).toBe(true);
       expect(body.group.groupKey).toBe('course_level');

@@ -91,6 +91,13 @@ export class QuizSavesService {
     return this.quizSaveRepository.findByIds(ids);
   }
 
+  findByEnrollmentAndLecture(enrollmentId: string, lectureId: string) {
+    return this.quizSaveRepository.findByEnrollmentAndLecture(
+      enrollmentId,
+      lectureId,
+    );
+  }
+
   async update(
     id: QuizSave['id'],
 
@@ -148,5 +155,10 @@ export class QuizSavesService {
 
   remove(id: QuizSave['id']) {
     return this.quizSaveRepository.remove(id);
+  }
+
+  /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
+  removeByEnrollmentId(enrollmentId: string) {
+    return this.quizSaveRepository.removeByEnrollmentId(enrollmentId);
   }
 }

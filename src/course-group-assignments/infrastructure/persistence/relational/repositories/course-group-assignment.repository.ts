@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { pickLocalized } from '../../../../../utils/i18n/pick-localized';
+import { LocaleContext } from '../../../../../utils/i18n/locale-context';
+import { TranslationMap } from '../../../../../utils/i18n/translation-map.type';
 import { CourseGroupAssignmentEntity } from '../entities/course-group-assignment.entity';
 import { NullableType } from '../../../../../utils/types/nullable.type';
 import { CourseGroupAssignment } from '../../../../domain/course-group-assignment';
@@ -76,6 +80,80 @@ export class CourseGroupAssignmentRelationalRepository implements CourseGroupAss
     );
   }
 
+  async findGroupIdsByCourseIds(
+    courseIds: string[],
+  ): Promise<Map<string, string[]>> {
+    const result = new Map<string, string[]>(
+      courseIds.map((courseId) => [courseId, []]),
+    );
+
+    if (!courseIds.length) {
+      return result;
+    }
+
+    // Raw ids only: the entity has both sides eager, so `find()` here would
+    // hydrate a full course and a full master-data code per assignment for a
+    // field that is a list of uuids.
+    const rows = await this.courseGroupAssignmentRepository
+      .createQueryBuilder('assignment')
+      .select('assignment.courseId', 'courseId')
+      .addSelect('assignment.groupId', 'groupId')
+      .where('assignment.courseId IN (:...courseIds)', { courseIds })
+      .orderBy('assignment.createdAt', 'ASC')
+      .getRawMany<{ courseId: string; groupId: string }>();
+
+    for (const row of rows) {
+      result.get(row.courseId)?.push(row.groupId);
+    }
+
+    return result;
+  }
+
+  async findPrimaryGroupByCourseIds(
+    courseIds: string[],
+  ): Promise<Map<string, { id: string; name: string }>> {
+    const byCourse = new Map<string, { id: string; name: string }>();
+
+    if (!courseIds.length) {
+      return byCourse;
+    }
+
+    // Only the four columns the label needs. `find()` would hydrate a whole
+    // course and a whole master-data code per assignment for a name.
+    const rows = await this.courseGroupAssignmentRepository
+      .createQueryBuilder('assignment')
+      .innerJoin('assignment.group', 'grp')
+      .select('assignment.courseId', 'courseId')
+      .addSelect('grp.id', 'id')
+      .addSelect('grp.name', 'name')
+      .addSelect('grp.nameTranslations', 'nameTranslations')
+      .where('assignment.courseId IN (:...courseIds)', { courseIds })
+      .orderBy('grp.displayOrder', 'ASC')
+      .addOrderBy('grp.name', 'ASC')
+      .getRawMany<{
+        courseId: string;
+        id: string;
+        name: string;
+        nameTranslations: TranslationMap | null;
+      }>();
+
+    const locale = LocaleContext.current();
+
+    for (const row of rows) {
+      // Ordered by the database, so the first row per course is the winner.
+      if (byCourse.has(row.courseId)) {
+        continue;
+      }
+
+      byCourse.set(row.courseId, {
+        id: row.id,
+        name: pickLocalized(row.nameTranslations, locale, row.name),
+      });
+    }
+
+    return byCourse;
+  }
+
   async removeByCourseId(courseId: string): Promise<void> {
     await this.courseGroupAssignmentRepository.delete({
       course: { id: courseId },
@@ -98,7 +176,7 @@ export class CourseGroupAssignmentRelationalRepository implements CourseGroupAss
       this.courseGroupAssignmentRepository.create(
         CourseGroupAssignmentMapper.toPersistence({
           ...CourseGroupAssignmentMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

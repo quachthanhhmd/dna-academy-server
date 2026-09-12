@@ -2,6 +2,7 @@
 /.data
 /dist
 /files
+/upload
 # Env files are provided at runtime via docker-compose `env_file:`,
 # never baked into the image.
 /env

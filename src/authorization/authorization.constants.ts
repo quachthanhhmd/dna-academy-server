@@ -8,6 +8,7 @@ export interface RequiredPermission {
 export const ADMIN_MODULES: ReadonlyArray<{ name: string; label: string }> = [
   { name: 'master_data', label: 'Master Data' },
   { name: 'courses', label: 'Courses' },
+  { name: 'instructors', label: 'Instructors' },
   { name: 'dashboard', label: 'Dashboard' },
   { name: 'users', label: 'Users' },
   { name: 'roles', label: 'Roles' },

@@ -4,6 +4,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
+import { DEFAULT_LOCALE } from '../utils/i18n/locale';
 import { NullableType } from '../utils/types/nullable.type';
 import { FilterUserDto, SortUserDto } from './dto/query-user.dto';
 import { UserRepository } from './infrastructure/persistence/user.repository';
@@ -116,6 +117,8 @@ export class UsersService {
     return this.usersRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
+      locale: createUserDto.locale ?? DEFAULT_LOCALE,
+
       onboardingDone: createUserDto.onboardingDone ?? false,
 
       age: createUserDto.age,
@@ -286,6 +289,8 @@ export class UsersService {
     return this.usersRepository.update(id, {
       // Do not remove comment below.
       // <updating-property-payload />
+      locale: updateUserDto.locale,
+
       onboardingDone: updateUserDto.onboardingDone,
 
       age: updateUserDto.age,

@@ -11,6 +11,9 @@ import { ModuleSeedModule } from './module/module-seed.module';
 import { PermissionSeedModule } from './permission/permission-seed.module';
 import { RolePermissionSeedModule } from './role-permission/role-permission-seed.module';
 import { MasterDataGroupSeedModule } from './master-data-group/master-data-group-seed.module';
+import { MasterDataCodeSeedModule } from './master-data-code/master-data-code-seed.module';
+import { SuperAdminSeedModule } from './super-admin/super-admin-seed.module';
+import { InstructorSeedModule } from './instructor/instructor-seed.module';
 import databaseConfig from '../../config/database.config';
 import appConfig from '../../../config/app.config';
 import { envFilePaths } from '../../../config/env-files';
@@ -24,6 +27,9 @@ import { envFilePaths } from '../../../config/env-files';
     PermissionSeedModule,
     RolePermissionSeedModule,
     MasterDataGroupSeedModule,
+    MasterDataCodeSeedModule,
+    SuperAdminSeedModule,
+    InstructorSeedModule,
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, appConfig],

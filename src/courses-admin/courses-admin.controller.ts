@@ -61,14 +61,14 @@ export class CoursesAdminController {
   @ApiOperation({
     summary: 'Create a course (status=draft)',
     description:
-      'Slug is auto-generated from the title (unique, suffixed -2/-3/... on collision). introVideoUrl, if given, is validated via the YouTube oEmbed API.',
+      'courseId is a client-supplied business code and must be unique across all courses. Slug is auto-generated from the title (unique, suffixed -2/-3/... on collision). introVideoUrl, if given, is validated via the YouTube oEmbed API.',
   })
   @RequirePermission('courses', 'create')
   @Post()
   @ApiCreatedResponse({ type: Course })
   @ApiUnprocessableEntityResponse({
     description:
-      'Invalid levelId/categoryId/instructorId, or introVideoUrl is not a valid YouTube video',
+      'Duplicate courseId, invalid levelId/categoryId/instructorId, or introVideoUrl is not a valid YouTube video',
   })
   create(
     @Body() dto: CreateCourseAdminDto,
@@ -117,7 +117,7 @@ export class CoursesAdminController {
   @ApiNotFoundResponse()
   @ApiUnprocessableEntityResponse({
     description:
-      'Invalid levelId/categoryId/instructorId, or introVideoUrl is not a valid YouTube video',
+      'Duplicate courseId, invalid levelId/categoryId/instructorId, or introVideoUrl is not a valid YouTube video',
   })
   update(
     @Param('id') id: string,

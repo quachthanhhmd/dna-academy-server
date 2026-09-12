@@ -24,6 +24,15 @@ import {
 } from 'class-transformer';
 
 export class CreateCourseDto {
+  @ApiProperty({
+    required: false,
+    type: () => String,
+    example: 'DNA-101',
+  })
+  @IsOptional()
+  @IsString()
+  courseId?: string | null;
+
   createdBy?: UserDto | null;
 
   publishedBy?: UserDto | null;
@@ -39,16 +48,6 @@ export class CreateCourseDto {
   totalLectures?: number;
 
   totalSections?: number;
-
-  @ApiProperty({
-    required: false,
-    type: () => UserDto,
-  })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => UserDto)
-  @IsNotEmptyObject()
-  instructor?: UserDto | null;
 
   @ApiProperty({
     required: false,
@@ -159,4 +158,17 @@ export class CreateCourseDto {
   slug: string;
 
   // Don't forget to use the class-validator decorators in the DTO properties.
+
+  @ApiProperty({ required: false, type: () => Boolean, default: false })
+  @IsOptional()
+  @IsBoolean()
+  requiresSequentialCompletion?: boolean;
+
+  @ApiProperty({ required: false, type: () => Date })
+  @IsOptional()
+  unpublishedAt?: Date | null;
+
+  @ApiProperty({ required: false, type: () => UserDto })
+  @IsOptional()
+  unpublishedBy?: UserDto | null;
 }

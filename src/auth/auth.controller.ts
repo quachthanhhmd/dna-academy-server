@@ -33,6 +33,7 @@ import { User } from '../users/domain/user';
 import { RefreshResponseDto } from './dto/refresh-response.dto';
 import { AuthOnboardingDto } from './dto/auth-onboarding.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
+import { UpdateLocaleDto } from './dto/update-locale.dto';
 
 @ApiTags('Auth')
 @Controller({
@@ -210,6 +211,28 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   public getProfile(@Request() request): Promise<ProfileResponseDto> {
     return this.service.getProfile(request.user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Set the current user preferred UI locale',
+    description:
+      'Epic 6 §2.2.3. Persists `users.locale`, which feeds the locale ' +
+      'resolution chain whenever a request carries no ?locale= or X-Locale.',
+  })
+  @ApiBearerAuth()
+  @SerializeOptions({
+    groups: ['me'],
+  })
+  @Patch('me/locale')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOkResponse({ type: ProfileResponseDto })
+  @ApiUnprocessableEntityResponse({ description: 'unsupportedLocale' })
+  @HttpCode(HttpStatus.OK)
+  public updateLocale(
+    @Request() request,
+    @Body() dto: UpdateLocaleDto,
+  ): Promise<ProfileResponseDto> {
+    return this.service.updateLocale(request.user.id, dto.locale);
   }
 
   @ApiOperation({

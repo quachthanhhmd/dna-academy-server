@@ -58,6 +58,10 @@ class EnvironmentVariablesValidator {
   @IsOptional()
   @IsString()
   R2_PUBLIC_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  FILE_LOCAL_PATH?: string;
 }
 
 const trimTrailingSlash = (value?: string) => value?.replace(/\/+$/, '');
@@ -82,6 +86,8 @@ export default registerAs<FileConfig>('file', () => {
         ? `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
         : undefined),
     r2PublicUrl: trimTrailingSlash(process.env.R2_PUBLIC_URL),
+    localUploadPath:
+      trimTrailingSlash(process.env.FILE_LOCAL_PATH) || './upload',
     maxFileSize: process.env.FILE_MAX_SIZE
       ? parseInt(process.env.FILE_MAX_SIZE, 10)
       : 26214400, // 25mb — course thumbnails and lecture PDFs

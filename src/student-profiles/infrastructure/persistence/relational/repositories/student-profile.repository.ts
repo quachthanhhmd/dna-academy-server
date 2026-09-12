@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { StudentProfileEntity } from '../entities/student-profile.entity';
@@ -81,7 +82,7 @@ export class StudentProfileRelationalRepository implements StudentProfileReposit
       this.studentProfileRepository.create(
         StudentProfileMapper.toPersistence({
           ...StudentProfileMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

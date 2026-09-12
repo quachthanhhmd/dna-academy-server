@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
 import { AuthModule } from './auth/auth.module';
@@ -11,6 +11,8 @@ import fileConfig from './files/config/file.config';
 import facebookConfig from './auth-facebook/config/facebook.config';
 import googleConfig from './auth-google/config/google.config';
 import appleConfig from './auth-apple/config/apple.config';
+import learningConfig from './learning/config/learning.config';
+import certificateConfig from './certificates/config/certificate.config';
 import path from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -116,15 +118,44 @@ import { YoutubeModule } from './youtube/youtube.module';
 
 import { CoursesAdminModule } from './courses-admin/courses-admin.module';
 
+import { InstructorsModule } from './instructors/instructors.module';
+
+import { CourseInstructorsModule } from './course-instructors/course-instructors.module';
+
+import { InstructorExpertisesModule } from './instructor-expertises/instructor-expertises.module';
+
+import { InstructorSocialLinksModule } from './instructor-social-links/instructor-social-links.module';
+
+import { InstructorsAdminModule } from './instructors-admin/instructors-admin.module';
+
+import { LocalesModule } from './locales/locales.module';
+
+import { LearningModule } from './learning/learning.module';
+
 import { CourseCatalogModule } from './course-catalog/course-catalog.module';
+
+import { MasterDataStartupSeedModule } from './database/seeds/relational/startup/master-data-startup-seed.module';
+
+import { ApiLoggerMiddleware } from './utils/api-logger.middleware';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { LocaleContextMiddleware } from './utils/i18n/locale-context.middleware';
+import { UserLocaleInterceptor } from './utils/i18n/user-locale.interceptor';
 
 @Module({
   imports: [
+    MasterDataStartupSeedModule,
     AuthorizationModule,
     RolesAdminModule,
     MasterDataAdminModule,
     YoutubeModule,
     CoursesAdminModule,
+    InstructorsModule,
+    CourseInstructorsModule,
+    InstructorExpertisesModule,
+    InstructorSocialLinksModule,
+    InstructorsAdminModule,
+    LocalesModule,
+    LearningModule,
 
     CourseCatalogModule,
     CareerReflectionAnswersModule,
@@ -173,6 +204,8 @@ import { CourseCatalogModule } from './course-catalog/course-catalog.module';
         facebookConfig,
         googleConfig,
         appleConfig,
+        learningConfig,
+        certificateConfig,
       ],
       envFilePath: envFilePaths,
     }),
@@ -211,5 +244,33 @@ import { CourseCatalogModule } from './course-catalog/course-catalog.module';
     MailerModule,
     HomeModule,
   ],
+  providers: [
+    // Epic 6: completes the locale resolution chain with users.locale and
+    // stamps Content-Language / Vary on every response.
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: UserLocaleInterceptor,
+    },
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  constructor(private readonly configService: ConfigService<AllConfigType>) {}
+
+  configure(consumer: MiddlewareConsumer): void {
+    // Opens the per-request locale scope before any guard or handler runs, so
+    // the static entity mappers can localize without threading a parameter
+    // through every service. Registered unconditionally.
+    consumer.apply(LocaleContextMiddleware).forRoutes('{*splat}');
+
+    const nodeEnv = this.configService.get('app.nodeEnv', { infer: true });
+
+    // Request logging is a development aid only — never registered in
+    // production or during test runs.
+    if (nodeEnv !== 'development') {
+      return;
+    }
+
+    // path-to-regexp v8 (Express 5 / Nest 11) rejects a bare '*' wildcard.
+    consumer.apply(ApiLoggerMiddleware).forRoutes('{*splat}');
+  }
+}

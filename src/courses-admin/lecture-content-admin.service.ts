@@ -170,8 +170,15 @@ export class LectureContentAdminService {
 
     const payload = {
       passingScore: dto.passingScore,
+      // Left undefined on purpose when the editor omits it: create then falls
+      // back to QUIZ_PASS_THRESHOLD_DEFAULT, and update leaves the stored
+      // threshold alone rather than resetting it.
+      passThresholdPercent: dto.passThresholdPercent,
       allowResume: dto.allowResume,
       instructions: dto.instructions,
+      // Epic 4 v2 §2.1 — null means "no limit", which is what the player
+      // needs to hide the timer entirely.
+      timeLimitSecs: dto.timeLimitSecs ?? null,
     };
 
     const existing =
@@ -205,6 +212,9 @@ export class LectureContentAdminService {
         ratingLabelMin: question.ratingLabelMin,
         ratingLabelMax: question.ratingLabelMax,
         minWordCount: question.minWordCount,
+        // v2.3 — null rather than undefined so clearing the textarea actually
+        // clears the stored explanation instead of leaving the old one.
+        explanation: question.explanation ?? null,
         allowedMimeTypes: question.allowedMimeTypes,
         maxFileSizeMb: question.maxFileSizeMb,
       });

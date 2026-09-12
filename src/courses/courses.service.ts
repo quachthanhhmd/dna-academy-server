@@ -13,6 +13,7 @@ import {
 import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import {
+  CatalogSort,
   CourseCatalogFilterOptions,
   CourseRepository,
 } from './infrastructure/persistence/course.repository';
@@ -72,25 +73,6 @@ export class CoursesService {
       publishedBy = null;
     }
 
-    let instructor: User | null | undefined = undefined;
-
-    if (createCourseDto.instructor) {
-      const instructorObject = await this.userService.findById(
-        createCourseDto.instructor.id,
-      );
-      if (!instructorObject) {
-        throw new UnprocessableEntityException({
-          status: HttpStatus.UNPROCESSABLE_ENTITY,
-          errors: {
-            instructor: 'notExists',
-          },
-        });
-      }
-      instructor = instructorObject;
-    } else if (createCourseDto.instructor === null) {
-      instructor = null;
-    }
-
     let category: MasterDataCode | null | undefined = undefined;
 
     if (createCourseDto.category) {
@@ -132,11 +114,18 @@ export class CoursesService {
     return this.courseRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
+      courseId: createCourseDto.courseId,
+
       createdBy,
 
       publishedBy,
 
       publishedAt: createCourseDto.publishedAt,
+
+      unpublishedAt: createCourseDto.unpublishedAt,
+
+      requiresSequentialCompletion:
+        createCourseDto.requiresSequentialCompletion ?? false,
 
       avgRating: createCourseDto.avgRating,
 
@@ -147,8 +136,6 @@ export class CoursesService {
       totalLectures: createCourseDto.totalLectures,
 
       totalSections: createCourseDto.totalSections,
-
-      instructor,
 
       category,
 
@@ -188,7 +175,7 @@ export class CoursesService {
       status?: string;
       levelId?: string;
       categoryId?: string;
-      instructorId?: number;
+      instructorId?: string;
     } | null;
     paginationOptions: IPaginationOptions;
   }) {
@@ -203,13 +190,16 @@ export class CoursesService {
 
   findCatalog({
     filterOptions,
+    sortBy,
     paginationOptions,
   }: {
     filterOptions?: CourseCatalogFilterOptions | null;
+    sortBy?: CatalogSort | null;
     paginationOptions: IPaginationOptions;
   }) {
     return this.courseRepository.findCatalog({
       filterOptions,
+      sortBy,
       paginationOptions,
     });
   }
@@ -224,6 +214,10 @@ export class CoursesService {
 
   findBySlug(slug: Course['slug']) {
     return this.courseRepository.findBySlug(slug);
+  }
+
+  findByCourseId(courseId: string) {
+    return this.courseRepository.findByCourseId(courseId);
   }
 
   countByLevelId(levelId: string) {
@@ -279,25 +273,6 @@ export class CoursesService {
       publishedBy = null;
     }
 
-    let instructor: User | null | undefined = undefined;
-
-    if (updateCourseDto.instructor) {
-      const instructorObject = await this.userService.findById(
-        updateCourseDto.instructor.id,
-      );
-      if (!instructorObject) {
-        throw new UnprocessableEntityException({
-          status: HttpStatus.UNPROCESSABLE_ENTITY,
-          errors: {
-            instructor: 'notExists',
-          },
-        });
-      }
-      instructor = instructorObject;
-    } else if (updateCourseDto.instructor === null) {
-      instructor = null;
-    }
-
     let category: MasterDataCode | null | undefined = undefined;
 
     if (updateCourseDto.category) {
@@ -339,11 +314,18 @@ export class CoursesService {
     const payload: DeepPartial<Course> = {
       // Do not remove comment below.
       // <updating-property-payload />
+      courseId: updateCourseDto.courseId,
+
       createdBy,
 
       publishedBy,
 
       publishedAt: updateCourseDto.publishedAt,
+
+      unpublishedAt: updateCourseDto.unpublishedAt,
+
+      requiresSequentialCompletion:
+        updateCourseDto.requiresSequentialCompletion,
 
       avgRating: updateCourseDto.avgRating,
 
@@ -354,8 +336,6 @@ export class CoursesService {
       totalLectures: updateCourseDto.totalLectures,
 
       totalSections: updateCourseDto.totalSections,
-
-      instructor,
 
       category,
 

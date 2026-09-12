@@ -3,6 +3,7 @@ import {
   HttpStatus,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { MasterDataGroupsService } from '../master-data-groups/master-data-groups.service';
 import { MasterDataGroup } from '../master-data-groups/domain/master-data-group';
@@ -13,6 +14,23 @@ import { CourseGroupAssignmentsService } from '../course-group-assignments/cours
 import { CreateMasterDataAdminCodeDto } from './dto/create-master-data-admin-code.dto';
 import { UpdateMasterDataAdminCodeDto } from './dto/update-master-data-admin-code.dto';
 import { MasterDataCodeWithCountDto } from './dto/master-data-code-with-count.dto';
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from '../utils/i18n/locale';
+import { TranslationMap } from '../utils/i18n/translation-map.type';
+import {
+  mergeTranslations,
+  sanitizeTranslations,
+  withDefaultLocale,
+} from '../utils/i18n/translations';
+import { TranslationCoverageDto } from './dto/translation-coverage.dto';
+
+/**
+ * The admin screens render a whole group at once and have no paging control,
+ * so these have to be above any realistic count rather than a page size. A cap
+ * a real group can exceed hides codes from the person managing them —
+ * course_level passed 50 on a working database.
+ */
+const GROUP_CODE_LIMIT = 1000;
+const ALL_GROUPS_LIMIT = 200;
 
 @Injectable()
 export class MasterDataAdminService {
@@ -25,7 +43,7 @@ export class MasterDataAdminService {
 
   findAllGroups(): Promise<MasterDataGroup[]> {
     return this.masterDataGroupsService.findAllWithPagination({
-      paginationOptions: { page: 1, limit: 50 },
+      paginationOptions: { page: 1, limit: ALL_GROUPS_LIMIT },
     });
   }
 
@@ -36,7 +54,7 @@ export class MasterDataAdminService {
 
     const codes = await this.masterDataCodesService.findAllWithPagination({
       filterOptions: { groupKey },
-      paginationOptions: { page: 1, limit: 50 },
+      paginationOptions: { page: 1, limit: GROUP_CODE_LIMIT },
     });
 
     return Promise.all(
@@ -53,12 +71,27 @@ export class MasterDataAdminService {
   ): Promise<MasterDataCode> {
     const group = await this.findGroupOrThrow(groupKey);
 
-    await this.assertNameUnique(group.id, dto.name);
+    // `name`/`description` are shorthand for the default locale, which keeps
+    // every pre-Epic-6 caller working unchanged.
+    const nameTranslations = withDefaultLocale(
+      sanitizeTranslations(dto.nameTranslations),
+      dto.name,
+    );
+    const descriptionTranslations = withDefaultLocale(
+      sanitizeTranslations(dto.descriptionTranslations),
+      dto.description,
+    );
+
+    const defaultName = this.assertDefaultLocaleName(nameTranslations);
+
+    await this.assertNameUnique(group.id, defaultName);
 
     return this.masterDataCodesService.create({
       code: dto.code,
-      name: dto.name,
-      description: dto.description,
+      name: defaultName,
+      description: descriptionTranslations[DEFAULT_LOCALE],
+      nameTranslations,
+      descriptionTranslations,
       thumbnailUrl: dto.thumbnailUrl,
       isActive: dto.isActive ?? true,
       displayOrder: dto.displayOrder ?? 0,
@@ -74,11 +107,102 @@ export class MasterDataAdminService {
     const group = await this.findGroupOrThrow(groupKey);
     const code = await this.findCodeInGroupOrThrow(group, id);
 
-    if (dto.name && dto.name !== code.name) {
-      await this.assertNameUnique(group.id, dto.name);
+    const touchesName =
+      dto.nameTranslations !== undefined || dto.name !== undefined;
+    const touchesDescription =
+      dto.descriptionTranslations !== undefined ||
+      dto.description !== undefined;
+
+    const payload: Record<string, unknown> = { ...dto };
+
+    if (touchesName) {
+      const nameTranslations = withDefaultLocale(
+        mergeTranslations(code.nameTranslations, dto.nameTranslations),
+        // Only treat the shorthand as the vi value when no explicit vi patch
+        // was sent.
+        dto.nameTranslations?.[DEFAULT_LOCALE] === undefined
+          ? dto.name
+          : undefined,
+      );
+
+      const defaultName = this.assertDefaultLocaleName(nameTranslations);
+
+      // `code.name` arrives localized from the mapper, so the comparison has
+      // to use the stored default-locale value, not the rendered one.
+      if (defaultName !== code.nameTranslations?.[DEFAULT_LOCALE]) {
+        await this.assertNameUnique(group.id, defaultName);
+      }
+
+      payload.nameTranslations = nameTranslations;
+      payload.name = defaultName;
     }
 
-    return this.masterDataCodesService.update(id, dto);
+    if (touchesDescription) {
+      const descriptionTranslations = withDefaultLocale(
+        mergeTranslations(
+          code.descriptionTranslations,
+          dto.descriptionTranslations,
+        ),
+        dto.descriptionTranslations?.[DEFAULT_LOCALE] === undefined
+          ? dto.description
+          : undefined,
+      );
+
+      payload.descriptionTranslations = descriptionTranslations;
+      payload.description = descriptionTranslations[DEFAULT_LOCALE] ?? null;
+    }
+
+    return this.masterDataCodesService.update(id, payload);
+  }
+
+  /**
+   * Epic 6 §2.2.3 — per-locale translation coverage for the admin editor's
+   * "missing translation" indicator.
+   */
+  async translationCoverage(
+    groupKey: string,
+    includeInactive = false,
+  ): Promise<TranslationCoverageDto> {
+    await this.findGroupOrThrow(groupKey);
+
+    const codes = await this.masterDataCodesService.findAllWithPagination({
+      filterOptions: { groupKey },
+      paginationOptions: { page: 1, limit: GROUP_CODE_LIMIT },
+    });
+
+    const scoped = includeInactive
+      ? codes
+      : codes.filter((code) => code.isActive);
+
+    const coverage: TranslationCoverageDto = {};
+
+    for (const locale of SUPPORTED_LOCALES) {
+      const missing = scoped.filter((code) => {
+        const value = code.nameTranslations?.[locale];
+        return typeof value !== 'string' || value.trim() === '';
+      });
+
+      coverage[locale] = {
+        total: scoped.length,
+        translated: scoped.length - missing.length,
+        missingIds: missing.map((code) => code.id),
+      };
+    }
+
+    return coverage;
+  }
+
+  private assertDefaultLocaleName(translations: TranslationMap): string {
+    const value = translations[DEFAULT_LOCALE];
+
+    if (typeof value !== 'string' || value.trim() === '') {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { nameTranslations: 'defaultLocaleRequired' },
+      });
+    }
+
+    return value;
   }
 
   async deactivateCode(

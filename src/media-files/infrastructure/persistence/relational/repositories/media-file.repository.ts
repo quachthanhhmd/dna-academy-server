@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { MediaFileEntity } from '../entities/media-file.entity';
@@ -68,7 +69,7 @@ export class MediaFileRelationalRepository implements MediaFileRepository {
       this.mediaFileRepository.create(
         MediaFileMapper.toPersistence({
           ...MediaFileMapper.toDomain(entity),
-          ...payload,
+          ...omitUndefined(payload),
         }),
       ),
     );

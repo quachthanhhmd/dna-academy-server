@@ -9,6 +9,8 @@ import { UserEntity } from '../entities/user.entity';
 export class UserMapper {
   static toDomain(raw: UserEntity): User {
     const domainEntity = new User();
+    domainEntity.locale = raw.locale;
+
     domainEntity.onboardingDone = raw.onboardingDone;
 
     domainEntity.age = raw.age;
@@ -65,6 +67,8 @@ export class UserMapper {
     }
 
     const persistenceEntity = new UserEntity();
+    persistenceEntity.locale = domainEntity.locale;
+
     persistenceEntity.onboardingDone = domainEntity.onboardingDone;
 
     persistenceEntity.age = domainEntity.age;

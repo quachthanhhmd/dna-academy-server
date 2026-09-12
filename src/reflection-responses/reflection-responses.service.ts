@@ -91,6 +91,10 @@ export class ReflectionResponsesService {
     return this.reflectionResponseRepository.findByIds(ids);
   }
 
+  findByEnrollmentId(enrollmentId: string) {
+    return this.reflectionResponseRepository.findByEnrollmentId(enrollmentId);
+  }
+
   async update(
     id: ReflectionResponse['id'],
 
@@ -148,5 +152,10 @@ export class ReflectionResponsesService {
 
   remove(id: ReflectionResponse['id']) {
     return this.reflectionResponseRepository.remove(id);
+  }
+
+  /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
+  removeByEnrollmentId(enrollmentId: string) {
+    return this.reflectionResponseRepository.removeByEnrollmentId(enrollmentId);
   }
 }

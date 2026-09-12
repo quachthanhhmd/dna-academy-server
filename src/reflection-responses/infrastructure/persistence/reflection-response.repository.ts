@@ -22,10 +22,17 @@ export abstract class ReflectionResponseRepository {
     ids: ReflectionResponse['id'][],
   ): Promise<ReflectionResponse[]>;
 
+  abstract findByEnrollmentId(
+    enrollmentId: string,
+  ): Promise<ReflectionResponse[]>;
+
   abstract update(
     id: ReflectionResponse['id'],
     payload: DeepPartial<ReflectionResponse>,
   ): Promise<ReflectionResponse | null>;
 
   abstract remove(id: ReflectionResponse['id']): Promise<void>;
+
+  /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
+  abstract removeByEnrollmentId(enrollmentId: string): Promise<void>;
 }

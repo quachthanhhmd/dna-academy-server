@@ -40,6 +40,11 @@ services:
       - ${ENV_FILE:-./env/.env.local}
     ports:
       - ${APP_PORT}:${APP_PORT}
+    volumes:
+      # FILE_DRIVER=local writes here; without a volume every uploaded file is
+      # lost when the container is rebuilt.
+      - boilerplate-uploads:/usr/src/app/upload
 
 volumes:
   boilerplate-db:
+  boilerplate-uploads:

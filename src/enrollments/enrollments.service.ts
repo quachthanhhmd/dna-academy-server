@@ -137,6 +137,20 @@ export class EnrollmentsService {
     return this.enrollmentRepository.findByStudentId(studentId);
   }
 
+  /** Epic 4.4 §1.4 — one query for a whole catalog page's `isEnrolled`. */
+  findEnrolledCourseIds(studentId: number, courseIds: string[]) {
+    return this.enrollmentRepository.findEnrolledCourseIds(
+      studentId,
+      courseIds,
+    );
+  }
+
+  countDistinctStudentsByCourseIds(courseIds: string[]) {
+    return this.enrollmentRepository.countDistinctStudentsByCourseIds(
+      courseIds,
+    );
+  }
+
   async update(
     id: Enrollment['id'],
 

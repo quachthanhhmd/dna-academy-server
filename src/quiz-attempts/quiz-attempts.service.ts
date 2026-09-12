@@ -93,6 +93,20 @@ export class QuizAttemptsService {
     return this.quizAttemptRepository.findByIds(ids);
   }
 
+  findByEnrollmentAndLecture(enrollmentId: string, lectureId: string) {
+    return this.quizAttemptRepository.findByEnrollmentAndLecture(
+      enrollmentId,
+      lectureId,
+    );
+  }
+
+  /** Epic 4.5 §1.5 — submitted attempts for a whole dashboard page. */
+  findSubmittedByEnrollmentIds(enrollmentIds: string[]) {
+    return this.quizAttemptRepository.findSubmittedByEnrollmentIds(
+      enrollmentIds,
+    );
+  }
+
   async update(
     id: QuizAttempt['id'],
 
@@ -152,5 +166,10 @@ export class QuizAttemptsService {
 
   remove(id: QuizAttempt['id']) {
     return this.quizAttemptRepository.remove(id);
+  }
+
+  /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
+  removeByEnrollmentId(enrollmentId: string) {
+    return this.quizAttemptRepository.removeByEnrollmentId(enrollmentId);
   }
 }

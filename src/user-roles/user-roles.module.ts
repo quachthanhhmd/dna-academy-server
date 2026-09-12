@@ -5,7 +5,6 @@ import {
   Module,
 } from '@nestjs/common';
 import { UserRolesService } from './user-roles.service';
-import { UserRolesController } from './user-roles.controller';
 import { RelationalUserRolePersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -17,7 +16,10 @@ import { RelationalUserRolePersistenceModule } from './infrastructure/persistenc
     // do not remove this comment
     RelationalUserRolePersistenceModule,
   ],
-  controllers: [UserRolesController],
+  // No controller on purpose. The generated CRUD at /api/v1/user-roles let any
+  // logged-in user POST themselves the Super Admin role. Role assignment lives
+  // on PUT /api/v1/admin/users/:id/roles, behind PermissionGuard. Guarding it
+  // here instead would need AuthorizationModule, which imports this module.
   providers: [UserRolesService],
   exports: [UserRolesService, RelationalUserRolePersistenceModule],
 })

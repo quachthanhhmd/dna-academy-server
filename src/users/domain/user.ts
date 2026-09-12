@@ -6,6 +6,16 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class User {
   @ApiProperty({
+    type: () => String,
+    nullable: false,
+    example: 'vi',
+    description:
+      'Preferred UI locale (Epic 6). Contributes to the locale resolution ' +
+      'chain when the request carries no explicit ?locale= or X-Locale.',
+  })
+  locale: string;
+
+  @ApiProperty({
     type: () => Boolean,
     nullable: false,
   })

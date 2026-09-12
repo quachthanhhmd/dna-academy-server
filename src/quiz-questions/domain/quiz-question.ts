@@ -30,6 +30,15 @@ export class QuizQuestion {
   @ApiProperty({
     type: () => String,
     nullable: true,
+    description:
+      'Epic 4 v2.3 — revealed only after the attempt is submitted. Null ' +
+      'means no explanation was authored.',
+  })
+  explanation?: string | null;
+
+  @ApiProperty({
+    type: () => String,
+    nullable: true,
   })
   ratingLabelMax?: string | null;
 

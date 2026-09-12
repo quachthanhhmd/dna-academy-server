@@ -38,6 +38,14 @@ export class QuizQuestionEntity extends EntityRelationalHelper {
   })
   minWordCount?: number | null;
 
+  // Epic 4 v2.3 §2.1 — shown to the student only after they submit. Answer-key
+  // material: never selected into a pre-submit payload.
+  @Column({
+    nullable: true,
+    type: 'text',
+  })
+  explanation?: string | null;
+
   @Column({
     nullable: true,
     type: String,

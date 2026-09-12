@@ -1,8 +1,7 @@
 import { describe, expect, it, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
-
-const SUPER_ADMIN_ROLE_ID = 3;
+import { loginSeededSuperAdmin, makeSuperAdmin } from '../utils/admin';
 
 describe('Admin / Lectures', () => {
   const app = APP_URL;
@@ -22,29 +21,26 @@ describe('Admin / Lectures', () => {
     return { token: body.token as string, userId: body.user.id as number };
   };
 
+  let seededAdminToken: string;
+
   let superAdminToken: string;
   let courseId: string;
   let sectionAId: string;
   let sectionBId: string;
 
   beforeAll(async () => {
+    seededAdminToken = await loginSeededSuperAdmin(app);
     const superAdmin = await registerAndLogin(
       `lectures-admin.super.${runId}@example.com`,
     );
     superAdminToken = superAdmin.token;
-    await request(app)
-      .post('/api/v1/user-roles')
-      .auth(superAdminToken, { type: 'bearer' })
-      .send({
-        user: { id: superAdmin.userId },
-        role: { id: SUPER_ADMIN_ROLE_ID },
-      })
-      .expect(201);
+    await makeSuperAdmin(app, seededAdminToken, superAdmin.userId);
 
     const { body: course } = await request(app)
       .post('/api/v1/admin/courses')
       .auth(superAdminToken, { type: 'bearer' })
       .send({
+        courseId: `LEC-${runId}`,
         title: `Lectures Test ${runId}`,
         language: 'en',
         price: 0,
@@ -178,6 +174,7 @@ describe('Admin / Lectures', () => {
       .post('/api/v1/admin/courses')
       .auth(superAdminToken, { type: 'bearer' })
       .send({
+        courseId: `LEC-OTHER-${runId}`,
         title: `Other Course ${runId}`,
         language: 'en',
         price: 0,

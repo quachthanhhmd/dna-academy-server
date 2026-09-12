@@ -22,6 +22,16 @@ export abstract class QuizAttemptAnswerRepository {
     ids: QuizAttemptAnswer['id'][],
   ): Promise<QuizAttemptAnswer[]>;
 
+  abstract findByAttemptId(attemptId: string): Promise<QuizAttemptAnswer[]>;
+
+  abstract removeByAttemptId(attemptId: string): Promise<void>;
+
+  /**
+   * Epic 4.2 §3.2 — bulk clear for the admin progress reset. Scoped through
+   * the attempt, because an answer has no enrollment of its own.
+   */
+  abstract removeByEnrollmentId(enrollmentId: string): Promise<void>;
+
   abstract update(
     id: QuizAttemptAnswer['id'],
     payload: DeepPartial<QuizAttemptAnswer>,
