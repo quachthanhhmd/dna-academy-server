@@ -72,7 +72,7 @@ const run = async (): Promise<void> => {
 
   for (const groupKey of GROUPS) {
     const codes: CodeRow[] = await dataSource.query(
-      `SELECT c."id", c."name", c."is_active"
+      `SELECT c."id", c."name", c."is_active" AS "isActive"
          FROM "master_data_code" c
          JOIN "master_data_group" g ON g."id" = c."group_id"
         WHERE g."group_key" = $1
