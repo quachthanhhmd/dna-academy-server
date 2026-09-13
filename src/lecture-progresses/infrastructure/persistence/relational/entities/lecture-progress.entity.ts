@@ -32,14 +32,14 @@ export class LectureProgressEntity extends EntityRelationalHelper {
   @Column({
     name: 'completed_at',
     nullable: true,
-    type: Date,
+    type: 'timestamptz',
   })
   completedAt?: Date | null;
 
   @Column({
     name: 'started_at',
     nullable: true,
-    type: Date,
+    type: 'timestamptz',
   })
   startedAt?: Date | null;
 
@@ -61,9 +61,9 @@ export class LectureProgressEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }

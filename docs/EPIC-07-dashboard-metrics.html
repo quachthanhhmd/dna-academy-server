@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard Quản trị — Cách tính từng con số</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;600&display=swap">
+<style>
+  :root{
+    --paper:#F7F5F2;--surface:#FFFFFF;--sunk:#EFEBE6;
+    --ink:#1A1613;--ink-soft:#544C44;--ink-faint:#857A70;
+    --rule:#E2DCD4;--rule-soft:#EBE6E0;--accent:#8A4B14;
+    --warn:#97382F;--warn-soft:#F7E4E1;
+    --note:#7E5A17;--note-soft:#F5EDDA;
+    --f-display:"Newsreader",Georgia,serif;
+    --f-body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#15120F;--surface:#1C1815;--sunk:#241F1B;
+    --ink:#EDE7E0;--ink-soft:#ABA098;--ink-faint:#7D736B;
+    --rule:#332C26;--rule-soft:#29231E;--accent:#E0A268;
+    --warn:#E08A80;--warn-soft:#2E1E1B;--note:#D8B268;--note-soft:#2B2418;}}
+  :root[data-theme="dark"]{
+    --paper:#15120F;--surface:#1C1815;--sunk:#241F1B;
+    --ink:#EDE7E0;--ink-soft:#ABA098;--ink-faint:#7D736B;
+    --rule:#332C26;--rule-soft:#29231E;--accent:#E0A268;
+    --warn:#E08A80;--warn-soft:#2E1E1B;--note:#D8B268;--note-soft:#2B2418;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);
+       font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased}
+  .page{max-width:56rem;margin:0 auto;padding:3rem 1.5rem 6rem}
+  header{border-bottom:2px solid var(--ink);padding-bottom:1.25rem;margin-bottom:2rem}
+  .kicker{font-family:var(--f-mono);font-size:.6875rem;letter-spacing:.13em;text-transform:uppercase;
+          color:var(--ink-faint);margin:0 0 .8rem}
+  h1{font-family:var(--f-display);font-weight:600;font-size:clamp(2rem,5.5vw,2.9rem);
+     line-height:1.1;letter-spacing:-.02em;margin:0 0 .6rem;text-wrap:balance}
+  .lede{font-family:var(--f-display);font-size:1.125rem;line-height:1.55;color:var(--ink-soft);
+        max-width:56ch;margin:0}
+  h2{font-family:var(--f-display);font-weight:600;font-size:1.45rem;margin:2.75rem 0 .35rem;
+     letter-spacing:-.015em;border-bottom:1px solid var(--ink);padding-bottom:.4rem}
+  .sub{font-size:.875rem;color:var(--ink-faint);margin:.5rem 0 1.25rem;max-width:62ch}
+
+  .grid{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+  .grid.two{grid-template-columns:repeat(auto-fit,minmax(17rem,1fr))}
+  .item{background:var(--surface);padding:1.1rem 1.2rem}
+  .item h3{font-size:.9375rem;font-weight:600;margin:0 0 .15rem;letter-spacing:-.005em}
+  .q{font-size:.8125rem;color:var(--ink-faint);margin:0 0 .7rem;font-style:italic}
+  .formula{font-family:var(--f-mono);font-size:.78125rem;line-height:1.7;background:var(--sunk);
+           padding:.6rem .75rem;border-radius:3px;margin:0 0 .55rem}
+  .formula .op{color:var(--accent)}
+  .item p{margin:0;font-size:.8125rem;color:var(--ink-soft)}
+  .item p+p{margin-top:.45rem}
+
+  .callout{border-left:3px solid var(--warn);background:var(--warn-soft);padding:1rem 1.2rem;margin:1.1rem 0}
+  .callout .lbl{font-family:var(--f-mono);font-size:.625rem;font-weight:600;letter-spacing:.11em;
+                text-transform:uppercase;color:var(--warn);display:block;margin-bottom:.4rem}
+  .callout p{margin:0 0 .5rem;font-size:.875rem}.callout p:last-child{margin-bottom:0}
+  .callout.note{border-left-color:var(--note);background:var(--note-soft)}
+  .callout.note .lbl{color:var(--note)}
+
+  .ex{font-family:var(--f-mono);font-size:.78125rem;background:var(--surface);border:1px solid var(--rule);
+      padding:.75rem .9rem;margin:.6rem 0;line-height:1.8;overflow-x:auto}
+  .ex b{color:var(--accent);font-weight:600}
+  code{font-family:var(--f-mono);font-size:.86em;background:var(--sunk);padding:.08em .3em;border-radius:2px}
+  footer{margin-top:3.5rem;padding-top:1rem;border-top:1px solid var(--rule);font-family:var(--f-mono);
+         font-size:.6875rem;color:var(--ink-faint);display:flex;gap:1.25rem;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <p class="kicker">DNA Academy · Dashboard Quản trị · EPIC-07</p>
+  <h1>Từng con số được tính như thế nào</h1>
+  <p class="lede">Mười ba ô số và biểu đồ trên trang Overview. Mỗi mục ghi rõ: nó trả lời câu hỏi gì, tính bằng công thức nào, và có chỗ nào dễ đọc nhầm không.</p>
+</header>
+
+<div class="callout note">
+  <span class="lbl">Ba quy ước áp dụng cho toàn bộ trang</span>
+  <p><strong>Múi giờ Việt Nam.</strong> Một “ngày” là 00:00 – 23:59 giờ Việt Nam, không phải giờ quốc tế.</p>
+  <p><strong>Không có dữ liệu ≠ bằng 0.</strong> Khi chưa có số liệu, ô hiển thị “Chưa có dữ liệu”. Một cột bằng 0 nghĩa là đã đo và kết quả bằng không — hai chuyện khác nhau.</p>
+  <p><strong>Đơn ghi danh đã huỷ không được tính</strong> ở mọi chỗ, trừ biểu đồ Trạng thái ghi danh vốn để nhìn cả bốn trạng thái.</p>
+</div>
+
+<h2>7 ô số tổng quan</h2>
+<p class="sub">Mỗi ô kèm mức thay đổi so với kỳ trước liền kề, cùng độ dài.</p>
+
+<div class="grid two">
+
+  <div class="item">
+    <h3>Tổng học viên đã đăng ký</h3>
+    <p class="q">Hệ thống có bao nhiêu học viên?</p>
+    <p class="formula">Đếm tài khoản có vai trò <span class="op">Học viên</span></p>
+    <p>Là con số luỹ kế, không lọc theo kỳ. Phần “+8%” bên dưới mới là số tài khoản mới trong kỳ.</p>
+    <p><strong>Mới:</strong> tài khoản giảng viên nay có vai trò riêng nên không còn bị đếm nhầm vào đây.</p>
+  </div>
+
+  <div class="item">
+    <h3>Học viên đang hoạt động</h3>
+    <p class="q">Bao nhiêu người thực sự vào học trong kỳ?</p>
+    <p class="formula">Đếm học viên có <span class="op">truy cập bài học</span> trong kỳ</p>
+    <p>Đếm theo lần vào học gần nhất, <strong>không phải</strong> theo lượt ghi danh mới. Một người ghi danh từ ba tháng trước mà vẫn học mỗi ngày thì vẫn được tính là đang hoạt động.</p>
+  </div>
+
+  <div class="item">
+    <h3>Tổng lượt ghi danh</h3>
+    <p class="q">Có bao nhiêu lượt ghi danh mới trong kỳ?</p>
+    <p class="formula">Đếm đơn ghi danh <span class="op">tạo trong kỳ</span></p>
+    <p>Một người ghi danh ba khoá thì tính là ba lượt.</p>
+  </div>
+
+  <div class="item">
+    <h3>Khoá học đã hoàn thành</h3>
+    <p class="q">Có bao nhiêu lượt học xong trong kỳ?</p>
+    <p class="formula">Đếm đơn <span class="op">chuyển sang Hoàn thành</span> trong kỳ</p>
+    <p>Tính theo ngày hoàn thành, nên con số này khớp đúng với số chứng chỉ đã cấp.</p>
+  </div>
+
+  <div class="item">
+    <h3>Tỷ lệ hoàn thành</h3>
+    <p class="q">Trong số người ghi danh kỳ này, bao nhiêu % đã học xong?</p>
+    <p class="formula">Số người <span class="op">ghi danh trong kỳ</span> và đã học xong<br>÷ Tổng số người <span class="op">ghi danh trong kỳ</span></p>
+    <p>Cả tử số và mẫu số cùng nói về <strong>một nhóm người</strong> — nhóm ghi danh trong kỳ đó. Xem lưu ý bên dưới, đây là con số dễ đọc nhầm nhất trang.</p>
+  </div>
+
+  <div class="item">
+    <h3>Tiến độ trung bình</h3>
+    <p class="q">Trung bình mỗi người học được bao xa?</p>
+    <p class="formula">Trung bình <span class="op">% tiến độ</span> của các đơn ghi danh</p>
+    <p>Tính trên số bài bắt buộc đã hoàn thành của từng khoá.</p>
+  </div>
+
+  <div class="item">
+    <h3>Đánh giá trung bình</h3>
+    <p class="q">Học viên chấm khoá học bao nhiêu sao?</p>
+    <p class="formula">Trung bình <span class="op">số sao</span> học viên gửi trong kỳ</p>
+    <p><strong>Gồm cả đánh giá chưa kiểm duyệt</strong> — cố ý như vậy, để con số ở đây luôn khớp với số sao hiển thị ngoài trang khoá học.</p>
+  </div>
+
+</div>
+
+<div class="callout">
+  <span class="lbl">Lưu ý quan trọng — Tỷ lệ hoàn thành</span>
+  <p>Nhóm ghi danh trong <strong>7 ngày gần nhất</strong> mới chỉ có 7 ngày để học xong một khoá dài 6 tuần. Nên tỷ lệ của kỳ ngắn <strong>gần như luôn thấp</strong>, và điều đó không nói lên chất lượng khoá học.</p>
+  <p>Vì vậy ô này luôn ghi rõ nhóm nào đang được tính, ví dụ <em>“của học viên ghi danh 15/08 – 13/09”</em>. Muốn đánh giá chất lượng thật thì chọn kỳ đủ dài — quý hoặc năm.</p>
+  <p>Cách tính này cũng đảm bảo tỷ lệ <strong>không bao giờ vượt 100%</strong>. Nếu lấy “số hoàn thành trong tháng chia số ghi danh trong tháng”, con số hoàn toàn có thể ra 250% khi nhóm cũ học xong dồn vào một tháng ít người ghi danh mới.</p>
+  <div class="ex">Tháng 9:  ghi danh <b>120</b>  ·  trong nhóm đó đã xong <b>18</b>
+          → tỷ lệ hoàn thành = <b>15%</b>  (của nhóm tháng 9)</div>
+</div>
+
+<h2>6 biểu đồ</h2>
+
+<div class="grid two">
+
+  <div class="item">
+    <h3>A · Ghi danh theo thời gian</h3>
+    <p class="q">Lượng ghi danh tăng hay giảm, và đến từ đâu?</p>
+    <p class="formula">Đếm lượt ghi danh theo <span class="op">ngày / tuần / tháng</span><br>chia theo nguồn: tự nhiên · admin thêm · mã giảm giá</p>
+    <p>Kỳ ngắn xem theo ngày, kỳ dài tự gom theo tuần hoặc tháng cho dễ nhìn.</p>
+    <p><strong>Có thể xuất hiện nhóm “không rõ nguồn”:</strong> đó là các đơn ghi danh cũ, có từ trước khi hệ thống bắt đầu ghi nhận nguồn. Không gộp vào “tự nhiên” để tránh thổi phồng nhóm đó.</p>
+  </div>
+
+  <div class="item">
+    <h3>B · Phân bố tiến độ</h3>
+    <p class="q">Học viên đang mắc ở đoạn nào?</p>
+    <p class="formula">Chia học viên vào 6 nhóm:<br><span class="op">Chưa bắt đầu · 1–25% · 26–50% · 51–75% · 76–99% · Hoàn thành</span></p>
+    <p>Mỗi người chỉ nằm trong đúng một nhóm, và tổng sáu nhóm bằng tổng số đơn ghi danh.</p>
+    <p>Nhóm “Hoàn thành” đếm theo <strong>trạng thái đã hoàn thành</strong>, tức là đúng những người đã được cấp chứng chỉ.</p>
+  </div>
+
+  <div class="item">
+    <h3>C · Top khoá học</h3>
+    <p class="q">Khoá nào hút người học, và khoá nào giữ được người?</p>
+    <p class="formula">10 khoá nhiều ghi danh nhất<br>Độ dài cột = <span class="op">số ghi danh</span><br>Màu đậm nhạt = <span class="op">tỷ lệ hoàn thành</span></p>
+    <p>Đọc hai chiều: cột dài mà màu nhạt nghĩa là khoá thu hút tốt nhưng học viên bỏ giữa chừng — đáng xem lại nội dung.</p>
+  </div>
+
+  <div class="item">
+    <h3>D · Trạng thái ghi danh</h3>
+    <p class="q">Bức tranh tổng thể đang ra sao?</p>
+    <p class="formula">Đếm theo 4 trạng thái:<br><span class="op">Mới ghi danh · Đang học · Hoàn thành · Đã huỷ</span></p>
+    <p>Đây là biểu đồ duy nhất có tính đơn đã huỷ, vì mục đích của nó là nhìn đủ cả bốn.</p>
+  </div>
+
+  <div class="item">
+    <h3>E · Phản hồi hướng nghiệp</h3>
+    <p class="q">Khoá học tác động thế nào đến định hướng nghề của học viên?</p>
+    <p class="formula">Điểm trung bình (thang 1–5) theo 6 nhóm:<br><span class="op">Mức độ quan tâm · Hiểu công việc · Tự tin theo đuổi · Phù hợp năng lực · Ý định học nâng cao · Mức hữu ích</span></p>
+    <p>Kèm ba chỉ số: tổng số phản hồi, tỷ lệ phản hồi, điểm trung bình chung.</p>
+    <p><strong>Tỷ lệ phản hồi</strong> = số người đã điền ÷ số người đã học xong. Chỉ học viên hoàn thành khoá mới được mời điền.</p>
+  </div>
+
+  <div class="item">
+    <h3>F · Nhận xét bằng lời</h3>
+    <p class="q">Học viên viết gì?</p>
+    <p class="formula">Danh sách nhận xét, kèm <span class="op">tên khoá</span> và <span class="op">ngày gửi</span></p>
+    <p>Mới nhất lên đầu, lọc được theo khoá và theo kỳ.</p>
+  </div>
+
+</div>
+
+<div class="callout">
+  <span class="lbl">Nếu một nhóm phản hồi hiện “chưa có dữ liệu”</span>
+  <p>Nghĩa là khoá học đang lọc <strong>không có câu hỏi nào thuộc nhóm đó</strong> — không phải học viên chấm 0 điểm. Thang điểm bắt đầu từ 1, nên số 0 không tồn tại trong dữ liệu này.</p>
+</div>
+
+<h2>Bộ lọc và xuất dữ liệu</h2>
+<div class="grid two">
+  <div class="item">
+    <h3>Ba bộ lọc dùng chung</h3>
+    <p class="q">Áp dụng đồng thời cho toàn bộ trang</p>
+    <p class="formula"><span class="op">Kỳ</span> — 7 / 30 / 90 ngày, quý, năm, hoặc tự chọn<br><span class="op">Khoá học</span> — xem riêng một khoá<br><span class="op">Nhóm khoá</span> — gộp các khoá cùng nhóm</p>
+    <p>Chọn cùng lúc thì các điều kiện cộng dồn. Đường dẫn trang lưu lại lựa chọn nên có thể gửi nguyên trạng cho người khác xem.</p>
+  </div>
+  <div class="item">
+    <h3>Xuất dữ liệu</h3>
+    <p class="q">Mang số liệu ra ngoài</p>
+    <p class="formula"><span class="op">Excel/CSV</span> — dữ liệu thô theo bộ lọc hiện tại<br><span class="op">PDF</span> — ảnh chụp nguyên trang</p>
+    <p>Cần quyền xuất dữ liệu riêng, tách khỏi quyền xem. File PDF mất vài giây để tạo nên sẽ có thanh tiến trình.</p>
+  </div>
+</div>
+
+<h2>Bấm vào số để xem người thật</h2>
+<p class="sub">Bấm vào một ô số hoặc một cột trong biểu đồ phân bố tiến độ sẽ mở danh sách học viên đứng sau con số đó: tên, khoá, ngày ghi danh, tiến độ, trạng thái. Danh sách này chứa thông tin cá nhân nên chỉ tài khoản có quyền xem dashboard mới mở được.</p>
+
+<footer>
+  <span>EPIC-07 · Dashboard Quản trị</span>
+  <span>Bản 13/09/2026</span>
+  <span>Chi tiết kỹ thuật: docs/epic/EPIC-07-Admin-Overview-Dashboard.md</span>
+</footer>
+
+</div>
+</body>
+</html>

@@ -65,7 +65,7 @@ export class CourseEntity extends EntityRelationalHelper {
   @Column({
     name: 'published_at',
     nullable: true,
-    type: Date,
+    type: 'timestamptz',
   })
   publishedAt?: Date | null;
 
@@ -73,7 +73,7 @@ export class CourseEntity extends EntityRelationalHelper {
   @Column({
     name: 'unpublished_at',
     nullable: true,
-    type: Date,
+    type: 'timestamptz',
   })
   unpublishedAt?: Date | null;
 
@@ -259,9 +259,9 @@ export class CourseEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }

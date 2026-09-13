@@ -37,7 +37,7 @@ export class EnrollmentEntity extends EntityRelationalHelper {
   @Column({
     name: 'last_accessed_at',
     nullable: true,
-    type: Date,
+    type: 'timestamptz',
   })
   lastAccessedAt?: Date | null;
 
@@ -51,14 +51,14 @@ export class EnrollmentEntity extends EntityRelationalHelper {
   @Column({
     name: 'completed_at',
     nullable: true,
-    type: Date,
+    type: 'timestamptz',
   })
   completedAt?: Date | null;
 
   @Column({
     name: 'started_at',
     nullable: true,
-    type: Date,
+    type: 'timestamptz',
   })
   startedAt?: Date | null;
 
@@ -74,7 +74,7 @@ export class EnrollmentEntity extends EntityRelationalHelper {
   @Column({
     name: 'enrollment_date',
     nullable: false,
-    type: Date,
+    type: 'timestamptz',
   })
   enrollmentDate?: Date;
 
@@ -96,9 +96,9 @@ export class EnrollmentEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }

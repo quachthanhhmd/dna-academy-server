@@ -25,7 +25,7 @@ export class CourseRatingEntity extends EntityRelationalHelper {
   @Column({
     name: 'submitted_at',
     nullable: false,
-    type: Date,
+    type: 'timestamptz',
   })
   submittedAt?: Date;
 
@@ -65,9 +65,9 @@ export class CourseRatingEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }

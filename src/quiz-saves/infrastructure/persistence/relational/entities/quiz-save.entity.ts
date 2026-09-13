@@ -20,7 +20,7 @@ export class QuizSaveEntity extends EntityRelationalHelper {
   @Column({
     name: 'saved_at',
     nullable: false,
-    type: Date,
+    type: 'timestamptz',
   })
   savedAt?: Date;
 
@@ -42,9 +42,9 @@ export class QuizSaveEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }
