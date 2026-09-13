@@ -50,7 +50,7 @@ export class UserEntity extends EntityRelationalHelper {
   @Column({
     name: 'date_of_birth',
     nullable: true,
-    type: Date,
+    type: 'date',
   })
   dateOfBirth?: Date | null;
 
@@ -120,12 +120,12 @@ export class UserEntity extends EntityRelationalHelper {
   @JoinColumn({ name: 'status_id' })
   status?: StatusEntity;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 
-  @DeleteDateColumn({ name: 'deleted_at' })
+  @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz' })
   deletedAt: Date;
 }

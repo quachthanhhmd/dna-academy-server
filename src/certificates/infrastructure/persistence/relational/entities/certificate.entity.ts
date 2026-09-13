@@ -25,7 +25,7 @@ export class CertificateEntity extends EntityRelationalHelper {
   @Column({
     name: 'issued_at',
     nullable: false,
-    type: Date,
+    type: 'timestamptz',
   })
   issuedAt?: Date;
 
@@ -36,7 +36,7 @@ export class CertificateEntity extends EntityRelationalHelper {
   @Column({
     name: 'completion_date',
     nullable: false,
-    type: Date,
+    type: 'timestamptz',
   })
   completionDate: Date;
 
@@ -82,9 +82,9 @@ export class CertificateEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }

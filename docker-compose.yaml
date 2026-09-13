@@ -38,6 +38,21 @@ services:
     # Defaults to env/.env.local when ENV_FILE is not set.
     env_file:
       - ${ENV_FILE:-./env/.env.local}
+    environment:
+      # Vietnam local time, for logs and anything the process formats itself.
+      #
+      # The IANA name, never "UTC+7": in a POSIX TZ string the sign is
+      # inverted, so TZ=UTC+7 means seven hours *west* of UTC and would put
+      # the container on UTC-7 — fourteen hours off, in the wrong direction.
+      #
+      # Safe to set only because every timestamp column is now `timestamptz`
+      # (migration 1787200000000). While they were `timestamp without time
+      # zone` the pg driver parsed each one in the process's local zone, so
+      # this single line would have shifted every date the API reads by seven
+      # hours. Postgres itself stays on UTC: date bucketing names its zone
+      # explicitly in SQL, because implicit conversion is what caused that
+      # problem in the first place.
+      TZ: Asia/Ho_Chi_Minh
     ports:
       - ${APP_PORT}:${APP_PORT}
     volumes:

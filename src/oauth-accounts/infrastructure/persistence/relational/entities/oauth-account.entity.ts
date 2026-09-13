@@ -18,7 +18,7 @@ export class OauthAccountEntity extends EntityRelationalHelper {
   @Column({
     name: 'token_expires_at',
     nullable: true,
-    type: Date,
+    type: 'timestamptz',
   })
   tokenExpiresAt?: Date | null;
 
@@ -57,9 +57,9 @@ export class OauthAccountEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }

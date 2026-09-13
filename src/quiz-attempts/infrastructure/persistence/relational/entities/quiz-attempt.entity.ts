@@ -20,7 +20,7 @@ export class QuizAttemptEntity extends EntityRelationalHelper {
   @Column({
     name: 'submitted_at',
     nullable: true,
-    type: Date,
+    type: 'timestamptz',
   })
   submittedAt?: Date | null;
 
@@ -49,9 +49,9 @@ export class QuizAttemptEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
 }

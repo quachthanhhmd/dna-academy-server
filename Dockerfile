@@ -1,6 +1,8 @@
 FROM node:24.14.1-alpine
 
-RUN apk add --no-cache bash
+# tzdata is what makes the TZ env var mean anything: without the zone
+# database, Alpine silently ignores TZ and the container stays on UTC.
+RUN apk add --no-cache bash tzdata
 RUN npm i -g @nestjs/cli typescript ts-node
 
 COPY package*.json /tmp/app/
