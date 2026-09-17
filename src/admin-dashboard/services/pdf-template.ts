@@ -19,6 +19,10 @@ export const esc = (value: unknown): string =>
     .replace(/"/g, '&quot;');
 
 /** §1.3 — an absence is never a zero. */
+/** `1 answer`, `2 answers` — the report is read, not just scanned. */
+const plural = (n: number, word: string): string =>
+  `${n} ${word}${n === 1 ? '' : 's'}`;
+
 export const show = (value: number | null | undefined, suffix = ''): string =>
   value === null || value === undefined
     ? '<span class="nodata">No data</span>'
@@ -293,6 +297,8 @@ const STYLES = `
        letter-spacing: .04em; color: #5b6675; }
   tbody tr:nth-child(even) { background: #fbfcfd; }
   .bars { display: flex; flex-direction: column; gap: 5px; }
+  .question { font-size: 11px; margin: 10px 0 4px; font-weight: 600; }
+  .question-meta { font-weight: 400; color: #5b6675; margin-left: 6px; }
   .bar-row { display: grid; grid-template-columns: minmax(130px, 45%) 1fr 90px;
              align-items: center; gap: 8px; }
   .bar-label { font-size: 10px; }
@@ -321,6 +327,8 @@ const page = (title: string, body: string): string =>
 
 /** The full dashboard, `dataset=overview`. */
 export const renderOverview = (data: OverviewData): string => {
+  const reflection = data.reflection;
+
   const body = `
     <h1>Admin Overview Dashboard</h1>
     <div class="meta">${filterLine(data.meta)} · generated ${esc(
@@ -362,6 +370,36 @@ export const renderOverview = (data: OverviewData): string => {
                .join('')}</tbody></table>`
         : empty('no enrollments in this period')
     }</section>
+
+    <section><h2>Career reflection</h2>
+      <div class="meta">${esc(plural(reflection.totalResponses, 'response'))} ·
+        response rate ${show(reflection.responseRate.rate, '%')}
+        (${esc(reflection.responseRate.responded)} of
+         ${esc(reflection.responseRate.completed)} completed)</div>
+      ${
+        reflection.selections.length
+          ? reflection.selections
+              .map(
+                (
+                  question,
+                ) => `<h3 class="question">${esc(question.questionText)}
+                  <span class="question-meta">${esc(plural(question.answered, 'answer'))}</span></h3>
+                  ${
+                    question.answered
+                      ? barChart(
+                          question.options.map((option) => ({
+                            label: option.label,
+                            value: option.count,
+                            note: option.pct === null ? '' : `${option.pct}%`,
+                          })),
+                        )
+                      : empty('no answers to this question in this period')
+                  }`,
+              )
+              .join('')
+          : empty('no reflection questions are active')
+      }
+    </section>
 
     <footer>DNA Academy · figures follow ${esc(
       data.meta.timezone,

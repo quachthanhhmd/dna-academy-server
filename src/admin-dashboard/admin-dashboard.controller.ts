@@ -17,7 +17,11 @@ import {
 import { PermissionGuard } from '../authorization/permission.guard';
 import { RequirePermission } from '../authorization/require-permission.decorator';
 import { buildContext, envelope } from './dashboard-context';
-import { DashboardQueryDto, StudentsQueryDto } from './dto/dashboard-query.dto';
+import {
+  DashboardQueryDto,
+  ReflectionCommentsQueryDto,
+  StudentsQueryDto,
+} from './dto/dashboard-query.dto';
 import { ExportQueryDto } from './dto/export-query.dto';
 import { ChartsService } from './services/charts.service';
 import { CsvService } from './services/csv.service';
@@ -25,6 +29,7 @@ import { ExportDatasetService } from './services/export-dataset.service';
 import { PdfService } from './services/pdf.service';
 import { renderOverview, renderTable } from './services/pdf-template';
 import { KpisService } from './services/kpis.service';
+import { ReflectionService } from './services/reflection.service';
 import { StudentsService } from './services/students.service';
 
 /**
@@ -43,6 +48,7 @@ export class AdminDashboardController {
   constructor(
     private readonly kpis: KpisService,
     private readonly charts: ChartsService,
+    private readonly reflection: ReflectionService,
     private readonly students: StudentsService,
     private readonly datasets: ExportDatasetService,
     private readonly csv: CsvService,
@@ -90,6 +96,36 @@ export class AdminDashboardController {
     const { filters, meta } = buildContext(query);
 
     return envelope(await this.charts.enrollmentStatus(filters), meta);
+  }
+
+  @Get('reflection')
+  @ApiOperation({
+    summary:
+      'Option distribution per selection question, response rate, totals',
+  })
+  async getReflection(@Query() query: DashboardQueryDto) {
+    const { filters, meta } = buildContext(query);
+
+    return envelope(await this.reflection.summary(filters), meta);
+  }
+
+  @Get('reflection/comments')
+  @ApiOperation({
+    summary:
+      'Free-text reflection answers, newest first, filterable by question',
+  })
+  async getReflectionComments(@Query() query: ReflectionCommentsQueryDto) {
+    const { filters, meta } = buildContext(query);
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const { items, total } = await this.reflection.comments(
+      filters,
+      page,
+      limit,
+      query.questionId,
+    );
+
+    return envelope({ items, total, page, limit }, meta);
   }
 
   @Get('students')

@@ -19,27 +19,19 @@ export class CareerReflectionQuestion {
 
   @ApiProperty({
     type: () => String,
-    enum: ['slider', 'radio', 'select'],
-    example: 'slider',
+    enum: ['free_text', 'selection'],
+    example: 'selection',
   })
   questionType: string;
 
-  @ApiProperty({ type: () => String, nullable: true })
-  labelMin?: string | null;
-
-  @ApiProperty({ type: () => String, nullable: true })
-  labelMax?: string | null;
-
-  @ApiProperty({ type: () => Object, nullable: true })
-  labelMinTranslations?: TranslationMap | null;
-
-  @ApiProperty({ type: () => Object, nullable: true })
-  labelMaxTranslations?: TranslationMap | null;
+  @ApiProperty({ type: () => Boolean, example: true })
+  isRequired: boolean;
 
   @ApiProperty({
     type: () => [Object],
     nullable: true,
-    description: 'radio/select choices, ascending least to most positive.',
+    description:
+      'selection only: [{ key, label, labelTranslations }]. Array order is display order; key is identity.',
   })
   options?: CareerReflectionOption[] | null;
 
@@ -48,6 +40,9 @@ export class CareerReflectionQuestion {
     nullable: false,
   })
   questionText: string;
+
+  @ApiProperty({ type: () => Object, nullable: true, example: { en: '…' } })
+  questionTextTranslations?: TranslationMap | null;
 
   @ApiProperty({
     type: () => String,

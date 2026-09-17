@@ -4,6 +4,7 @@ import { DashboardMeta } from '../dashboard-context';
 import { ChartsService } from './charts.service';
 import { KpisService, KpiSet } from './kpis.service';
 import { DashboardFilters } from './metrics-query.service';
+import { ReflectionService, ReflectionSummary } from './reflection.service';
 import { StudentsService } from './students.service';
 
 export type Column = { key: string; label: string };
@@ -23,6 +24,7 @@ export type OverviewData = {
   progress: Awaited<ReturnType<ChartsService['progressDistribution']>>;
   topCourses: Awaited<ReturnType<ChartsService['topCourses']>>;
   statuses: Awaited<ReturnType<ChartsService['enrollmentStatus']>>;
+  reflection: ReflectionSummary;
   meta: DashboardMeta;
 };
 
@@ -51,6 +53,7 @@ export class ExportDatasetService {
   constructor(
     private readonly kpis: KpisService,
     private readonly charts: ChartsService,
+    private readonly reflection: ReflectionService,
     private readonly students: StudentsService,
   ) {}
 
@@ -58,13 +61,14 @@ export class ExportDatasetService {
     filters: DashboardFilters,
     meta: DashboardMeta,
   ): Promise<OverviewData> {
-    const [kpis, enrollments, progress, topCourses, statuses] =
+    const [kpis, enrollments, progress, topCourses, statuses, reflection] =
       await Promise.all([
         this.kpis.build(filters),
         this.charts.enrollmentsOverTime(filters),
         this.charts.progressDistribution(filters),
         this.charts.topCourses(filters),
         this.charts.enrollmentStatus(filters),
+        this.reflection.summary(filters),
       ]);
 
     return {
@@ -73,6 +77,7 @@ export class ExportDatasetService {
       progress,
       topCourses,
       statuses,
+      reflection,
       meta,
     };
   }
@@ -92,6 +97,10 @@ export class ExportDatasetService {
         return this.topCoursesTable(filters);
       case 'enrollment-status':
         return this.statusTable(filters);
+      case 'reflection':
+        return this.reflectionTable(filters);
+      case 'reflection-comments':
+        return this.commentsTable(filters);
       case 'students':
         return this.studentsTable(filters);
       default:
@@ -182,6 +191,50 @@ export class ExportDatasetService {
         { key: 'pct', label: 'Share (%)' },
       ],
       rows: data.statuses,
+    };
+  }
+
+  /** One row per option per selection question — the bar charts, flattened. */
+  private async reflectionTable(filters: DashboardFilters): Promise<Table> {
+    const data = await this.reflection.summary(filters);
+
+    return {
+      key: 'reflection',
+      title: 'Career reflection',
+      columns: [
+        { key: 'question', label: 'Question' },
+        { key: 'option', label: 'Option' },
+        { key: 'count', label: 'Answers' },
+        { key: 'pct', label: 'Share of question (%)' },
+      ],
+      rows: data.selections.flatMap((question) =>
+        question.options.map((option) => ({
+          question: question.questionText,
+          option: option.label,
+          count: option.count,
+          pct: option.pct,
+        })),
+      ),
+    };
+  }
+
+  private async commentsTable(filters: DashboardFilters): Promise<Table> {
+    const { items } = await this.reflection.comments(
+      filters,
+      1,
+      ExportDatasetService.MAX_ROWS,
+    );
+
+    return {
+      key: 'reflection-comments',
+      title: 'Reflection comments',
+      columns: [
+        { key: 'submittedAt', label: 'Submitted' },
+        { key: 'questionText', label: 'Question' },
+        { key: 'courseTitle', label: 'Course' },
+        { key: 'text', label: 'Comment' },
+      ],
+      rows: items,
     };
   }
 

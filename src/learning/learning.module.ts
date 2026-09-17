@@ -49,6 +49,7 @@ import { QuizService } from './services/quiz.service';
 import { QuizFileUploadService } from './services/quiz-file-upload.service';
 import { ReflectionService } from './services/reflection.service';
 import { CompletionService } from './services/completion.service';
+import { CareerReflectionService } from './services/career-reflection.service';
 
 /**
  * Epic 4 v2 §2.3–§2.4 — the student learning flow: player navigation,
@@ -91,6 +92,7 @@ import { CompletionService } from './services/completion.service';
     // Brings FileUploaderService and the active driver's multer options
     // into scope for the quiz answer upload.
     FilesModule,
+    // Epic 4.6 — the certificate download shares the dashboard's Chromium.
   ],
   controllers: [
     LearningPlayerController,
@@ -113,6 +115,7 @@ import { CompletionService } from './services/completion.service';
     QuizFileUploadService,
     ReflectionService,
     CompletionService,
+    CareerReflectionService,
     CertificateVerificationService,
     EnrollmentResetService,
     // Applied via @UseGuards on the verification controller, so Nest builds it

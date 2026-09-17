@@ -107,7 +107,8 @@ A screenshot of the dashboard can then always be tied to an exact range.
 differently — "No data" versus "0".
 
 Where nulls appear: any KPI `value`, `delta.previous`, `delta.pct`, a bucket's `pct`,
-`completionRate` for an empty cohort, `responseRate.rate` when nobody completed, `completionRate`/`avgProgress` in `top-courses`.
+`completionRate` for an empty cohort, a reflection option `pct` or `responseShare` when nobody answered,
+`responseRate.rate` when nobody completed, `completionRate`/`avgProgress` in `top-courses`.
 
 **And the empty state is keyed on the array, not the total.** When a zone has nothing at all,
 `data` comes back with **empty arrays** rather than a zero-filled series:
@@ -265,13 +266,43 @@ cohort rate and may be `null`. Clicking a row should set the global `courseId`.
 
 All four, `cancelled` included — it is the one worth seeing. Empty window → `"statuses": []`.
 
-### 5.6 / 5.7 The reflection zone — ships with Epic 4.6
+### 5.6 `GET /reflection` — superseded by Epic 4.6
 
-Not in this branch. Epic 7 planned a radar over six Likert categories; Epic 4.6 reworked the
-certificate-screen form into free-text and single-choice questions and replaced that chart with a
-distribution per question before either landed, so `GET /reflection` and
-`GET /reflection/comments` arrive with that epic instead. Contract:
-[`../epic-4/epic-4-6-career-reflection-rework.md` §5.7–5.8](../epic-4/epic-4-6-career-reflection-rework.md).
+> **Changed 15/09/2026.** The six-category radar is gone: the certificate-screen form was reworked
+> into two free-text and three single-choice questions, and there are no Likert categories left to
+> average. The contract now lives in
+> [`../epic-4/epic-4-6-career-reflection-rework.md` §5.7](../epic-4/epic-4-6-career-reflection-rework.md).
+
+In short, `data` is:
+
+```jsonc
+{
+  "selections": [ { "questionId", "questionText", "displayOrder", "courseId", "answered", "responseShare",
+                    "options": [ { "key", "label", "count", "pct" } ] } ],
+  "freeText":   [ { "questionId", "questionText", "displayOrder", "courseId", "answered" } ],
+  "totalResponses": 1,
+  "totalAnswers": 5,
+  "responseRate": { "rate": 100, "responded": 1, "completed": 1 }
+}
+```
+
+`categories` has been **removed**. Draw one bar chart per `selections` entry. `responseRate` is
+unchanged.
+
+### 5.7 `GET /reflection/comments` — gains a question filter (Epic 4.6)
+
+New optional `questionId` (take the ids from `data.freeText`). Each item gains `questionId`,
+`questionText` and `questionOrder`:
+
+```jsonc
+{
+  "items": [ { "answerId": "…", "text": "…", "questionId": "…", "questionText": "…",
+               "questionOrder": 1, "courseTitle": "…", "submittedAt": "2026-09-15T12:45:01.333Z" } ],
+  "total": 2, "page": 1, "limit": 20
+}
+```
+
+Full contract: [Epic 4.6 §5.8](../epic-4/epic-4-6-career-reflection-rework.md).
 
 ### 5.8 `GET /students`
 

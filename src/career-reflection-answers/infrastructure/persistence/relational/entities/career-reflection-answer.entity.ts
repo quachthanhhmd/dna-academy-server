@@ -11,13 +11,17 @@ import {
   Column,
   JoinColumn,
   Index,
+  Unique,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
-// Epic 7 BE-8 — the dashboard groups these rows by both foreign keys.
-// Postgres indexes the *referenced* key of a foreign key, never the
-// referencing column, so neither of these existed before.
-@Index('IDX_cra_enrollment', ['enrollment'])
+// Epic 4.6 D4 — one answer per question per enrolment, so a re-submit is an
+// upsert rather than a second row. Its leading column is `enrollment_id`,
+// which is why Epic 7's standalone index on that column was dropped: this
+// one answers the same lookups.
+@Unique('UQ_cra_enrollment_question', ['enrollment', 'question'])
+// Epic 7 BE-8 — the dashboard groups answers by question. Postgres indexes
+// the *referenced* key of a foreign key, never the referencing column.
 @Index('IDX_cra_question', ['question'])
 @Entity({
   name: 'career_reflection_answer',

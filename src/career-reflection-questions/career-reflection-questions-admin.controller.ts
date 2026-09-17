@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -15,7 +16,9 @@ import { Transform } from 'class-transformer';
 import { IsBooleanString, IsOptional, IsUUID } from 'class-validator';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
@@ -78,8 +81,8 @@ export class CareerReflectionQuestionsAdminController {
   @ApiOperation({
     summary: 'Create a question',
     description:
-      'Omit `course` for a global question shown on every course. A slider ' +
-      'takes labelMin/labelMax; a radio or select takes options.',
+      'Omit `course` for a global question shown on every course. A ' +
+      '`selection` takes 2–7 options; a `free_text` takes none.',
   })
   @RequirePermission('courses', 'create')
   @Post()
@@ -90,7 +93,14 @@ export class CareerReflectionQuestionsAdminController {
     return this.service.create(dto);
   }
 
-  @ApiOperation({ summary: 'Update a question' })
+  @ApiOperation({
+    summary: 'Update a question',
+    description:
+      '409 if the patch would strand existing answers: changing questionType ' +
+      'on an answered question, or removing an option key that has answers. ' +
+      'Relabelling and reordering options is always allowed.',
+  })
+  @ApiConflictResponse()
   @RequirePermission('courses', 'edit')
   @Patch(':id')
   @ApiOkResponse({ type: CareerReflectionQuestion })
@@ -104,8 +114,8 @@ export class CareerReflectionQuestionsAdminController {
   @ApiOperation({
     summary: 'Deactivate a question',
     description:
-      'There is no hard delete: answers reference these rows, and removing ' +
-      'one would orphan the data the category aggregates are built from.',
+      'Hides the question from the form and keeps its answers. The way to ' +
+      'retire a question that has been answered.',
   })
   @RequirePermission('courses', 'edit')
   @Patch(':id/deactivate')
@@ -115,5 +125,21 @@ export class CareerReflectionQuestionsAdminController {
     @Param('id') id: string,
   ): Promise<CareerReflectionQuestion | null> {
     return this.service.deactivate(id);
+  }
+
+  @ApiOperation({
+    summary: 'Delete a question',
+    description:
+      'Hard delete, only while no answer references it — for undoing a ' +
+      'question created by mistake. An answered question returns 409 ' +
+      '`questionHasAnswers`; deactivate it instead.',
+  })
+  @RequirePermission('courses', 'delete')
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse()
+  @ApiConflictResponse()
+  remove(@Param('id') id: string): Promise<void> {
+    return this.service.remove(id);
   }
 }

@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { CareerReflectionAnswerEntity } from '../career-reflection-answers/infrastructure/persistence/relational/entities/career-reflection-answer.entity';
+import { CareerReflectionQuestionEntity } from '../career-reflection-questions/infrastructure/persistence/relational/entities/career-reflection-question.entity';
 import { CourseRatingEntity } from '../course-ratings/infrastructure/persistence/relational/entities/course-rating.entity';
 import { EnrollmentEntity } from '../enrollments/infrastructure/persistence/relational/entities/enrollment.entity';
 import { UserEntity } from '../users/infrastructure/persistence/relational/entities/user.entity';
@@ -11,6 +13,7 @@ import { ExportDatasetService } from './services/export-dataset.service';
 import { PdfModule } from '../pdf/pdf.module';
 import { KpisService } from './services/kpis.service';
 import { MetricsQueryService } from './services/metrics-query.service';
+import { ReflectionService } from './services/reflection.service';
 import { StudentsService } from './services/students.service';
 
 @Module({
@@ -19,6 +22,8 @@ import { StudentsService } from './services/students.service';
       EnrollmentEntity,
       UserEntity,
       CourseRatingEntity,
+      CareerReflectionAnswerEntity,
+      CareerReflectionQuestionEntity,
     ]),
     AuthorizationModule,
     // One Chromium per process, shared with the certificate download.
@@ -29,6 +34,7 @@ import { StudentsService } from './services/students.service';
     MetricsQueryService,
     KpisService,
     ChartsService,
+    ReflectionService,
     StudentsService,
     ExportDatasetService,
     CsvService,

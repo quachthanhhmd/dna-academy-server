@@ -101,3 +101,14 @@ export class StudentsQueryDto extends PaginatedDashboardQueryDto {
   @IsIn(PROGRESS_BUCKETS)
   bucket?: string;
 }
+
+/** Epic 4.6 §6 — the written-responses list, filterable by question. */
+export class ReflectionCommentsQueryDto extends PaginatedDashboardQueryDto {
+  @ApiPropertyOptional({
+    description:
+      'A free-text question id from `/reflection` → `data.freeText`. Omit for all.',
+  })
+  @IsOptional()
+  @IsUUID()
+  questionId?: string;
+}

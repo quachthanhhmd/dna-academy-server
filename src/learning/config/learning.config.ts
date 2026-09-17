@@ -6,6 +6,7 @@ import { LearningConfig } from './learning-config.type';
 
 export const DEFAULT_QUIZ_PASS_THRESHOLD = 70;
 export const DEFAULT_REFLECTION_MIN_WORDS = 10;
+export const DEFAULT_CAREER_REFLECTION_MIN_CHARS = 10;
 
 class EnvironmentVariablesValidator {
   @IsInt()
@@ -16,6 +17,13 @@ class EnvironmentVariablesValidator {
   @IsInt()
   @Min(1)
   REFLECTION_MIN_WORDS: number;
+
+  // Capped well under the 5000-character answer limit, so a typo in the env
+  // cannot produce a form nobody is able to submit.
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  CAREER_REFLECTION_MIN_CHARS: number;
 }
 
 /** `env-cmd` hands through unset keys as empty strings, which are not values. */
@@ -37,6 +45,10 @@ export default registerAs<LearningConfig>('learning', () => {
       process.env.REFLECTION_MIN_WORDS,
       DEFAULT_REFLECTION_MIN_WORDS,
     ),
+    CAREER_REFLECTION_MIN_CHARS: orDefault(
+      process.env.CAREER_REFLECTION_MIN_CHARS,
+      DEFAULT_CAREER_REFLECTION_MIN_CHARS,
+    ),
   };
 
   const validated = validateConfig(candidate, EnvironmentVariablesValidator);
@@ -44,5 +56,6 @@ export default registerAs<LearningConfig>('learning', () => {
   return {
     quizPassThresholdDefault: validated.QUIZ_PASS_THRESHOLD_DEFAULT,
     reflectionMinWords: validated.REFLECTION_MIN_WORDS,
+    careerReflectionMinChars: validated.CAREER_REFLECTION_MIN_CHARS,
   };
 });

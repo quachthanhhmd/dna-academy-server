@@ -201,6 +201,11 @@ describe('Epic 7 — dashboard metrics', () => {
       return;
     }
 
+    await db.query(
+      `DELETE FROM "career_reflection_answer" WHERE "enrollment_id" IN (
+         SELECT "id" FROM "enrollment" WHERE "course_id" IN ($1, $2))`,
+      [courseA, courseB],
+    );
     await db.query(`DELETE FROM "enrollment" WHERE "course_id" IN ($1, $2)`, [
       courseA,
       courseB,
@@ -396,6 +401,174 @@ describe('Epic 7 — dashboard metrics', () => {
       );
 
       expect(body.data.kpis.enrollments.value).toBe(0);
+    });
+  });
+
+  /**
+   * Epic 4.6 §6 — the reflection zone after the rework: a distribution per
+   * selection question instead of a radar of category averages.
+   */
+  describe('reflection (Epic 4.6 §6)', () => {
+    const Q1 = '4e6a0001-0000-4000-8000-000000000001';
+    const Q2 = '4e6a0001-0000-4000-8000-000000000002';
+    const Q4 = '4e6a0001-0000-4000-8000-000000000004';
+    const Q5 = '4e6a0001-0000-4000-8000-000000000005';
+
+    it('should report a response rate of 0 when nobody answered but people completed', async () => {
+      const body = await get(
+        `${BASE}/reflection?${WINDOW}&courseId=${courseA}`,
+      );
+
+      expect(body.data.responseRate).toEqual({
+        rate: 0,
+        responded: 0,
+        completed: 4,
+      });
+    });
+
+    it('should list every declared option with a null share before anyone answers', async () => {
+      const body = await get(
+        `${BASE}/reflection?${WINDOW}&courseId=${courseA}`,
+      );
+      const q2 = body.data.selections.find((q) => q.questionId === Q2);
+
+      expect(q2.answered).toBe(0);
+      expect(q2.responseShare).toBeNull();
+      expect(q2.options.map((o) => [o.key, o.count, o.pct])).toEqual([
+        [1, 0, null],
+        [2, 0, null],
+        [3, 0, null],
+      ]);
+    });
+
+    describe('with answers', () => {
+      beforeAll(async () => {
+        // Three of course A's four in-window completions answer the form.
+        const { rows } = await db.query(
+          `SELECT "id" FROM "enrollment"
+            WHERE "course_id" = $1 AND "status" = 'completed'
+            ORDER BY "enrollment_date", "id" LIMIT 3`,
+          [courseA],
+        );
+        const [e1, e2, e3] = rows.map((r) => r.id);
+        const at = vn('2026-03-07', '12:00:00');
+        const put = (
+          enrollment: string,
+          question: string,
+          key: number | null,
+          text: string | null,
+        ) =>
+          db.query(
+            `INSERT INTO "career_reflection_answer"
+               ("enrollment_id", "question_id", "rating_answer", "text_answer", "submitted_at")
+             VALUES ($1, $2, $3, $4, $5)`,
+            [enrollment, question, key, text, at],
+          );
+
+        await put(e1, Q2, 1, null);
+        await put(e2, Q2, 1, null);
+        await put(e3, Q2, 3, null);
+        await put(e1, Q5, 2, null);
+        await put(e1, Q1, null, 'Muốn thử sức với ngành này');
+        await put(e2, Q1, null, 'Tìm hiểu nghề nghiệp phù hợp');
+      });
+
+      it('should count each option of a selection question', async () => {
+        const body = await get(
+          `${BASE}/reflection?${WINDOW}&courseId=${courseA}`,
+        );
+        const q2 = body.data.selections.find((q) => q.questionId === Q2);
+
+        expect(q2.answered).toBe(3);
+        expect(q2.options.map((o) => [o.key, o.count, o.pct])).toEqual([
+          [1, 2, 66.7],
+          [2, 0, 0],
+          [3, 1, 33.3],
+        ]);
+      });
+
+      it("should give each question its share of all responses (§6's Q2 share)", async () => {
+        const body = await get(
+          `${BASE}/reflection?${WINDOW}&courseId=${courseA}`,
+        );
+        const share = (id: string) =>
+          body.data.selections.find((q) => q.questionId === id).responseShare;
+
+        expect(body.data.totalResponses).toBe(3);
+        expect(share(Q2)).toBe(100);
+        expect(share(Q5)).toBe(33.3);
+      });
+
+      it('should compute the response rate from the same completions', async () => {
+        const body = await get(
+          `${BASE}/reflection?${WINDOW}&courseId=${courseA}`,
+        );
+
+        expect(body.data.responseRate).toEqual({
+          rate: 75,
+          responded: 3,
+          completed: 4,
+        });
+      });
+
+      it('should list the free-text questions with their answer counts', async () => {
+        const body = await get(
+          `${BASE}/reflection?${WINDOW}&courseId=${courseA}`,
+        );
+        const counts = Object.fromEntries(
+          body.data.freeText.map((q) => [q.questionId, q.answered]),
+        );
+
+        expect(counts[Q1]).toBe(2);
+        expect(counts[Q4]).toBe(0);
+      });
+
+      it('should offer no radar categories any more', async () => {
+        const body = await get(
+          `${BASE}/reflection?${WINDOW}&courseId=${courseA}`,
+        );
+
+        expect(body.data).not.toHaveProperty('categories');
+      });
+
+      it('should filter the written responses by question (F)', async () => {
+        const purpose = await get(
+          `${BASE}/reflection/comments?${WINDOW}&courseId=${courseA}&questionId=${Q1}`,
+        );
+        const feedback = await get(
+          `${BASE}/reflection/comments?${WINDOW}&courseId=${courseA}&questionId=${Q4}`,
+        );
+
+        expect(purpose.data.total).toBe(2);
+        expect(purpose.data.items[0]).toMatchObject({
+          questionId: Q1,
+          questionOrder: 1,
+          courseTitle: 'Dash A',
+        });
+        expect(feedback.data.total).toBe(0);
+      });
+
+      it('should leave another course out of a course-filtered view', async () => {
+        const body = await get(
+          `${BASE}/reflection?${WINDOW}&courseId=${courseB}`,
+        );
+
+        expect(body.data.totalResponses).toBe(0);
+      });
+
+      it('should export the distributions as CSV, one row per option', async () => {
+        const res = await request(app)
+          .get(
+            `${BASE}/export?format=csv&dataset=reflection&${WINDOW}&courseId=${courseA}`,
+          )
+          .auth(token, { type: 'bearer' })
+          .expect(200);
+
+        expect(res.text).toContain(
+          'Question,Option,Answers,Share of question (%)',
+        );
+        expect(res.text).toContain('Chưa hiểu rõ nội dung khóa học lắm');
+      });
     });
   });
 

@@ -58,6 +58,8 @@ export const EXPORT_DATASETS = [
   'progress-distribution',
   'top-courses',
   'enrollment-status',
+  'reflection',
+  'reflection-comments',
   'students',
 ] as const;
 

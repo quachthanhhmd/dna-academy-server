@@ -33,6 +33,19 @@ export abstract class CareerReflectionAnswerRepository {
 
   abstract remove(id: CareerReflectionAnswer['id']): Promise<void>;
 
+  /**
+   * Epic 4.6 D4 — writes a whole form in one transaction, one row per
+   * question, updating any answer already given.
+   */
+  abstract upsertForEnrollment(
+    enrollmentId: string,
+    answers: {
+      questionId: string;
+      ratingAnswer: number | null;
+      textAnswer: string | null;
+    }[],
+  ): Promise<void>;
+
   /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
   abstract removeByEnrollmentId(enrollmentId: string): Promise<void>;
 }

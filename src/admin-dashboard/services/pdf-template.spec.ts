@@ -39,6 +39,13 @@ const overview = (over: Partial<OverviewData> = {}): OverviewData => ({
   progress: { buckets: [], total: 0 },
   topCourses: [],
   statuses: { statuses: [], total: 0 },
+  reflection: {
+    selections: [],
+    freeText: [],
+    totalResponses: 0,
+    totalAnswers: 0,
+    responseRate: { rate: null, responded: 0, completed: 0 },
+  },
   meta,
   ...over,
 });
@@ -123,6 +130,112 @@ describe('pdf template', () => {
       );
 
       expect(html).toContain('No data');
+    });
+
+    const reflection = (selections: unknown[]) =>
+      overview({
+        reflection: {
+          selections,
+          freeText: [],
+          totalResponses: 5,
+          totalAnswers: 10,
+          responseRate: { rate: 50, responded: 5, completed: 10 },
+        } as never,
+      });
+
+    it('should draw one bar chart per selection question (Epic 4.6 §6)', () => {
+      const html = renderOverview(
+        reflection([
+          {
+            questionId: 'q2',
+            questionText: 'Bạn đạt được gì sau khi hoàn thành khóa học',
+            displayOrder: 2,
+            courseId: null,
+            answered: 4,
+            responseShare: 80,
+            options: [
+              { key: 1, label: 'Có thể hợp', count: 3, pct: 75 },
+              { key: 2, label: 'Không hợp', count: 1, pct: 25 },
+            ],
+          },
+        ]),
+      );
+
+      expect(html).toContain('Bạn đạt được gì sau khi hoàn thành khóa học');
+      expect(html).toContain('Có thể hợp');
+      expect(html).toContain('75%');
+      expect(html).toContain('4 answers');
+    });
+
+    it('should say "1 answer", not "1 answers"', () => {
+      const html = renderOverview(
+        reflection([
+          {
+            questionId: 'q5',
+            questionText: 'Chia sẻ?',
+            displayOrder: 5,
+            courseId: null,
+            answered: 1,
+            responseShare: 100,
+            options: [
+              { key: 1, label: 'Chắc chắn', count: 1, pct: 100 },
+              { key: 2, label: 'Không phải lúc này', count: 0, pct: 0 },
+            ],
+          },
+        ]),
+      );
+
+      expect(html).toContain('1 answer<');
+      expect(html).not.toContain('1 answers');
+    });
+
+    it('should show an empty state for a question nobody answered, not a row of zero bars', () => {
+      const html = renderOverview(
+        reflection([
+          {
+            questionId: 'q3',
+            questionText: 'Dự định tiếp theo?',
+            displayOrder: 3,
+            courseId: null,
+            answered: 0,
+            responseShare: null,
+            options: [
+              { key: 1, label: 'Tìm hiểu ngành khác', count: 0, pct: null },
+              { key: 2, label: 'Tìm mentor', count: 0, pct: null },
+            ],
+          },
+        ]),
+      );
+
+      expect(html).toContain('no answers to this question in this period');
+      expect(html).not.toContain('Tìm mentor');
+    });
+
+    it('should escape an option label, which is admin-authored text', () => {
+      const html = renderOverview(
+        reflection([
+          {
+            questionId: 'q9',
+            questionText: 'Q',
+            displayOrder: 9,
+            courseId: null,
+            answered: 1,
+            responseShare: 100,
+            options: [
+              {
+                key: 1,
+                label: '<img src=x onerror=alert(1)>',
+                count: 1,
+                pct: 100,
+              },
+              { key: 2, label: 'B', count: 0, pct: 0 },
+            ],
+          },
+        ]),
+      );
+
+      expect(html).not.toContain('<img src=x');
+      expect(html).toContain('&lt;img src=x');
     });
 
     it('should escape a course title in the top-courses table', () => {

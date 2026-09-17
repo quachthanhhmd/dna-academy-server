@@ -15,6 +15,8 @@ const ENDPOINTS = [
   'progress-distribution',
   'top-courses',
   'enrollment-status',
+  'reflection',
+  'reflection/comments',
   'students',
 ];
 
