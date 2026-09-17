@@ -71,4 +71,21 @@ export class LectureViewDto {
 
   @ApiProperty({ type: Number })
   watchDurationSecs: number;
+
+  /*
+    Course progress, so the player header can draw its dial on load.
+
+    Without these the FE had nothing to read until the first progress write
+    answered with them, so the header showed 0% for a student who had
+    finished the course, and counted completions itself — which is how it
+    ended up reporting "22/22" beside "27%".
+  */
+  @ApiProperty({ type: Number, example: 27 })
+  progressPct: number;
+
+  @ApiProperty({ type: Number, example: 6 })
+  completedRequired: number;
+
+  @ApiProperty({ type: Number, example: 22 })
+  totalRequired: number;
 }

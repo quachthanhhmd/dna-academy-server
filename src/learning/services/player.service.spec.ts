@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach, jest } from '@jest/globals';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { CompletionDetectorService } from './completion-detector.service';
 import { PlayerService } from './player.service';
 import { SequentialLockService } from './sequential-lock.service';
 
@@ -202,6 +203,118 @@ describe('PlayerService', () => {
       expect(result.watchDurationSecs).toBe(42);
     });
 
+    /*
+      The header's dial and its "x/y lectures" used to come from different
+      places — a client-side tally beside a percentage that only arrived with
+      the first progress write — so a finished course could read "22/22" next
+      to "27%". Both now come from here.
+    */
+    it('should report course progress over required lectures', async () => {
+      curriculumService.orderedLectures.mockResolvedValue([
+        lec('a'),
+        lec('b'),
+        lec('c'),
+        lec('d'),
+      ]);
+      lectureProgressesService.findByEnrollmentId.mockResolvedValue([
+        { lecture: { id: 'a' }, status: 'completed', watchDurationSecs: 60 },
+        { lecture: { id: 'b' }, status: 'in_progress', watchDurationSecs: 10 },
+      ]);
+
+      const result = await service.loadLecture('intro', 'a', 7);
+
+      expect(result).toMatchObject({
+        progressPct: 25,
+        completedRequired: 1,
+        totalRequired: 4,
+      });
+    });
+
+    it('should leave optional lectures out of progress, as the recompute does', async () => {
+      curriculumService.orderedLectures.mockResolvedValue([
+        lec('a'),
+        lec('b', { requiresCompletion: false }),
+      ]);
+      lectureProgressesService.findByEnrollmentId.mockResolvedValue([
+        { lecture: { id: 'a' }, status: 'completed', watchDurationSecs: 60 },
+        { lecture: { id: 'b' }, status: 'completed', watchDurationSecs: 60 },
+      ]);
+
+      const result = await service.loadLecture('intro', 'a', 7);
+
+      expect(result).toMatchObject({
+        progressPct: 100,
+        completedRequired: 1,
+        totalRequired: 1,
+      });
+    });
+
+    it('should report 0 progress for a course of only optional lectures', async () => {
+      curriculumService.orderedLectures.mockResolvedValue([
+        lec('a', { requiresCompletion: false }),
+      ]);
+
+      const result = await service.loadLecture('intro', 'a', 7);
+
+      expect(result).toMatchObject({
+        progressPct: 0,
+        completedRequired: 0,
+        totalRequired: 0,
+      });
+    });
+
+    /*
+      The bug in one test: the dial and the "x/y" line are produced by two
+      different code paths — this read, and the detector behind the progress
+      write — and the whole point of sending the counts from here is that the
+      two can never disagree again. Same fixtures, both paths, same numbers.
+    */
+    it('should return the same counts as the progress write does', async () => {
+      const ordered = [
+        lec('a'),
+        lec('b'),
+        lec('c'),
+        lec('d', { requiresCompletion: false }),
+        lec('e'),
+      ];
+      const rows = [
+        { lecture: { id: 'a' }, status: 'completed', watchDurationSecs: 60 },
+        { lecture: { id: 'c' }, status: 'completed', watchDurationSecs: 60 },
+        // Optional and completed: counts for neither side.
+        { lecture: { id: 'd' }, status: 'completed', watchDurationSecs: 60 },
+        { lecture: { id: 'e' }, status: 'in_progress', watchDurationSecs: 5 },
+      ];
+
+      curriculumService.orderedLectures.mockResolvedValue(ordered);
+      lectureProgressesService.findByEnrollmentId.mockResolvedValue(rows);
+
+      const detector = new CompletionDetectorService(
+        enrollmentsService as any,
+        curriculumService as any,
+        lectureProgressesService as any,
+        { issueFor: jest.fn() } as any,
+      );
+
+      const read = await service.loadLecture('intro', 'a', 7);
+      const write = await detector.recompute('enr-1');
+
+      expect({
+        progressPct: read.progressPct,
+        completedRequired: read.completedRequired,
+        totalRequired: read.totalRequired,
+      }).toEqual({
+        progressPct: write.progressPct,
+        completedRequired: write.completedRequired,
+        totalRequired: write.totalRequired,
+      });
+      // 2 of 4 required — the optional one is in neither number.
+      expect(read).toMatchObject({
+        progressPct: 50,
+        completedRequired: 2,
+        totalRequired: 4,
+      });
+    });
+
     it('should default progress to not_started', async () => {
       const result = await service.loadLecture('intro', 'a', 7);
 
@@ -220,6 +333,21 @@ describe('PlayerService', () => {
 
       expect(result.contentPayload).toEqual({ youtubeVideoId: 'abc' });
       expect(result.isPreview).toBe(true);
+    });
+
+    it('should report the course total but no completions to a guest', async () => {
+      curriculumService.orderedLectures.mockResolvedValue([
+        lec('a', { isPreview: true }),
+        lec('b'),
+      ]);
+
+      const result = await service.previewLecture('intro', 'a');
+
+      expect(result).toMatchObject({
+        progressPct: 0,
+        completedRequired: 0,
+        totalRequired: 2,
+      });
     });
 
     it('should never write progress', async () => {

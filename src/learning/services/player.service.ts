@@ -18,6 +18,7 @@ import { SequentialLockService } from './sequential-lock.service';
 import { LectureViewDto, StartEnrollmentDto } from '../dto/player.dto';
 
 export const PROGRESS_NOT_STARTED = 'not_started';
+export const PROGRESS_COMPLETED = 'completed';
 
 @Injectable()
 export class PlayerService {
@@ -107,6 +108,7 @@ export class PlayerService {
     );
 
     const own = progressRows.find((row) => row.lecture.id === lectureId);
+    const progress = PlayerService.courseProgress(ordered, statusByLecture);
 
     // Powers "Continue Learning" on My Courses.
     await this.enrollmentsService.update(enrollment.id, {
@@ -126,6 +128,34 @@ export class PlayerService {
       lockReason: null,
       progressStatus: own?.status ?? PROGRESS_NOT_STARTED,
       watchDurationSecs: own?.watchDurationSecs ?? 0,
+      ...progress,
+    };
+  }
+
+  /**
+   * Course progress, as the player header reports it.
+   *
+   * The same arithmetic as `CompletionDetectorService.recompute` — required
+   * lectures only — recomputed from the rows already in hand rather than read
+   * from `enrollment.progress_pct`, so the header cannot show a value that
+   * lags the curriculum beside it. Sending it here is what lets the FE draw
+   * the dial on load instead of waiting for the first progress write.
+   */
+  private static courseProgress(
+    ordered: CurriculumLecture[],
+    statusByLecture: Map<string, string>,
+  ): { progressPct: number; completedRequired: number; totalRequired: number } {
+    const required = ordered.filter((lecture) => lecture.requiresCompletion);
+    const completedRequired = required.filter(
+      (lecture) => statusByLecture.get(lecture.id) === PROGRESS_COMPLETED,
+    ).length;
+
+    return {
+      completedRequired,
+      totalRequired: required.length,
+      progressPct: required.length
+        ? Math.round((completedRequired / required.length) * 100)
+        : 0,
     };
   }
 
@@ -159,6 +189,9 @@ export class PlayerService {
       lockReason: null,
       progressStatus: PROGRESS_NOT_STARTED,
       watchDurationSecs: 0,
+      // A guest has no enrollment, so nothing is complete — but the course's
+      // own total is still true and the dial reads 0 rather than blank.
+      ...PlayerService.courseProgress(ordered, new Map()),
     };
   }
 
