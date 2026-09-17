@@ -25,6 +25,18 @@ import { ENROLLMENT_SOURCES } from '../../../../enrollment.constants';
   where: `"status" <> 'cancelled'`,
 })
 @Index('IDX_enrollment_student_status', ['student', 'status'])
+// Epic 7 BE-8 — every dashboard metric filters on one of these three dates.
+// The two nullable ones are partial: `completed_at` is null for every
+// enrolment still running and `last_accessed_at` for every one never opened,
+// so excluding the nulls keeps each index proportional to the rows that are
+// actually queried.
+@Index('IDX_enrollment_enrollment_date', ['enrollmentDate'])
+@Index('IDX_enrollment_completed_at', ['completedAt'], {
+  where: `"completed_at" IS NOT NULL`,
+})
+@Index('IDX_enrollment_last_accessed_at', ['lastAccessedAt'], {
+  where: `"last_accessed_at" IS NOT NULL`,
+})
 @Check('CK_enrollment_progress_0_100', `"progress_pct" BETWEEN 0 AND 100`)
 @Entity({
   name: 'enrollment',

@@ -10,9 +10,15 @@ import {
   ManyToOne,
   Column,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
+// Epic 7 BE-8 — the dashboard groups these rows by both foreign keys.
+// Postgres indexes the *referenced* key of a foreign key, never the
+// referencing column, so neither of these existed before.
+@Index('IDX_cra_enrollment', ['enrollment'])
+@Index('IDX_cra_question', ['question'])
 @Entity({
   name: 'career_reflection_answer',
 })

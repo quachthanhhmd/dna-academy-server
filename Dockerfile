@@ -3,6 +3,21 @@ FROM node:24.14.1-alpine
 # tzdata is what makes the TZ env var mean anything: without the zone
 # database, Alpine silently ignores TZ and the container stays on UTC.
 RUN apk add --no-cache bash tzdata
+
+# Epic 7 BE-7 — the dashboard's PDF export renders through headless Chromium,
+# which this image does not otherwise contain.
+#
+# `font-noto` is not optional decoration: without a font carrying Vietnamese
+# coverage, Chromium prints every diacritic as an empty box, so a report full
+# of student names comes out unreadable. Verify with stacked marks —
+# `Nguyễn Thị Hường` — not with ASCII.
+RUN apk add --no-cache \
+      chromium nss freetype harfbuzz ca-certificates \
+      font-noto font-noto-extra
+
+# `puppeteer-core` never downloads a browser; this is the one it drives.
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 RUN npm i -g @nestjs/cli typescript ts-node
 
 COPY package*.json /tmp/app/
