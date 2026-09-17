@@ -26,6 +26,17 @@ export class ProgressResultDto {
 
   @ApiProperty({ type: String, example: 'in_progress' })
   enrollmentStatus: string;
+
+  /*
+    The two numbers the percentage is made of. `CompletionDetectorService`
+    has always returned them; they were missing from this DTO, so the FE
+    counted completions itself and could disagree with the bar beside it.
+  */
+  @ApiProperty({ type: Number, example: 6 })
+  completedRequired: number;
+
+  @ApiProperty({ type: Number, example: 22 })
+  totalRequired: number;
 }
 
 /** Epic 4.2 §3.2 — `DELETE /admin/enrollments/:id/progress`. */
