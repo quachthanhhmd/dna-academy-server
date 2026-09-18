@@ -18,6 +18,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthFacebookModule } from './auth-facebook/auth-facebook.module';
 import { AuthGoogleModule } from './auth-google/auth-google.module';
+import { SocialLinksModule } from './social-links/social-links.module';
 import { HeaderResolver, I18nModule } from 'nestjs-i18n';
 import { TypeOrmConfigService } from './database/typeorm-config.service';
 import { MailModule } from './mail/mail.module';
@@ -239,6 +240,7 @@ import { UserLocaleInterceptor } from './utils/i18n/user-locale.interceptor';
     AuthModule,
     AuthFacebookModule,
     AuthGoogleModule,
+    SocialLinksModule,
     SessionModule,
     MailModule,
     MailerModule,

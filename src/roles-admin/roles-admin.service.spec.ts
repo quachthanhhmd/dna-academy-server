@@ -50,6 +50,12 @@ describe('RolesAdminService', () => {
       userRolesService as any,
       rolePermissionsService as any,
       permissionsService as any,
+      // The caller holds everything these cases grant; the escalation rules
+      // are covered end to end in test/admin/roles-admin.e2e-spec.ts.
+      {
+        permissionsOf: () => Promise.resolve(['roles:view', 'roles:edit']),
+        permissionsOfRole: () => Promise.resolve([]),
+      } as any,
     );
   });
 
@@ -151,10 +157,10 @@ describe('RolesAdminService', () => {
     });
 
     it('should 409 ROLE_HAS_USERS when users are assigned to the role', async () => {
-      rolesService.findById.mockResolvedValue({ id: 1, name: 'Editor' });
+      rolesService.findById.mockResolvedValue({ id: 7, name: 'Editor' });
       userRolesService.countByRoleId.mockResolvedValue(2);
 
-      await expect(service.remove(1)).rejects.toMatchObject({
+      await expect(service.remove(7)).rejects.toMatchObject({
         status: 409,
         response: expect.objectContaining({ code: 'ROLE_HAS_USERS' }),
       });
@@ -162,13 +168,13 @@ describe('RolesAdminService', () => {
     });
 
     it('should cascade-delete role_permissions then the role when no users are assigned', async () => {
-      rolesService.findById.mockResolvedValue({ id: 1, name: 'Editor' });
+      rolesService.findById.mockResolvedValue({ id: 7, name: 'Editor' });
       userRolesService.countByRoleId.mockResolvedValue(0);
 
-      await service.remove(1);
+      await service.remove(7);
 
-      expect(rolePermissionsService.removeByRoleId).toHaveBeenCalledWith(1);
-      expect(rolesService.remove).toHaveBeenCalledWith(1);
+      expect(rolePermissionsService.removeByRoleId).toHaveBeenCalledWith(7);
+      expect(rolesService.remove).toHaveBeenCalledWith(7);
     });
   });
 
@@ -236,40 +242,43 @@ describe('RolesAdminService', () => {
     it('should 404 when the role does not exist', async () => {
       rolesService.findById.mockResolvedValue(null);
 
-      await expect(service.setPermissions(99, ['p-1'])).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.setPermissions(99, ['p-1'], 1),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
 
     it('should 422 when a permissionId does not exist', async () => {
-      rolesService.findById.mockResolvedValue({ id: 1 });
+      rolesService.findById.mockResolvedValue({ id: 7 });
       permissionsService.findByIds.mockResolvedValue([{ id: 'p-1' }]);
 
       await expect(
-        service.setPermissions(1, ['p-1', 'p-missing']),
+        service.setPermissions(7, ['p-1', 'p-missing'], 1),
       ).rejects.toBeInstanceOf(UnprocessableEntityException);
       expect(rolePermissionsService.removeByRoleId).not.toHaveBeenCalled();
     });
 
     it('should replace role_permissions with exactly the given permission ids', async () => {
-      rolesService.findById.mockResolvedValue({ id: 1 });
+      rolesService.findById.mockResolvedValue({ id: 7 });
       permissionsService.findByIds.mockResolvedValue([
         { id: 'p-1' },
         { id: 'p-2' },
       ]);
-      permissionsService.findAll.mockResolvedValue([]);
+      permissionsService.findAll.mockResolvedValue([
+        { id: 'p-1', action: 'view', module: { name: 'roles' } },
+        { id: 'p-2', action: 'edit', module: { name: 'roles' } },
+      ]);
       rolePermissionsService.findByRoleId.mockResolvedValue([]);
 
-      await service.setPermissions(1, ['p-1', 'p-2']);
+      await service.setPermissions(7, ['p-1', 'p-2'], 1);
 
-      expect(rolePermissionsService.removeByRoleId).toHaveBeenCalledWith(1);
+      expect(rolePermissionsService.removeByRoleId).toHaveBeenCalledWith(7);
       expect(rolePermissionsService.create).toHaveBeenCalledTimes(2);
       expect(rolePermissionsService.create).toHaveBeenCalledWith({
-        role: { id: 1 },
+        role: { id: 7 },
         permission: { id: 'p-1' },
       });
       expect(rolePermissionsService.create).toHaveBeenCalledWith({
-        role: { id: 1 },
+        role: { id: 7 },
         permission: { id: 'p-2' },
       });
     });

@@ -64,6 +64,15 @@ export class OauthAccountRelationalRepository implements OauthAccountRepository 
     return entity ? OauthAccountMapper.toDomain(entity) : null;
   }
 
+  async findByUserId(userId: number): Promise<OauthAccount[]> {
+    const entities = await this.oauthAccountRepository.find({
+      where: { user: { id: userId } },
+      order: { createdAt: 'ASC' },
+    });
+
+    return entities.map((entity) => OauthAccountMapper.toDomain(entity));
+  }
+
   async update(
     id: OauthAccount['id'],
     payload: Partial<OauthAccount>,

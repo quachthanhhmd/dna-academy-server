@@ -126,6 +126,10 @@ export class OauthAccountsService {
     });
   }
 
+  findByUserId(userId: number) {
+    return this.oauthAccountRepository.findByUserId(userId);
+  }
+
   remove(id: OauthAccount['id']) {
     return this.oauthAccountRepository.remove(id);
   }

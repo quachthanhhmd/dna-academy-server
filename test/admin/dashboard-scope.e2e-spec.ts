@@ -159,6 +159,69 @@ describe('Dashboard scope (§1.9)', () => {
       expect(body.required).toEqual({ module, action });
     });
 
+    // The export would otherwise hand out the rows /students guards.
+    describe('export without dashboard:view_students', () => {
+      let exporterToken: string;
+
+      beforeAll(async () => {
+        const exporter = await registerAndLogin(app, 'ds.exporter');
+        const { body: role } = await request(app)
+          .post('/api/v1/admin/roles')
+          .auth(adminToken, { type: 'bearer' })
+          .send({ name: `DS exporter ${Date.now()}` })
+          .expect(201);
+        const { body: matrix } = await request(app)
+          .get(`/api/v1/admin/roles/${role.id}/permissions`)
+          .auth(adminToken, { type: 'bearer' })
+          .expect(200);
+        const dashboard = matrix.find(
+          (m: { module: { name: string } }) => m.module.name === 'dashboard',
+        );
+        await request(app)
+          .put(`/api/v1/admin/roles/${role.id}/permissions`)
+          .auth(adminToken, { type: 'bearer' })
+          .send({
+            permissionIds: dashboard.permissions
+              .filter((p: { action: string }) =>
+                ['view', 'export'].includes(p.action),
+              )
+              .map((p: { id: string }) => p.id),
+          })
+          .expect(200);
+        await request(app)
+          .put(`/api/v1/admin/users/${exporter.userId}/roles`)
+          .auth(adminToken, { type: 'bearer' })
+          .send({ roleId: role.id })
+          .expect(200);
+        exporterToken = exporter.token;
+      });
+
+      it.each(['students', 'reflection-comments'])(
+        'should refuse the %s dataset',
+        async (dataset) => {
+          const { body } = await request(app)
+            .get(
+              `/api/v1/admin/dashboard/export?dataset=${dataset}&format=csv&period=30d`,
+            )
+            .auth(exporterToken, { type: 'bearer' })
+            .expect(403);
+
+          expect(body.required).toEqual({
+            module: 'dashboard',
+            action: 'view_students',
+          });
+        },
+      );
+
+      it('should still export an aggregate dataset', () =>
+        request(app)
+          .get(
+            '/api/v1/admin/dashboard/export?dataset=kpis&format=csv&period=30d',
+          )
+          .auth(exporterToken, { type: 'bearer' })
+          .expect(200));
+    });
+
     it('should serve /students to an admin', () =>
       request(app)
         .get('/api/v1/admin/dashboard/students?period=30d')

@@ -1,5 +1,6 @@
 import {
   Controller,
+  ForbiddenException,
   Get,
   Query,
   Request,
@@ -18,6 +19,9 @@ import {
 import { PermissionGuard } from '../authorization/permission.guard';
 import { RequirePermission } from '../authorization/require-permission.decorator';
 import { CourseAccessService } from '../course-access/course-access.service';
+import { AuthorizationService } from '../authorization/authorization.service';
+
+const STUDENT_LEVEL_DATASETS: string[] = ['students', 'reflection-comments'];
 import { buildContext, envelope } from './dashboard-context';
 import {
   DashboardQueryDto,
@@ -56,6 +60,7 @@ export class AdminDashboardController {
     private readonly csv: CsvService,
     private readonly pdf: PdfService,
     private readonly courseAccess: CourseAccessService,
+    private readonly authorization: AuthorizationService,
   ) {}
 
   /**
@@ -205,6 +210,23 @@ export class AdminDashboardController {
     const { filters, meta } = await this.context(query, request);
     const format = query.format ?? 'csv';
     const dataset = query.dataset ?? 'overview';
+
+    // The same rows /students and /reflection/comments guard; exporting them
+    // must not be a way around dashboard:view_students.
+    if (
+      STUDENT_LEVEL_DATASETS.includes(dataset) &&
+      !(await this.authorization.hasPermission(
+        request.user.id,
+        'dashboard',
+        'view_students',
+      ))
+    ) {
+      throw new ForbiddenException({
+        code: 'PERMISSION_DENIED',
+        required: { module: 'dashboard', action: 'view_students' },
+      });
+    }
+
     const stamp = (value: string) => value.slice(0, 10).replace(/-/g, '');
     const filename = `dashboard-${dataset}-${stamp(meta.period.from)}-${stamp(
       meta.period.to,

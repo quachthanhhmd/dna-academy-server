@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Put,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -117,7 +118,12 @@ export class RolesAdminController {
   setPermissions(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: SetRolePermissionsDto,
+    @Request() request,
   ): Promise<ModulePermissionsDto[]> {
-    return this.rolesAdminService.setPermissions(id, dto.permissionIds);
+    return this.rolesAdminService.setPermissions(
+      id,
+      dto.permissionIds,
+      request.user.id,
+    );
   }
 }

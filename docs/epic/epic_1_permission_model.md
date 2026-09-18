@@ -58,8 +58,9 @@
 
 ## 1. API integration
 
-> The contract FE builds against. It describes the server **after** §2 ships. Until then, the
-> current behaviour is what the code does.
+> The contract FE builds against. **Implemented on branch `feat/permission-model` (18/09/2026)** —
+> this section now describes what the server does. Where the build differs from the original
+> plan, the difference is marked **[as built]** with its reason; §1.11 lists every error code.
 
 ### 1.1 Conventions
 
@@ -74,6 +75,7 @@ Base path `/api/v1`. All authenticated routes take `Authorization: Bearer <token
 | `404` | standard | Resource missing **or** a course the caller does not teach | Treat as not found |
 | `409` | `{ "status": 409, "error": "instructor_has_courses", …extra }` | Valid request, current state forbids it | Show the message; `extra` carries detail |
 | `422` | `{ "status": 422, "errors": { "email": "emailAlreadyExists" } }` | Field validation | Map `errors` onto form fields |
+| `403` | `{ "status": 403, "code": "ROLE_EXCEEDS_CALLER" }` | **[as built]** The target (a user or a role) holds a permission the caller lacks | Hide the control for such targets; show "You cannot change an account with more access than yours" |
 
 `409` codes are `snake_case` and `403` business codes are `SCREAMING_SNAKE`, matching the existing
 `instructors-admin` and `learning` modules.
@@ -130,6 +132,12 @@ any role change.
 | Not linked; provider returned an email that matches an **ordinary** account | 200 — signed into it; the link is saved |
 | Not linked; email matches an account with **admin-panel permissions** | **409** `social_link_requires_password` |
 | No match, or provider returned no email | 200 — new account, role User, `requiresOnboarding: true` |
+| The account (linked or matched) is deactivated | **403** `{ "status": 403, "code": "ACCOUNT_DEACTIVATED" }` |
+
+**[as built]** An account created from a provider that gave no email has `emailVerified: false`
+and `email: null`. `POST /auth/email/login` and `POST /auth/refresh` also refuse a deactivated
+account: login with **403 `ACCOUNT_DEACTIVATED`** (only after the password is checked, so the state
+is not disclosed to a guess), refresh with 401.
 
 ```jsonc
 // 409 — G3
@@ -163,8 +171,8 @@ Needed so G3 has a way out, and so users without a provider email can attach one
 #### `POST /auth/me/social-links/facebook` · `POST /auth/me/social-links/google`
 
 ```jsonc
-{ "accessToken": "…" }   // facebook
-{ "idToken": "…" }       // google
+{ "accessToken": "…", "password": "…" }   // facebook
+{ "idToken": "…", "password": "…" }       // google
 // 201
 { "provider": "facebook", "linkedAt": "2026-09-17T10:00:00Z" }
 ```
@@ -173,16 +181,27 @@ Needed so G3 has a way out, and so users without a provider email can attach one
 |---|---|
 | `409 social_identity_in_use` | That Facebook/Google identity is already linked to another account |
 | `409 provider_already_linked` | This account already has a link for that provider |
+| `422 { "errors": { "password": "required" } }` | **[as built]** The account has a password (`hasPassword: true`) and none was sent |
+| `422 { "errors": { "password": "incorrectPassword" } }` | **[as built]** Wrong password |
+| `422 { "errors": { "token": "wrongToken" } }` | The provider returned no identity |
+
+**[as built] Why a password.** A link outlives the session that made it and every later password
+change. Without the password, a stolen 15-minute access token would be enough to attach the thief's
+own Facebook to the account for good. Ask for the password in the link dialog when `hasPassword`;
+accounts without one (social-only) send none. The password is checked before the provider is called.
 
 #### `DELETE /auth/me/social-links/:provider`
 
 `204`. **`409 last_login_method`** when unlinking would leave the account with no password and no
-other link — it could never sign in again.
+other link — it could never sign in again. `404` when there is no link for that provider, or the
+provider is not `facebook` / `google`.
 
 ### 1.5 Password set and invite
 
 The invite for a new instructor account (§1.7) uses the **existing** reset flow. The email links to
-the existing client page `/password-change?hash=…`.
+the existing client page `/password-change?hash=…&expires=…&invite=1`. **[as built]** `invite=1`
+is there so the page can say "Set your password" instead of "Reset" (FE-9). The invite lives
+**72 hours** (O1); a reset link keeps `AUTH_FORGOT_TOKEN_EXPIRES_IN`.
 
 #### `POST /auth/reset/password` — now single-use
 
@@ -190,9 +209,13 @@ the existing client page `/password-change?hash=…`.
 { "hash": "…", "password": "…" }   // 204
 ```
 
-A hash is rejected once the password has been set with it, or with any newer hash:
-`422 { "errors": { "hash": "invalidHash" } }` — the same code the page already handles for an expired
-link. Setting a password also marks the email verified.
+A hash is rejected once the password has changed — through this link, another link, or any other
+way: `422 { "errors": { "hash": "invalidHash" } }` — the same code the page already handles for an
+expired link. Setting a password also marks the email verified and activates an account whose email
+was not yet confirmed; a deactivated account stays deactivated.
+
+**[as built]** Single-use is enforced by binding the link to the password it was issued for
+(an HMAC of the stored hash), not by a `password_changed_at` column — same guarantee, no migration.
 
 `POST /auth/forgot/password` is unchanged.
 
@@ -207,7 +230,18 @@ link. Setting a password also marks the email verified.
 | `POST` | `/users` | `users:create` | **`role` removed from body.** New users are User; change it with §1.6.2. |
 | `PATCH` | `/users/:id` | `users:edit` | **`role`, `email`, `password`, `status` removed from body.** **403 `STUDENT_PROFILE_IMMUTABLE`** when the target's role is User. |
 | `PATCH` | `/users/:id/status` | `users:edit` | **New.** Allowed on any target (D9). |
-| `DELETE` | `/users/:id` | `users:delete` | Guard only. |
+| `DELETE` | `/users/:id` | `users:delete` | **[as built]** 409 `cannot_delete_self`; ends the account's sessions. |
+
+**[as built]**
+
+- `PATCH /users/:id` accepts only `firstName`, `lastName`, `fullName`, `photo`,
+  `profilePictureUrl`, `age`, `dateOfBirth`, `locale`. `emailVerified` and `onboardingDone` are
+  ignored too — the first gates social-login linking (G1).
+- `PATCH /users/:id`, `PATCH /users/:id/status` and `DELETE /users/:id` answer **403
+  `ROLE_EXCEEDS_CALLER`** when the target holds a permission the caller lacks. A custom role with
+  `users:edit` must not be able to deactivate an Admin.
+- `sort` accepts `orderBy` in `id`, `email`, `firstName`, `lastName`, `fullName`, `createdAt`,
+  `updatedAt` and `order` in `ASC` / `DESC`; anything else is 422 (it could order by `password`).
 
 Fields removed from a body are **ignored**, not rejected (the global validation pipe strips them).
 Sending `role` to `PATCH /users/:id` returns 200 and changes nothing — remove it from the form rather
@@ -216,11 +250,24 @@ than relying on an error.
 #### 1.6.1 `PATCH /users/:id/status` — new
 
 ```jsonc
-{ "statusId": 2 }   // 1 active, 2 inactive
+{ "statusId": 3 }   // 1 active, 3 deactivated
 // 200 → the updated user
 ```
 
 `409 cannot_change_own_status` when an admin tries to deactivate themselves.
+
+**[as built] A new status, 3 `Deactivated`.** Status 2 `Inactive` already means "email not
+confirmed yet": such accounts can sign in, and confirming the email turns them active. Deactivating
+through it would have blocked nothing and been undone by a confirmation email. So:
+
+| `statusId` | Meaning | Sign-in | Settable here |
+|---|---|---|---|
+| 1 | Active | yes | yes |
+| 2 | Inactive — email not confirmed | yes | **no** (422) |
+| 3 | Deactivated | **no** — 403 `ACCOUNT_DEACTIVATED` | yes |
+
+Deactivating ends every session at once (refresh fails); an access token already issued lapses
+within `AUTH_JWT_TOKEN_EXPIRES_IN` (15 min). Show status 3 as "Deactivated" and 2 as "Unverified".
 
 #### 1.6.2 `PUT /admin/users/:id/roles` — **changed body**
 
@@ -250,6 +297,12 @@ Permission: **`users:assign_role`** (was `users:edit`).
 | Caller changes their own role | **409 `cannot_change_own_role`** |
 | Same role | 200, no change |
 | Unknown `roleId` | `422 { "errors": { "roleId": "notExists" } }` |
+| **[as built]** The role, or the user's current role, holds a permission the caller lacks | **403 `ROLE_EXCEEDS_CALLER`** — otherwise `users:assign_role` on a custom role could mint Admins |
+
+**[as built]** The draft profile created on User → Instructor is **inactive** (`isActive: false`):
+it stays off the public catalogue, cannot be put on a course, and grants no course access until an
+admin fills it in and activates it (`PATCH /admin/instructors/:id/status`). Instructor → User
+applies to any move off Instructor except to Admin; an Admin who teaches keeps the profile.
 
 `GET /admin/users/:id/roles` is unchanged in shape and always returns one element.
 
@@ -287,7 +340,11 @@ Response adds three fields to the existing instructor payload:
 ```
 
 The invite email is sent **after** the record is committed. `inviteSent: false` with
-`hasAccount: true` means the email failed; resend it.
+`hasAccount: true` means the email failed (or `sendInvite: false`); resend it.
+
+**[as built]** The response is the full detail payload (`GET /admin/instructors/:id`) plus
+`inviteSent`. The account is created with `onboardingDone: true` — the learner questionnaire does
+not apply to it.
 
 #### `POST /admin/instructors/:id/invite` — new
 
@@ -297,6 +354,7 @@ Permission `instructors:create_account`. `204`.
 |---|---|
 | `409 no_linked_account` | The profile has no login account |
 | `409 already_activated` | The account already has a password |
+| `503 invite_not_sent` | **[as built]** The mail server refused it; try again |
 
 #### `GET /admin/instructors` and `GET /admin/instructors/:id` — **new fields**
 
@@ -344,6 +402,27 @@ Create, publish, unpublish and delete remain `courses:create` / `courses:publish
 **Use `canEdit` to render the editor read-only.** The 403 is the server's guarantee, not the UI's
 signal.
 
+**[as built] Also scoped the same way:**
+
+| Route | Rule |
+|---|---|
+| `GET /admin/courses/:courseId/sections` | view access (404 for a course the caller does not teach) |
+| `DELETE` sections and lectures | `courses:delete` **and** edit access |
+| `PATCH /admin/lectures/:id/content` | edit access on the lecture's course |
+| `DELETE /admin/enrollments/:id/progress`, `POST /enrollments/:id/certificate/regenerate` | edit access on the enrollment's course — otherwise every instructor could reset any learner |
+| `/admin/career-reflection-questions` | `PATCH` / `deactivate` / `DELETE` need edit access on the question's course; a **global** question needs `courses:edit_any` (403 `PERMISSION_DENIED`). Moving a question (`course` in the body) needs edit access on the target too. `GET` lists global questions plus the caller's courses; `?courseId=` of another course is 404. |
+
+**[as built] Admin-only course fields.** Without `courses:edit_any`:
+
+- `PATCH /admin/courses/:id` with `primaryInstructorId` or `coInstructorIds` →
+  **403 `INSTRUCTOR_ASSIGNMENT_REQUIRES_ADMIN`**. Who teaches a course is an admin decision; a
+  primary could otherwise hand the course away or add co-instructors. Leave these fields out of the
+  instructor's form.
+- `PUT /admin/courses/:id/groups` → **403 `PERMISSION_DENIED`** (`courses:edit_any`). Catalogue
+  placement ("featured", "popular") is curated. Hide the groups editor unless `courses:edit_any`.
+
+`myRole` is `"co_instructor"` for a guest too.
+
 ### 1.9 Dashboard
 
 Amends [`epic-7/epic_7_api.md`](./epic-7/epic_7_api.md).
@@ -352,7 +431,7 @@ Amends [`epic-7/epic_7_api.md`](./epic-7/epic_7_api.md).
 |---|---|---|
 | `/admin/dashboard/kpis`, `/enrollments-over-time`, `/progress-distribution`, `/top-courses`, `/enrollment-status`, `/reflection` | `dashboard:view` | **scoped** |
 | `/admin/dashboard/students`, `/reflection/comments` | **`dashboard:view_students`** (was `dashboard:view`) | |
-| `/admin/dashboard/export` | `dashboard:export` | unchanged |
+| `/admin/dashboard/export` | `dashboard:export` | **[as built]** `dataset=students` and `dataset=reflection-comments` also need `dashboard:view_students` (403 `PERMISSION_DENIED`) — they are the same rows. Scoped like everything else. |
 
 Every response's `meta` gains:
 
@@ -362,6 +441,10 @@ Every response's `meta` gains:
 
 `"own"` means the numbers cover only courses where the caller is the primary instructor. With no
 such course, the response is the ordinary empty shape — **never platform totals**.
+
+**[as built]** Under `"own"`, *Registered students* counts learners who have ever enrolled in the
+caller's courses, as it already did under a course filter. `courseId` of a course outside the scope
+is **404**. `/reflection` lists global questions plus those of the caller's courses.
 
 ### 1.10 Removed routes
 
@@ -377,10 +460,41 @@ All return 404. **The client calls none of them** — verified against `dna-acad
 | `/permissions` `/modules` `/media-files` `/master-data-groups` | Open writes |
 | `POST` `PATCH` `DELETE` on `/master-data-codes` | Open writes. **`GET /master-data-codes?groupKey=` stays** — onboarding uses it. |
 | `/course-ratings` `/reflection-responses` `/quiz-attempts` `/quiz-attempt-answers` `/quiz-saves` `/enrollments` `/certificates` `/career-reflection-answers` `/lecture-progresses` `/quiz-questions` `/quiz-answer-options` `/reflection-questions` | Student data behind `courses:edit` (§2.1) |
+| `/career-reflection-questions` (the generated CRUD) | **[as built]** The global question bank behind `courses:edit`. `/admin/career-reflection-questions` is the authoring surface; `GET /career-reflection-questions/grouped` (learning) stays. |
 
 **Not removed:** the learning routes that share these prefixes — `/lectures/:id/progress`,
 `/enrollments/:id/start`, `/enrollments/:id/certificate`, the quiz attempt flow and so on. They live
 in the learning controllers and are unaffected.
+
+### 1.11 Roles screen — **[as built]**
+
+With custom roles first-class (D4), editing a role must not be a way up:
+
+| Call | New rule |
+|---|---|
+| `PUT /admin/roles/:id/permissions` | **403 `ROLE_EXCEEDS_CALLER`** unless the caller holds every permission the role has now and every permission it will have. **409 `built_in_role`** for Admin (id 1): it holds every permission by definition. |
+| `DELETE /admin/roles/:id` | **409 `built_in_role`** for Admin, User and Instructor (ids 1, 2, 4). |
+
+### 1.12 Every new error code
+
+| Status | Code | Where |
+|---|---|---|
+| 403 | `ACCOUNT_DEACTIVATED` (`code`) | email / Facebook / Google login |
+| 403 | `CO_INSTRUCTOR_READ_ONLY` (`code`) | every course write (§1.8) |
+| 403 | `INSTRUCTOR_ASSIGNMENT_REQUIRES_ADMIN` (`code`) | `PATCH /admin/courses/:id` |
+| 403 | `ROLE_EXCEEDS_CALLER` (`code`) | `PUT /admin/users/:id/roles`, `PATCH /users/:id`, `PATCH /users/:id/status`, `DELETE /users/:id`, `PUT /admin/roles/:id/permissions` |
+| 403 | `STUDENT_PROFILE_IMMUTABLE` (`code`) | `PATCH /users/:id` |
+| 409 | `already_activated`, `no_linked_account` | `POST /admin/instructors/:id/invite` |
+| 409 | `built_in_role` | roles screen |
+| 409 | `cannot_change_own_role`, `cannot_demote_last_admin`, `instructor_has_courses` | `PUT /admin/users/:id/roles` |
+| 409 | `cannot_change_own_status` | `PATCH /users/:id/status` |
+| 409 | `cannot_delete_self` | `DELETE /users/:id` |
+| 409 | `last_login_method`, `provider_already_linked`, `social_identity_in_use` | social links |
+| 409 | `social_link_requires_password` | Facebook / Google login |
+| 422 | `accountEmail: required \| emailAlreadyExists`, `userId: conflictsWithCreateAccount` | `POST /admin/instructors` |
+| 422 | `password: required \| incorrectPassword` | `POST /auth/me/social-links/*` |
+| 422 | `roleId: notExists` | `PUT /admin/users/:id/roles` |
+| 503 | `invite_not_sent` | `POST /admin/instructors/:id/invite` |
 
 ---
 
@@ -410,6 +524,14 @@ answers, reflections, enrollments and certificates — R3 broken without touchin
 should be that user's own first social login.
 
 ### 2.2 Tasks, in order
+
+> **Status 18/09/2026:** BE-1 … BE-15 done on `feat/permission-model` (BE-1, BE-3 and the
+> `oauth_account` unique index shipped earlier in `fix/auth-security`). **BE-16 not done** — it
+> deletes rows from the shared dev database and needs a go-ahead. Migrations added:
+> `1787700000000` constraints, `…001` Super Admin merge, `…002` one role per user, `…003`
+> permission catalogue and grants (a migration, not a boot seed, so production gets it and a
+> revoked Instructor grant stays revoked), `…004` Google `social_id` → `oauth_account`,
+> `…005` status 3 Deactivated.
 
 | # | Task | Depends on | Size |
 |---|---|---|---|
