@@ -65,28 +65,6 @@ describe('CompletionService', () => {
           { group: { id: 'grp-1', name: 'Data & AI', displayOrder: 2 } },
         ]),
       },
-      careerQuestionsService: {
-        findForCourse: (jest.fn() as jest.Mock<any>).mockResolvedValue([
-          {
-            id: 'cq1',
-            questionText: 'A?',
-            category: 'interest',
-            displayOrder: 1,
-            questionType: 'slider',
-            labelMin: 'Không đồng ý',
-            labelMax: 'Đồng ý',
-          },
-          {
-            id: 'cq2',
-            questionText: 'B?',
-            category: null,
-            displayOrder: 2,
-            questionType: 'slider',
-            labelMin: 'Không đồng ý',
-            labelMax: 'Đồng ý',
-          },
-        ]),
-      },
       configService: {
         getOrThrow: (jest.fn() as jest.Mock<any>).mockImplementation(
           (key: string) =>
@@ -94,11 +72,6 @@ describe('CompletionService', () => {
               ? 'DNA Learning Academy'
               : 'https://cdn.example.com/sig.png',
         ),
-      },
-      careerAnswersService: {
-        findByEnrollmentId: (jest.fn() as jest.Mock<any>).mockResolvedValue([]),
-        create: (jest.fn() as jest.Mock<any>).mockResolvedValue({}),
-        update: (jest.fn() as jest.Mock<any>).mockResolvedValue({}),
       },
     };
 
@@ -108,8 +81,6 @@ describe('CompletionService', () => {
       deps.certificateGenerator,
       deps.courseRatingsService,
       deps.coursesService,
-      deps.careerQuestionsService,
-      deps.careerAnswersService,
       deps.configService,
       deps.courseGroupAssignmentsService,
     );
@@ -229,206 +200,6 @@ describe('CompletionService', () => {
     });
   });
 
-  describe('career reflection', () => {
-    it('should group questions by category with a fallback bucket', async () => {
-      const result = await service.getCareerReflectionQuestions('course-1');
-
-      expect(result.interest).toHaveLength(1);
-      expect(result.uncategorized).toHaveLength(1);
-    });
-
-    it('should store answers and update an existing one', async () => {
-      deps.careerAnswersService.findByEnrollmentId.mockResolvedValue([
-        { id: 'a1', question: { id: 'cq1' } },
-      ]);
-
-      await service.submitCareerReflection('enr-1', 7, [
-        { questionId: 'cq1', ratingAnswer: 4 },
-        { questionId: 'cq2', ratingAnswer: 2 },
-      ]);
-
-      expect(deps.careerAnswersService.update).toHaveBeenCalledWith(
-        'a1',
-        expect.objectContaining({ ratingAnswer: 4 }),
-      );
-      expect(deps.careerAnswersService.create).toHaveBeenCalledTimes(1);
-    });
-
-    it('should reject an answer for a question not offered for this course', async () => {
-      await expect(
-        service.submitCareerReflection('enr-1', 7, [
-          { questionId: 'nope', textAnswer: 'x' },
-        ]),
-      ).rejects.toBeInstanceOf(UnprocessableEntityException);
-    });
-  });
-
-  /**
-   * Epic 4.1 §3.1 / D1 / D2 — the post-completion form is data-driven, so the
-   * public read has to carry everything needed to render a question.
-   */
-  describe('data-driven reflection questions', () => {
-    const radio = {
-      id: 'cq3',
-      questionText: 'Skill?',
-      category: 'skill_fit',
-      displayOrder: 3,
-      questionType: 'radio',
-      options: [
-        {
-          value: 1,
-          label: 'Cần luyện thêm',
-          labelTranslations: { en: 'Need Practice' },
-        },
-        { value: 2, label: 'Tốt', labelTranslations: { en: 'Good' } },
-        { value: 3, label: 'Rất tốt', labelTranslations: { en: 'Perfect' } },
-      ],
-    };
-
-    it('should return the render metadata for a slider', async () => {
-      const grouped = await service.getCareerReflectionQuestions('course-1');
-
-      expect(grouped.interest[0]).toMatchObject({
-        id: 'cq1',
-        questionType: 'slider',
-        labelMin: 'Không đồng ý',
-        labelMax: 'Đồng ý',
-        options: null,
-      });
-    });
-
-    it('should return the options for a radio question', async () => {
-      deps.careerQuestionsService.findForCourse.mockResolvedValue([radio]);
-
-      const grouped = await service.getCareerReflectionQuestions('course-1');
-
-      expect(grouped.skill_fit[0]).toMatchObject({
-        questionType: 'radio',
-        labelMin: null,
-        labelMax: null,
-        options: [
-          { value: 1, label: 'Cần luyện thêm' },
-          { value: 2, label: 'Tốt' },
-          { value: 3, label: 'Rất tốt' },
-        ],
-      });
-    });
-
-    it('should not leak the raw translation maps to the client', async () => {
-      deps.careerQuestionsService.findForCourse.mockResolvedValue([radio]);
-
-      const grouped = await service.getCareerReflectionQuestions('course-1');
-
-      expect(JSON.stringify(grouped)).not.toContain('labelTranslations');
-      expect(JSON.stringify(grouped)).not.toContain('Need Practice');
-    });
-  });
-
-  /**
-   * Epic 4.1 §3.3 — the stored value is the option's own `value`, never its
-   * array position. An index that happens to look plausible would land in the
-   * same `category` bucket and quietly skew the aggregate.
-   */
-  describe('career reflection answer values', () => {
-    const radio = {
-      id: 'cq1',
-      questionText: 'Skill?',
-      category: 'skill_fit',
-      displayOrder: 1,
-      questionType: 'radio',
-      options: [
-        { value: 1, label: 'A' },
-        { value: 3, label: 'B' },
-      ],
-    };
-
-    it('should accept a declared option value', async () => {
-      deps.careerQuestionsService.findForCourse.mockResolvedValue([radio]);
-
-      await expect(
-        service.submitCareerReflection('enr-1', 7, [
-          { questionId: 'cq1', ratingAnswer: 3 },
-        ]),
-      ).resolves.toBeDefined();
-    });
-
-    it('should reject a value the question does not declare', async () => {
-      deps.careerQuestionsService.findForCourse.mockResolvedValue([radio]);
-
-      await expect(
-        service.submitCareerReflection('enr-1', 7, [
-          { questionId: 'cq1', ratingAnswer: 2 },
-        ]),
-      ).rejects.toMatchObject({
-        response: { errors: { answers: 'invalidValue:cq1' } },
-      });
-
-      expect(deps.careerAnswersService.create).not.toHaveBeenCalled();
-    });
-
-    it('should reject an array index sent instead of the value', async () => {
-      deps.careerQuestionsService.findForCourse.mockResolvedValue([radio]);
-
-      await expect(
-        service.submitCareerReflection('enr-1', 7, [
-          { questionId: 'cq1', ratingAnswer: 0 },
-        ]),
-      ).rejects.toBeInstanceOf(UnprocessableEntityException);
-    });
-
-    it('should accept any value in 1..5 on a slider', async () => {
-      await expect(
-        service.submitCareerReflection('enr-1', 7, [
-          { questionId: 'cq1', ratingAnswer: 5 },
-        ]),
-      ).resolves.toBeDefined();
-    });
-
-    it('should reject a slider value outside 1..5', async () => {
-      await expect(
-        service.submitCareerReflection('enr-1', 7, [
-          { questionId: 'cq1', ratingAnswer: 6 },
-        ]),
-      ).rejects.toMatchObject({
-        response: { errors: { answers: 'invalidValue:cq1' } },
-      });
-    });
-
-    // §3.1 — textAnswer is reserved for a future free-text type and unused in
-    // V1, so every answer must carry a ratingAnswer.
-    it('should reject an answer that carries only text', async () => {
-      await expect(
-        service.submitCareerReflection('enr-1', 7, [
-          { questionId: 'cq1', textAnswer: 'Yes' },
-        ]),
-      ).rejects.toMatchObject({
-        response: { errors: { answers: 'invalidValue:cq1' } },
-      });
-    });
-
-    it('should still reject an unknown question id', async () => {
-      await expect(
-        service.submitCareerReflection('enr-1', 7, [
-          { questionId: 'ghost', ratingAnswer: 3 },
-        ]),
-      ).rejects.toMatchObject({
-        response: { errors: { answers: 'unknownQuestion:ghost' } },
-      });
-    });
-
-    it('should validate every answer before writing any of them', async () => {
-      await expect(
-        service.submitCareerReflection('enr-1', 7, [
-          { questionId: 'cq1', ratingAnswer: 3 },
-          { questionId: 'cq2', ratingAnswer: 99 },
-        ]),
-      ).rejects.toBeInstanceOf(UnprocessableEntityException);
-
-      expect(deps.careerAnswersService.create).not.toHaveBeenCalled();
-    });
-  });
-
-  /** Epic 4.1 §3.2 — the card prints the issuer, so it comes from config. */
   describe('certificate issuer', () => {
     it('should attach the issuer name and signature url', async () => {
       const result = await service.getCertificate('enr-1', 7);

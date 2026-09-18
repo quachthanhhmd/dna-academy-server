@@ -13,3 +13,21 @@ export const ADMIN_PASSWORD = 'secret';
  */
 export const MAIL_HOST = process.env.MAIL_CLIENT_HOST ?? 'localhost';
 export const MAIL_PORT = process.env.MAIL_CLIENT_PORT;
+
+/**
+ * Where the *test runner* reaches Postgres, which — exactly like `MAIL_HOST`
+ * above — is not where the *API container* reaches it. `DATABASE_HOST` is
+ * `postgres-test`, a name that only resolves on the compose network, so a
+ * suite running on the host uses the published port instead.
+ *
+ * Only the dashboard metric specs need this. They assert rules that depend on
+ * exact timestamps — which Vietnam day an enrolment lands on, which cohort a
+ * completion belongs to — and no endpoint lets a caller set
+ * `enrollment_date`. Seeding those rows through the API is not possible;
+ * seeding them through SQL is.
+ */
+export const DB_HOST = process.env.DATABASE_CLIENT_HOST ?? 'localhost';
+export const DB_PORT = Number(process.env.DATABASE_CLIENT_PORT ?? 5433);
+export const DB_USER = process.env.DATABASE_USERNAME ?? 'admin';
+export const DB_PASSWORD = process.env.DATABASE_PASSWORD ?? 'admin';
+export const DB_NAME = process.env.DATABASE_NAME ?? 'dna_academy_test';

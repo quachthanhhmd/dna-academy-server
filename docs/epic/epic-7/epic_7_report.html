@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EPIC-07 — Báo cáo hoàn thành phần Backend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;600&display=swap">
+<style>
+  :root{
+    --paper:#F7F5F2;--surface:#FFFFFF;--sunk:#EFEBE6;
+    --ink:#1A1613;--ink-soft:#544C44;--ink-faint:#857A70;
+    --rule:#E2DCD4;--rule-soft:#EBE6E0;--accent:#8A4B14;
+    --warn:#97382F;--warn-soft:#F7E4E1;
+    --note:#7E5A17;--note-soft:#F5EDDA;
+    --f-display:"Newsreader",Georgia,serif;
+    --f-body:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#15120F;--surface:#1C1815;--sunk:#241F1B;
+    --ink:#EDE7E0;--ink-soft:#ABA098;--ink-faint:#7D736B;
+    --rule:#332C26;--rule-soft:#29231E;--accent:#E0A268;
+    --warn:#E08A80;--warn-soft:#2E1E1B;--note:#D8B268;--note-soft:#2B2418;}}
+  :root[data-theme="dark"]{
+    --paper:#15120F;--surface:#1C1815;--sunk:#241F1B;
+    --ink:#EDE7E0;--ink-soft:#ABA098;--ink-faint:#7D736B;
+    --rule:#332C26;--rule-soft:#29231E;--accent:#E0A268;
+    --warn:#E08A80;--warn-soft:#2E1E1B;--note:#D8B268;--note-soft:#2B2418;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--f-body);
+       font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased}
+  .page{max-width:56rem;margin:0 auto;padding:3rem 1.5rem 6rem}
+  header{border-bottom:2px solid var(--ink);padding-bottom:1.25rem;margin-bottom:2rem}
+  .kicker{font-family:var(--f-mono);font-size:.6875rem;letter-spacing:.13em;text-transform:uppercase;
+          color:var(--ink-faint);margin:0 0 .8rem}
+  h1{font-family:var(--f-display);font-weight:600;font-size:clamp(2rem,5.5vw,2.9rem);
+     line-height:1.1;letter-spacing:-.02em;margin:0 0 .6rem;text-wrap:balance}
+  .lede{font-family:var(--f-display);font-size:1.125rem;line-height:1.55;color:var(--ink-soft);
+        max-width:56ch;margin:0}
+  h2{font-family:var(--f-display);font-weight:600;font-size:1.45rem;margin:2.75rem 0 .35rem;
+     letter-spacing:-.015em;border-bottom:1px solid var(--ink);padding-bottom:.4rem}
+  .sub{font-size:.875rem;color:var(--ink-faint);margin:.5rem 0 1.25rem;max-width:62ch}
+
+  .grid{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule)}
+  .grid.two{grid-template-columns:repeat(auto-fit,minmax(17rem,1fr))}
+  .item{background:var(--surface);padding:1.1rem 1.2rem}
+  .item h3{font-size:.9375rem;font-weight:600;margin:0 0 .15rem;letter-spacing:-.005em}
+  .q{font-size:.8125rem;color:var(--ink-faint);margin:0 0 .7rem;font-style:italic}
+  .formula{font-family:var(--f-mono);font-size:.78125rem;line-height:1.7;background:var(--sunk);
+           padding:.6rem .75rem;border-radius:3px;margin:0 0 .55rem}
+  .formula .op{color:var(--accent)}
+  .item p{margin:0;font-size:.8125rem;color:var(--ink-soft)}
+  .item p+p{margin-top:.45rem}
+
+  .callout{border-left:3px solid var(--warn);background:var(--warn-soft);padding:1rem 1.2rem;margin:1.1rem 0}
+  .callout .lbl{font-family:var(--f-mono);font-size:.625rem;font-weight:600;letter-spacing:.11em;
+                text-transform:uppercase;color:var(--warn);display:block;margin-bottom:.4rem}
+  .callout p{margin:0 0 .5rem;font-size:.875rem}.callout p:last-child{margin-bottom:0}
+  .callout.note{border-left-color:var(--note);background:var(--note-soft)}
+  .callout.note .lbl{color:var(--note)}
+
+  .ex{font-family:var(--f-mono);font-size:.78125rem;background:var(--surface);border:1px solid var(--rule);
+      padding:.75rem .9rem;margin:.6rem 0;line-height:1.8;overflow-x:auto}
+  .ex b{color:var(--accent);font-weight:600}
+  code{font-family:var(--f-mono);font-size:.86em;background:var(--sunk);padding:.08em .3em;border-radius:2px}
+  footer{margin-top:3.5rem;padding-top:1rem;border-top:1px solid var(--rule);font-family:var(--f-mono);
+         font-size:.6875rem;color:var(--ink-faint);display:flex;gap:1.25rem;flex-wrap:wrap}
+</style>
+<style>
+  .status{display:inline-block;font-family:var(--f-mono);font-size:.625rem;font-weight:600;
+          letter-spacing:.08em;text-transform:uppercase;padding:.15em .5em;border-radius:2px;
+          border:1px solid currentColor}
+  .status.ok{color:#2F6B3A}.status.part{color:var(--note)}.status.no{color:var(--warn)}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .status.ok{color:#7FBF8C}}
+  :root[data-theme="dark"] .status.ok{color:#7FBF8C}
+  table{width:100%;border-collapse:collapse;margin:.9rem 0;font-size:.8125rem}
+  th,td{text-align:left;padding:.5rem .6rem;border-bottom:1px solid var(--rule-soft);
+        vertical-align:top}
+  th{font-family:var(--f-mono);font-size:.625rem;letter-spacing:.09em;text-transform:uppercase;
+     color:var(--ink-faint);border-bottom:1px solid var(--rule)}
+  tbody tr:last-child td{border-bottom:1px solid var(--rule)}
+  .num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:1px;
+           background:var(--rule);border:1px solid var(--rule);margin:1.1rem 0}
+  .metric{background:var(--surface);padding:.9rem 1rem}
+  .metric .v{font-family:var(--f-display);font-size:1.75rem;font-weight:600;line-height:1.1}
+  .metric .k{font-family:var(--f-mono);font-size:.625rem;letter-spacing:.09em;
+             text-transform:uppercase;color:var(--ink-faint);margin-top:.25rem}
+  ul{padding-left:1.1rem;margin:.6rem 0}li{margin:.35rem 0;font-size:.875rem}
+  h3.sec{font-size:1rem;font-weight:600;margin:1.6rem 0 .3rem;letter-spacing:-.005em}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <p class="kicker">DNA Academy · Dashboard Quản trị · EPIC-07 · 13/09/2026</p>
+  <h1>Backend đã xong. Đây là những gì thay đổi.</h1>
+  <p class="lede">Chín endpoint, hai định dạng xuất file, hai migration và một vai trò mới. Báo cáo này ghi lại phần đã làm, ba quyết định phải tự đưa ra, và bốn vấn đề phát hiện được trong lúc làm — kèm cách đã xử lý.</p>
+</header>
+
+<div class="metrics">
+  <div class="metric"><div class="v">9</div><div class="k">endpoint</div></div>
+  <div class="metric"><div class="v">BE-0…9</div><div class="k">hoàn thành</div></div>
+  <div class="metric"><div class="v">1014</div><div class="k">unit test</div></div>
+  <div class="metric"><div class="v">356</div><div class="k">e2e test</div></div>
+  <div class="metric"><div class="v">16/16</div><div class="k">tiêu chí (phía server)</div></div>
+</div>
+
+<div class="callout note">
+  <span class="lbl">Trạng thái</span>
+  <p><strong>Phần server đã chạy được và đã kiểm chứng.</strong> Toàn bộ payload trong tài liệu API được chụp lại từ máy đang chạy, không phải viết tay.</p>
+  <p><strong>Phần giao diện (FE-1…FE-6) chưa bắt đầu</strong> — nằm ở repo <code>dna-academy-client</code>. Hợp đồng API đã sẵn sàng để FE bắt đầu ngay.</p>
+</div>
+
+<h2>Phần đã làm</h2>
+<p class="sub">Theo đúng thứ tự các task trong kế hoạch.</p>
+
+<table>
+  <thead><tr><th>Task</th><th>Nội dung</th><th style="width:5.5rem">Trạng thái</th></tr></thead>
+  <tbody>
+    <tr><td class="num">BE-0</td><td>Vai trò <code>instructor</code> (id 4), seed, và migration chuyển tài khoản giảng viên khỏi vai trò học viên</td><td><span class="status ok">Xong</span></td></tr>
+    <tr><td class="num">BE-1</td><td>Module <code>admin-dashboard</code>, xử lý múi giờ và phân kỳ dùng chung cho mọi endpoint</td><td><span class="status ok">Xong</span></td></tr>
+    <tr><td class="num">BE-2</td><td><code>/kpis</code> — 7 chỉ số, mỗi chỉ số kèm so sánh kỳ trước và biểu đồ tia</td><td><span class="status ok">Xong</span></td></tr>
+    <tr><td class="num">BE-3</td><td>4 biểu đồ: theo thời gian, phân bố tiến độ, top khoá học, trạng thái ghi danh</td><td><span class="status ok">Xong</span></td></tr>
+    <tr><td class="num">BE-4</td><td><code>/reflection</code> và danh sách nhận xét, dùng query builder theo đúng yêu cầu</td><td><span class="status ok">Xong</span></td></tr>
+    <tr><td class="num">BE-5</td><td><code>/students</code> — danh sách chi tiết đứng sau mọi ô số và mọi cột</td><td><span class="status ok">Xong</span></td></tr>
+    <tr><td class="num">BE-6</td><td>Xuất CSV kèm BOM UTF-8</td><td><span class="status ok">Xong</span></td></tr>
+    <tr><td class="num">BE-7</td><td>Xuất PDF dựng trên server bằng Chromium</td><td><span class="status ok">Xong</span></td></tr>
+    <tr><td class="num">BE-8</td><td>5 index cho các cột mà dashboard lọc theo</td><td><span class="status ok">Xong</span></td></tr>
+    <tr><td class="num">BE-9</td><td>Phân quyền và toàn bộ test được nêu đích danh trong kế hoạch</td><td><span class="status ok">Xong</span></td></tr>
+  </tbody>
+</table>
+
+<h2>Bốn vấn đề phát hiện trong lúc làm</h2>
+<p class="sub">Không có vấn đề nào nằm trong kế hoạch. Ba trong số đó sẽ hỏng âm thầm nếu không bắt được.</p>
+
+<h3 class="sec">1. Vai trò id 4 đã có người chiếm</h3>
+<p>Kế hoạch giả định id 4 còn trống. Trên database dev, id 4 đang là <code>UR Custom Role 1788064323933</code> — một trong <strong>60 dòng rác</strong> do bộ test e2e từng chạy thẳng vào database dev để lại.</p>
+<div class="callout">
+  <span class="lbl">Nếu không xử lý</span>
+  <p>Câu lệnh <code>INSERT … ON CONFLICT DO NOTHING</code> sẽ <strong>im lặng không làm gì</strong>, sau đó lệnh backfill vẫn chạy và gán toàn bộ tài khoản giảng viên vào một vai trò rác ngẫu nhiên. Không có lỗi nào được báo.</p>
+</div>
+<p>Đã xử lý bằng cách <strong>dời dòng đang chiếm chỗ sang id mới</strong> (<code>MAX(id)+1</code>, đúng cách hệ thống vẫn cấp id cho vai trò), mang theo cả ba khoá ngoại trỏ tới nó, rồi mới ghi vai trò <code>Instructor</code> vào id 4. Đã kiểm chứng: id 4 nay là <code>Instructor</code>, dòng cũ nằm ở id 67, không có tham chiếu nào bị mồ côi.</p>
+
+<h3 class="sec">2. “Học viên đang hoạt động” nhiều hơn “tổng học viên”</h3>
+<p>Kế hoạch định nghĩa học viên là vai trò <code>user</code> (D1), nhưng phần “đang hoạt động” (D8) không nhắc lại điều kiện đó. Kết quả trên dữ liệu thật: <strong>1 học viên đã đăng ký, 2 học viên đang hoạt động</strong> — vì một tài khoản quản trị cũng có ghi danh.</p>
+<p>Đã thêm điều kiện vai trò cho cả ô số và danh sách chi tiết tương ứng. Một dashboard báo số người đang học nhiều hơn số người có mặt thì người xem sẽ cho là hỏng, bất kể định nghĩa viết thế nào.</p>
+
+<h3 class="sec">3. PDF bị cắt mất một ô số</h3>
+<p>Chromium <strong>không dàn lại trang</strong> theo khổ giấy khi xuất PDF — nó in đúng những gì đã dàn theo cửa sổ trình duyệt rồi cắt phần thừa. Mặc định cửa sổ rộng 800px, còn khổ A4 trừ lề chỉ còn 703px, nên ô số thứ tư rơi ra ngoài mép phải và biến mất.</p>
+<p>Chỉ nhìn thấy được bằng cách <strong>mở file PDF ra xem</strong>; không một test nào bắt được lỗi này. Đã cố định cửa sổ dàn trang bằng đúng bề rộng vùng in, và chừa 1px để đường viền cuối không nằm trùng mép cắt.</p>
+
+<h3 class="sec">4. Không thể tạo dữ liệu test qua API</h3>
+<p>Các quy tắc quan trọng nhất đều phụ thuộc vào <em>thời điểm chính xác</em>: một ghi danh lúc 00:30 giờ Việt Nam thuộc ngày nào, một lượt hoàn thành thuộc nhóm nào. Không endpoint nào cho phép đặt <code>enrollment_date</code>, nên tạo dữ liệu qua HTTP sẽ luôn đóng dấu thời gian hiện tại và test sẽ không kiểm được gì.</p>
+<p>Bộ test metric vì vậy ghi thẳng vào database test qua SQL, theo đúng tiền lệ <code>MAIL_CLIENT_HOST</code> sẵn có trong repo, và <strong>tự dọn sạch</strong> mọi dòng đã tạo.</p>
+
+<h2>Ba quyết định phải tự đưa ra</h2>
+
+<table>
+  <thead><tr><th style="width:11rem">Vấn đề</th><th>Đã chọn</th><th>Lý do</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Cách trả file PDF</strong></td>
+      <td>Đồng bộ, một request trả thẳng file, giới hạn 30 giây</td>
+      <td>Đã hỏi và bạn chọn phương án này. Chromium chạy ở tiến trình riêng nên không chặn Node; đổi lại FE chỉ cần một lần gọi và một vòng quay chờ. Có giới hạn 2 bản dựng song song để một lần xuất file không kéo sập container.</td>
+    </tr>
+    <tr>
+      <td><strong>Nội dung PDF</strong></td>
+      <td>Báo cáo đầy đủ cho <code>overview</code>, bảng cho từng dataset</td>
+      <td>Đã hỏi và bạn chọn phương án này. Biểu đồ trong PDF được dựng bằng SVG viết tay vì không có thư viện biểu đồ nào chạy được phía server.</td>
+    </tr>
+    <tr>
+      <td><strong>Thư viện Chromium</strong></td>
+      <td><code>puppeteer-core</code> thay vì <code>puppeteer</code></td>
+      <td>Kế hoạch ghi là <code>puppeteer</code> kèm biến môi trường chỉ đường tới Chromium của image. Với cấu hình đó hai thư viện chạy y hệt nhau, nhưng bản <code>-core</code> không tải kèm một bản Chromium ~150MB trong mỗi lần <code>npm install</code> và mỗi lần chạy CI.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Kiểm chứng</h2>
+<p class="sub">Từng tiêu chí nghiệm thu, kèm cách đã kiểm.</p>
+
+<table>
+  <thead><tr><th style="width:4rem">Mã</th><th>Tiêu chí</th><th>Cách kiểm</th></tr></thead>
+  <tbody>
+    <tr><td class="num">AC-1</td><td>7 ô số theo bộ lọc kỳ</td><td>e2e: đúng 7 khoá, đúng thứ tự, đúng cấu trúc</td></tr>
+    <tr><td class="num">AC-2</td><td>Lọc theo khoá học</td><td>e2e: 10 ghi danh của khoá A, tổng chung lớn hơn</td></tr>
+    <tr><td class="num">AC-3</td><td>Lọc theo nhóm khoá học</td><td>e2e: nhóm chứa đúng 2 ghi danh</td></tr>
+    <tr><td class="num">AC-4</td><td><code>unknown</code> cho nguồn trống</td><td>e2e: 5 dòng không nguồn → <code>unknown: 5</code>, không cộng vào <code>organic</code></td></tr>
+    <tr><td class="num">AC-5</td><td>6 cột tiến độ không chồng nhau</td><td>e2e: tổng 6 cột = tổng chung; dòng 100% chưa hoàn thành nằm ở 76-99</td></tr>
+    <tr><td class="num">AC-6</td><td>Bấm vào ô số ra danh sách người</td><td>e2e: số dòng trong danh sách = giá trị ô số</td></tr>
+    <tr><td class="num">AC-7</td><td>CSV mở bằng Excel không lỗi font</td><td>e2e: 3 byte BOM đầu file; tên <em>Nguyễn Thị Hường</em> nguyên vẹn</td></tr>
+    <tr><td class="num">AC-8</td><td>PDF hiển thị đúng tiếng Việt</td><td><strong>Trích ngược chữ từ file PDF</strong>: <em>Nguyễn Thị Hường</em>, <em>Đỗ Quỳnh Chi</em> ra đúng từng dấu</td></tr>
+    <tr><td class="num">AC-9</td><td>Trống thì báo “chưa có dữ liệu”</td><td>e2e: mảng rỗng, không phải chuỗi số 0; PDF in “No data available”</td></tr>
+    <tr><td class="num">AC-10</td><td>Tổng phản hồi, tỷ lệ phản hồi, 6 nhóm</td><td>e2e trên <code>/reflection</code></td></tr>
+    <tr><td class="num">AC-11</td><td>Nhóm chưa ai trả lời thì vắng mặt, không phải 0</td><td>e2e: <code>average: null</code>; unit: PDF vẽ cột dài 0 kèm chữ “No data”</td></tr>
+    <tr><td class="num">AC-12</td><td>Danh sách nhận xét</td><td>e2e trên <code>/reflection/comments</code></td></tr>
+    <tr><td class="num">AC-13</td><td>Thiếu quyền → 403 ở mọi endpoint</td><td>e2e: lặp qua cả 9 endpoint, gồm cả danh sách chi tiết và xuất file</td></tr>
+    <tr><td class="num">AC-14</td><td>Ghi danh 00:30 giờ VN tính vào ngày VN</td><td>e2e: dòng lúc <code>17:30Z</code> ngày 12 đếm vào ngày <strong>13</strong>, không phải ngày 12</td></tr>
+    <tr><td class="num">AC-15</td><td>Tỷ lệ hoàn thành theo nhóm, không vượt 100%</td><td>e2e: nhóm 10 người 3 hoàn thành → <strong>30</strong>; một lượt hoàn thành của nhóm cũ không kéo con số này lên</td></tr>
+    <tr><td class="num">AC-16</td><td>Không đếm giảng viên là học viên</td><td>Migration đã chạy, đã kiểm trên database dev</td></tr>
+  </tbody>
+</table>
+
+<div class="callout note">
+  <span class="lbl">Lưu ý khi đọc bảng trên</span>
+  <p>Tất cả 16 tiêu chí đã được kiểm ở <strong>phía server</strong>. Phần hiển thị của AC-1, AC-6 và AC-9 (ô số vẽ ra sao, ngăn kéo mở thế nào) vẫn thuộc phần giao diện chưa làm.</p>
+</div>
+
+<h2>Cần biết trước khi triển khai</h2>
+<ul>
+  <li><strong>Image Docker nặng thêm.</strong> Đã thêm Chromium và bộ font Noto — cần cho việc dựng PDF và hiển thị dấu tiếng Việt. Không có font, mọi dấu thành ô vuông.</li>
+  <li><strong>Migration có sửa dữ liệu.</strong> Migration vai trò sẽ chuyển tài khoản giảng viên từ vai trò học viên sang vai trò mới, và có thể dời một dòng vai trò đang chiếm id 4. Cả hai đều có thể quay ngược lại.</li>
+  <li><strong>Giới hạn 2 bản PDF cùng lúc.</strong> Request thứ ba nhận 503 kèm mã rõ ràng; FE nên thử lại thay vì báo lỗi.</li>
+  <li><strong>Dọn master data vẫn là việc phải làm trước</strong> (ngoài phạm vi epic này) thì bộ lọc Nhóm khoá học mới demo được — dev đang có 60 vai trò rác và hàng trăm mã khoá học rác.</li>
+  <li><strong>Nên báo cho người phụ trách Epic 4.1:</strong> bộ dựng PDF nay đã có sẵn, nên chứng chỉ PDF từng bị hoãn giờ chỉ còn thiếu một mẫu giao diện.</li>
+</ul>
+
+<h2>Việc chưa làm</h2>
+<ul>
+  <li><strong>Toàn bộ phần giao diện</strong> (FE-1…FE-6, ~6 ngày) ở repo <code>dna-academy-client</code>.</li>
+  <li><strong>Vai trò <code>instructor</code> chưa có quyền nào</strong> — đúng theo kế hoạch. Tài khoản giảng viên không được cấp quyền vào trang quản trị chỉ vì bị loại khỏi một phép đếm.</li>
+  <li><strong>Chưa có test cho kịch bản nhiều bản PDF song song</strong> — giới hạn đã có trong code và trả đúng mã lỗi, nhưng chưa được kiểm bằng test tự động.</li>
+</ul>
+
+<footer>
+  <span>EPIC-07 · Báo cáo phần Backend</span>
+  <span>13/09/2026</span>
+  <span>Hợp đồng API: docs/epic/epic-7/epic_7_api.md</span>
+  <span>Công thức từng chỉ số: docs/EPIC-07-dashboard-metrics.html</span>
+</footer>
+
+</div>
+</body>
+</html>

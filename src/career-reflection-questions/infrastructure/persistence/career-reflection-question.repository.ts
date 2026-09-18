@@ -34,6 +34,14 @@ export abstract class CareerReflectionQuestionRepository {
 
   abstract findForCourse(courseId: string): Promise<CareerReflectionQuestion[]>;
 
+  /** How many answers reference this question. */
+  abstract countAnswers(id: CareerReflectionQuestion['id']): Promise<number>;
+
+  /** The option keys that at least one answer to this question holds. */
+  abstract answeredOptionKeys(
+    id: CareerReflectionQuestion['id'],
+  ): Promise<number[]>;
+
   abstract update(
     id: CareerReflectionQuestion['id'],
     payload: DeepPartial<CareerReflectionQuestion>,

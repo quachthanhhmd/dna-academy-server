@@ -2,204 +2,169 @@ import { describe, expect, it } from '@jest/globals';
 import { UnprocessableEntityException } from '@nestjs/common';
 import {
   assertQuestionShape,
-  isAllowedAnswerValue,
+  isAllowedOptionKey,
 } from './career-reflection-shape';
 
+const code = (field: string, value: string) =>
+  expect.objectContaining({
+    response: { status: 422, errors: { [field]: value } },
+  }) as unknown as Error;
+
+/** Epic 4.6 §2.2 — what a question row is allowed to look like. */
 describe('assertQuestionShape', () => {
-  const slider = { questionType: 'slider' as const };
-  const opts = [
-    { value: 1, label: 'Cần luyện thêm' },
-    { value: 2, label: 'Tốt' },
-    { value: 3, label: 'Rất tốt' },
+  const options = [
+    { key: 1, label: 'Chắc chắn' },
+    { key: 2, label: 'Không phải lúc này' },
   ];
 
-  it('should accept a slider with end labels and no options', () => {
-    expect(() =>
-      assertQuestionShape({ ...slider, labelMin: 'Thấp', labelMax: 'Cao' }),
-    ).not.toThrow();
+  describe('free_text', () => {
+    it('should accept a free_text question with no options', () => {
+      expect(() =>
+        assertQuestionShape({ questionType: 'free_text', options: null }),
+      ).not.toThrow();
+    });
+
+    it('should reject a free_text question that carries options', () => {
+      expect(() =>
+        assertQuestionShape({ questionType: 'free_text', options }),
+      ).toThrow(code('options', 'notAllowedForType'));
+    });
   });
 
-  // D1 — labelMin/labelMax describe the two ends of a slider. There is nowhere
-  // on a slider to put "Low / Med / High", which is the whole reason options
-  // exists; letting a slider carry them would put the form back where it was.
-  it('should reject a slider that carries options', () => {
-    expect(() => assertQuestionShape({ ...slider, options: opts })).toThrow(
-      UnprocessableEntityException,
-    );
+  describe('selection', () => {
+    it('should accept a selection with two options', () => {
+      expect(() =>
+        assertQuestionShape({ questionType: 'selection', options }),
+      ).not.toThrow();
+    });
+
+    it('should reject a selection with no options', () => {
+      expect(() => assertQuestionShape({ questionType: 'selection' })).toThrow(
+        code('options', 'requiredForType'),
+      );
+    });
+
+    it('should reject an empty options array', () => {
+      expect(() =>
+        assertQuestionShape({ questionType: 'selection', options: [] }),
+      ).toThrow(UnprocessableEntityException);
+    });
+
+    it('should reject a single option', () => {
+      expect(() =>
+        assertQuestionShape({
+          questionType: 'selection',
+          options: [options[0]],
+        }),
+      ).toThrow(code('options', 'outOfRange'));
+    });
+
+    it('should reject more than seven options', () => {
+      const eight = Array.from({ length: 8 }, (_, i) => ({
+        key: i + 1,
+        label: `Lựa chọn ${i + 1}`,
+      }));
+
+      expect(() =>
+        assertQuestionShape({ questionType: 'selection', options: eight }),
+      ).toThrow(code('options', 'outOfRange'));
+    });
+
+    it('should reject a duplicate key', () => {
+      expect(() =>
+        assertQuestionShape({
+          questionType: 'selection',
+          options: [
+            { key: 1, label: 'A' },
+            { key: 1, label: 'B' },
+          ],
+        }),
+      ).toThrow(code('options', 'duplicateKey'));
+    });
+
+    it.each([0, -1, 1.5])('should reject key %p', (key) => {
+      expect(() =>
+        assertQuestionShape({
+          questionType: 'selection',
+          options: [
+            { key, label: 'A' },
+            { key: 2, label: 'B' },
+          ],
+        }),
+      ).toThrow(code('options', 'keyMustBePositiveInteger'));
+    });
+
+    it('should reject a blank label', () => {
+      expect(() =>
+        assertQuestionShape({
+          questionType: 'selection',
+          options: [
+            { key: 1, label: '   ' },
+            { key: 2, label: 'B' },
+          ],
+        }),
+      ).toThrow(code('options', 'labelRequired'));
+    });
+
+    // Keys are identity and array order is display order. Epic 4.1 forced
+    // keys to ascend; that would stop an admin reordering options without
+    // renumbering them — the one edit that corrupts answers already given.
+    it('should accept options whose keys are not in ascending order', () => {
+      expect(() =>
+        assertQuestionShape({
+          questionType: 'selection',
+          options: [
+            { key: 3, label: 'C' },
+            { key: 1, label: 'A' },
+            { key: 2, label: 'B' },
+          ],
+        }),
+      ).not.toThrow();
+    });
   });
 
-  it('should name the field when a slider carries options', () => {
-    expect(() => assertQuestionShape({ ...slider, options: opts })).toThrow(
-      expect.objectContaining({
-        response: { status: 422, errors: { options: 'notAllowedForType' } },
-      }) as unknown as Error,
-    );
-  });
-
-  it.each(['radio', 'select'])('should accept a %s with options', (type) => {
-    expect(() =>
-      assertQuestionShape({ questionType: type, options: opts }),
-    ).not.toThrow();
-  });
-
-  it.each(['radio', 'select'])('should reject a %s with no options', (type) => {
-    expect(() => assertQuestionShape({ questionType: type })).toThrow(
-      expect.objectContaining({
-        response: { status: 422, errors: { options: 'requiredForType' } },
-      }) as unknown as Error,
-    );
-  });
-
-  it('should reject an empty options array', () => {
-    expect(() =>
-      assertQuestionShape({ questionType: 'radio', options: [] }),
-    ).toThrow(UnprocessableEntityException);
-  });
-
-  it('should reject fewer than two options', () => {
-    expect(() =>
-      assertQuestionShape({ questionType: 'radio', options: [opts[0]] }),
-    ).toThrow(UnprocessableEntityException);
-  });
-
-  it('should reject more than seven options', () => {
-    const many = Array.from({ length: 8 }, (_, i) => ({
-      value: i + 1,
-      label: `L${i}`,
-    }));
-
-    expect(() =>
-      assertQuestionShape({ questionType: 'radio', options: many }),
-    ).toThrow(UnprocessableEntityException);
-  });
-
-  it('should accept exactly two and exactly seven options', () => {
-    const two = opts.slice(0, 2);
-    const seven = Array.from({ length: 7 }, (_, i) => ({
-      value: i + 1,
-      label: `L${i}`,
-    }));
-
-    expect(() =>
-      assertQuestionShape({ questionType: 'radio', options: two }),
-    ).not.toThrow();
-    expect(() =>
-      assertQuestionShape({ questionType: 'radio', options: seven }),
-    ).not.toThrow();
-  });
-
-  it('should reject an unknown question type', () => {
-    expect(() =>
-      assertQuestionShape({ questionType: 'freetext', options: opts }),
-    ).toThrow(
-      expect.objectContaining({
-        response: { status: 422, errors: { questionType: 'unsupported' } },
-      }) as unknown as Error,
-    );
-  });
-
-  it('should reject duplicate option values', () => {
-    expect(() =>
-      assertQuestionShape({
-        questionType: 'radio',
-        options: [
-          { value: 1, label: 'A' },
-          { value: 1, label: 'B' },
-        ],
-      }),
-    ).toThrow(
-      expect.objectContaining({
-        response: { status: 422, errors: { options: 'duplicateValue' } },
-      }) as unknown as Error,
-    );
-  });
-
-  it('should reject an option with a non-numeric value', () => {
-    expect(() =>
-      assertQuestionShape({
-        questionType: 'radio',
-        options: [
-          { value: 'one', label: 'A' },
-          { value: 2, label: 'B' },
-        ] as never,
-      }),
-    ).toThrow(UnprocessableEntityException);
-  });
-
-  it('should reject an option with a blank label', () => {
-    expect(() =>
-      assertQuestionShape({
-        questionType: 'radio',
-        options: [
-          { value: 1, label: '  ' },
-          { value: 2, label: 'B' },
-        ],
-      }),
-    ).toThrow(UnprocessableEntityException);
-  });
-
-  // D2 — two questions whose scales ran in opposite directions were both
-  // averaged into the same category bucket. Ascending order is the invariant
-  // that makes the aggregate mean anything.
-  it('should reject options that do not ascend', () => {
-    expect(() =>
-      assertQuestionShape({
-        questionType: 'select',
-        options: [
-          { value: 3, label: 'Perfect' },
-          { value: 2, label: 'Good' },
-          { value: 1, label: 'Need Practice' },
-        ],
-      }),
-    ).toThrow(
-      expect.objectContaining({
-        response: { status: 422, errors: { options: 'mustAscend' } },
-      }) as unknown as Error,
-    );
-  });
+  it.each(['slider', 'radio', 'select', 'essay'])(
+    'should reject the retired or unknown type %s',
+    (questionType) => {
+      expect(() => assertQuestionShape({ questionType, options })).toThrow(
+        code('questionType', 'unsupported'),
+      );
+    },
+  );
 });
 
-describe('isAllowedAnswerValue', () => {
-  const radio = {
-    questionType: 'radio',
+describe('isAllowedOptionKey', () => {
+  const question = {
+    questionType: 'selection',
     options: [
-      { value: 1, label: 'A' },
-      { value: 3, label: 'B' },
+      { key: 3, label: 'C' },
+      { key: 1, label: 'A' },
     ],
   };
 
-  it('should accept a declared option value', () => {
-    expect(isAllowedAnswerValue(radio, 3)).toBe(true);
+  it('should accept a key the question declares', () => {
+    expect(isAllowedOptionKey(question, 3)).toBe(true);
   });
 
-  it('should reject a value that is not declared', () => {
-    expect(isAllowedAnswerValue(radio, 2)).toBe(false);
-  });
-
-  // The trap D2 exists to close: sending the array index instead of the value.
-  it('should reject an array index that is not also a declared value', () => {
-    expect(isAllowedAnswerValue(radio, 0)).toBe(false);
-  });
-
-  it.each([1, 3, 5])('should accept %i on a slider', (value) => {
-    expect(isAllowedAnswerValue({ questionType: 'slider' }, value)).toBe(true);
-  });
-
-  it.each([0, 6, -1])('should reject %i on a slider', (value) => {
-    expect(isAllowedAnswerValue({ questionType: 'slider' }, value)).toBe(false);
+  // An FE sending the array index instead of the key produces a plausible
+  // number that would count toward the wrong option on the dashboard.
+  it('should reject an array index that is not a key', () => {
+    expect(isAllowedOptionKey(question, 0)).toBe(false);
+    expect(isAllowedOptionKey(question, 2)).toBe(false);
   });
 
   it('should reject a non-integer', () => {
-    expect(isAllowedAnswerValue({ questionType: 'slider' }, 2.5)).toBe(false);
-    expect(isAllowedAnswerValue(radio, 1.0000001)).toBe(false);
+    expect(isAllowedOptionKey(question, 1.5)).toBe(false);
   });
 
-  it('should reject a null or undefined answer', () => {
-    expect(isAllowedAnswerValue(radio, null)).toBe(false);
-    expect(isAllowedAnswerValue(radio, undefined)).toBe(false);
+  it('should reject null and undefined', () => {
+    expect(isAllowedOptionKey(question, null)).toBe(false);
+    expect(isAllowedOptionKey(question, undefined)).toBe(false);
   });
 
-  it('should reject anything on a radio with no options stored', () => {
-    expect(isAllowedAnswerValue({ questionType: 'radio' }, 1)).toBe(false);
+  it('should reject any key on a free_text question', () => {
+    expect(
+      isAllowedOptionKey({ questionType: 'free_text', options: null }, 1),
+    ).toBe(false);
   });
 });

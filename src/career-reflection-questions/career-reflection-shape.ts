@@ -2,18 +2,15 @@ import { HttpStatus, UnprocessableEntityException } from '@nestjs/common';
 import {
   CAREER_QUESTION_TYPES,
   CareerReflectionOption,
+  FREE_TEXT_TYPE,
   OPTION_COUNT_MAX,
   OPTION_COUNT_MIN,
-  SLIDER_MAX_VALUE,
-  SLIDER_MIN_VALUE,
-  SLIDER_TYPE,
+  SELECTION_TYPE,
 } from './career-reflection-question-types';
 
 export type QuestionShape = {
   questionType: string;
   options?: CareerReflectionOption[] | null;
-  labelMin?: string | null;
-  labelMax?: string | null;
 };
 
 const reject = (field: string, code: string): never => {
@@ -24,12 +21,12 @@ const reject = (field: string, code: string): never => {
 };
 
 /**
- * Epic 4.1 §3.3 / D1 — a slider is described by its two end labels, a
- * radio/select by its options, and neither may borrow the other's fields.
+ * Epic 4.6 §2.2 — a `free_text` question carries no options; a `selection`
+ * carries between two and seven.
  *
  * The database enforces the same rule (`CK_crq_shape`), which is what keeps a
- * bad row out no matter how it arrives. This runs first so an admin gets a
- * named field back instead of a raw constraint violation.
+ * bad row out however it arrives. This runs first so an admin gets a named
+ * field back instead of a raw constraint violation.
  */
 export const assertQuestionShape = (question: QuestionShape): void => {
   if (
@@ -42,7 +39,7 @@ export const assertQuestionShape = (question: QuestionShape): void => {
 
   const { options } = question;
 
-  if (question.questionType === SLIDER_TYPE) {
+  if (question.questionType === FREE_TEXT_TYPE) {
     if (options != null) {
       reject('options', 'notAllowedForType');
     }
@@ -60,8 +57,8 @@ export const assertQuestionShape = (question: QuestionShape): void => {
   }
 
   for (const option of list) {
-    if (!Number.isInteger(option?.value)) {
-      reject('options', 'valueMustBeInteger');
+    if (!Number.isInteger(option?.key) || option.key < 1) {
+      reject('options', 'keyMustBePositiveInteger');
     }
 
     if (typeof option?.label !== 'string' || option.label.trim() === '') {
@@ -69,43 +66,22 @@ export const assertQuestionShape = (question: QuestionShape): void => {
     }
   }
 
-  if (new Set(list.map((option) => option.value)).size !== list.length) {
-    reject('options', 'duplicateValue');
+  if (new Set(list.map((option) => option.key)).size !== list.length) {
+    reject('options', 'duplicateKey');
   }
 
-  // D2 — every scale is authored ascending, least to most positive. Two
-  // questions running in opposite directions land in the same `category`
-  // bucket, and averaging them produces a number that means nothing.
-  const ascending = list.every(
-    (option, index) => index === 0 || option.value > list[index - 1].value,
-  );
-
-  if (!ascending) {
-    reject('options', 'mustAscend');
-  }
+  // Epic 4.1 required keys to ascend, because its scales were averaged and
+  // two scales running in opposite directions would cancel out. Nothing is
+  // averaged any more — a selection is counted per option — and requiring
+  // ascending keys would stop an admin reordering options without renumbering
+  // them, which is exactly the edit that corrupts answers already given.
 };
 
-/**
- * Epic 4.1 §3.3 — is this the value of one of the question's own options
- * (radio/select), or inside the slider range?
- *
- * The value is the option's declared `value`, never its array position: an FE
- * that sends the index produces a plausible-looking number that quietly
- * corrupts the aggregate, so it has to be rejected rather than coerced.
- */
-export const isAllowedAnswerValue = (
+/** Epic 4.6 §2.2 — is `key` one of this selection question's own options? */
+export const isAllowedOptionKey = (
   question: Pick<QuestionShape, 'questionType' | 'options'>,
-  value: number | null | undefined,
-): boolean => {
-  if (!Number.isInteger(value)) {
-    return false;
-  }
-
-  const answer = value as number;
-
-  if (question.questionType === SLIDER_TYPE) {
-    return answer >= SLIDER_MIN_VALUE && answer <= SLIDER_MAX_VALUE;
-  }
-
-  return (question.options ?? []).some((option) => option.value === answer);
-};
+  key: number | null | undefined,
+): boolean =>
+  question.questionType === SELECTION_TYPE &&
+  Number.isInteger(key) &&
+  (question.options ?? []).some((option) => option.key === key);

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsInt,
   IsOptional,
@@ -181,26 +182,39 @@ export class RatingDto {
   submittedAt: Date | null;
 }
 
+/** Epic 4.6 §2.2 — send exactly one of the two, matching the question type. */
 export class CareerReflectionAnswerDto {
-  @ApiProperty({ type: String })
+  @ApiProperty({ type: String, format: 'uuid' })
   @IsUUID()
   questionId: string;
 
-  @ApiPropertyOptional({ type: String })
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: 5000,
+    description:
+      '`free_text` only. Trimmed and NFC-normalised before the minimum length ' +
+      '(rules.minTextLength) is checked.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(5000)
-  textAnswer?: string;
+  textAnswer?: string | null;
 
-  @ApiPropertyOptional({ type: Number })
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    description: "`selection` only. One of the question's option keys.",
+  })
   @IsOptional()
   @IsInt()
-  ratingAnswer?: number;
+  ratingAnswer?: number | null;
 }
 
 export class SubmitCareerReflectionDto {
   @ApiProperty({ type: () => [CareerReflectionAnswerDto] })
   @IsArray()
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => CareerReflectionAnswerDto)
   answers: CareerReflectionAnswerDto[];
