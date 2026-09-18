@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   HttpStatus,
   Injectable,
   NotFoundException,
@@ -35,6 +36,8 @@ import { MasterDataCodesService } from '../master-data-codes/master-data-codes.s
 import { MasterDataCode } from '../master-data-codes/domain/master-data-code';
 import { AuthOnboardingDto } from './dto/auth-onboarding.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
+import { UserRolesService } from '../user-roles/user-roles.service';
+import { RolePermissionsService } from '../role-permissions/role-permissions.service';
 
 @Injectable()
 export class AuthService {
@@ -48,6 +51,8 @@ export class AuthService {
     private readonly studentProfilesService: StudentProfilesService,
     private readonly studentCareerInterestsService: StudentCareerInterestsService,
     private readonly masterDataCodesService: MasterDataCodesService,
+    private readonly userRolesService: UserRolesService,
+    private readonly rolePermissionsService: RolePermissionsService,
   ) {}
 
   async validateLogin(loginDto: AuthEmailLoginDto): Promise<LoginResponseDto> {
@@ -143,14 +148,13 @@ export class AuthService {
       });
     }
 
-    if (user) {
-      if (socialEmail && !userByEmail) {
-        user.email = socialEmail;
-      }
-      await this.usersService.update(user.id, user);
-    } else if (userByEmail) {
-      user = userByEmail;
-    } else if (socialData.id) {
+    // A returning user is identified by their provider id and left untouched:
+    // the email a provider reports can drift to an address the user does not
+    // control, and copying it onto the account would route "forgot password"
+    // there.
+    if (!user && userByEmail) {
+      user = await this.prepareLinkByEmail(userByEmail);
+    } else if (!user && socialData.id) {
       const role = {
         id: RoleEnum.user,
       };
@@ -194,6 +198,19 @@ export class AuthService {
     socialData: SocialInterface,
   ): Promise<LoginResponseDto> {
     const provider = AuthProvidersEnum.facebook;
+
+    // TypeORM ignores an undefined property in `where`, so a missing uid would
+    // widen findByProviderAndProviderUid to every Facebook-linked account and
+    // sign in as whichever came first.
+    if (!socialData.id) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          user: 'wrongToken',
+        },
+      });
+    }
+
     const oauthAccount =
       await this.oauthAccountsService.findByProviderAndProviderUid(
         provider,
@@ -210,7 +227,9 @@ export class AuthService {
       ? await this.usersService.findByEmail(socialEmail)
       : null;
 
-    if (!user) {
+    if (user) {
+      user = await this.prepareLinkByEmail(user);
+    } else {
       user = await this.usersService.create({
         email: socialEmail ?? null,
         firstName: socialData.firstName ?? null,
@@ -349,22 +368,22 @@ export class AuthService {
       });
     }
 
-    user.status = {
-      id: StatusEnum.active,
-    };
-    user.emailVerified = true;
-
-    await this.usersService.update(user.id, user);
+    await this.usersService.update(user.id, {
+      status: { id: StatusEnum.active },
+      emailVerified: true,
+    });
   }
 
   async confirmNewEmail(hash: string): Promise<void> {
     let userId: User['id'];
     let newEmail: User['email'];
+    let currentEmail: User['email'] | undefined;
 
     try {
       const jwtData = await this.jwtService.verifyAsync<{
         confirmEmailUserId: User['id'];
         newEmail: User['email'];
+        currentEmail?: User['email'];
       }>(hash, {
         secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
           infer: true,
@@ -373,6 +392,14 @@ export class AuthService {
 
       userId = jwtData.confirmEmailUserId;
       newEmail = jwtData.newEmail;
+      // Absent — not null — on sign-up confirmation tokens, which share this
+      // secret and would otherwise verify here.
+      currentEmail = Object.prototype.hasOwnProperty.call(
+        jwtData,
+        'currentEmail',
+      )
+        ? jwtData.currentEmail
+        : undefined;
     } catch {
       throw new UnprocessableEntityException({
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -391,12 +418,27 @@ export class AuthService {
       });
     }
 
-    user.email = newEmail;
-    user.status = {
-      id: StatusEnum.active,
-    };
+    // Valid only while the account still has the email it had when the link
+    // was issued. Confirming this link, or any later one, changes that — so an
+    // old link cannot move the account back to an address that may be a typo
+    // or an abandoned inbox, where "forgot password" would take it over.
+    if (
+      !newEmail ||
+      currentEmail === undefined ||
+      (user.email ?? null) !== currentEmail
+    ) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          hash: `invalidHash`,
+        },
+      });
+    }
 
-    await this.usersService.update(user.id, user);
+    await this.usersService.update(user.id, {
+      email: newEmail,
+      status: { id: StatusEnum.active },
+    });
   }
 
   async forgotPassword(email: string): Promise<void> {
@@ -420,6 +462,7 @@ export class AuthService {
     const hash = await this.jwtService.signAsync(
       {
         forgotUserId: user.id,
+        pwd: this.passwordFingerprint(user.password),
       },
       {
         secret: this.configService.getOrThrow('auth.forgotSecret', {
@@ -440,10 +483,12 @@ export class AuthService {
 
   async resetPassword(hash: string, password: string): Promise<void> {
     let userId: User['id'];
+    let issuedForPassword: string | undefined;
 
     try {
       const jwtData = await this.jwtService.verifyAsync<{
         forgotUserId: User['id'];
+        pwd?: string;
       }>(hash, {
         secret: this.configService.getOrThrow('auth.forgotSecret', {
           infer: true,
@@ -451,6 +496,7 @@ export class AuthService {
       });
 
       userId = jwtData.forgotUserId;
+      issuedForPassword = jwtData.pwd;
     } catch {
       throw new UnprocessableEntityException({
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -471,13 +517,29 @@ export class AuthService {
       });
     }
 
-    user.password = password;
+    // The link is bound to the password the account had when it was issued.
+    // Once that changes — through this link or any other way — it stops
+    // working, instead of staying replayable until it expires.
+    if (
+      !issuedForPassword ||
+      !this.fingerprintsMatch(
+        issuedForPassword,
+        this.passwordFingerprint(user.password),
+      )
+    ) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          hash: `invalidHash`,
+        },
+      });
+    }
 
     await this.sessionService.deleteByUserId({
       userId: user.id,
     });
 
-    await this.usersService.update(user.id, user);
+    await this.usersService.update(user.id, { password });
   }
 
   async me(userJwtPayload: JwtPayloadType): Promise<NullableType<User>> {
@@ -554,6 +616,8 @@ export class AuthService {
         {
           confirmEmailUserId: currentUser.id,
           newEmail: userDto.email,
+          // Binds the link to the address it moves away from; see confirmNewEmail.
+          currentEmail: currentUser.email ?? null,
         },
         {
           secret: this.configService.getOrThrow('auth.confirmEmailSecret', {
@@ -595,6 +659,16 @@ export class AuthService {
     );
 
     if (!session) {
+      // The session exists but this hash is no longer its current one: the
+      // refresh token was already rotated, so two parties hold a copy. There is
+      // no telling which is the thief, so the session ends for both — the real
+      // user signs in again and the copy becomes worthless.
+      const replayed = await this.sessionService.findById(data.sessionId);
+
+      if (replayed) {
+        await this.sessionService.deleteById(replayed.id);
+      }
+
       throw new UnauthorizedException();
     }
 
@@ -762,6 +836,91 @@ export class AuthService {
     });
 
     return this.getProfile(userId);
+  }
+
+  /**
+   * Runs before a social identity is attached to an account found by email,
+   * and returns the account as it stands afterwards.
+   *
+   * Both rules exist because matching on email hands the account to whoever
+   * the provider says owns that address:
+   *
+   * - **Accounts holding any admin-panel permission are never auto-linked.**
+   *   A look-alike or compromised social account would otherwise become an
+   *   admin session. Staff link a provider from their profile instead, after
+   *   signing in with their password.
+   * - **An unverified account loses its password and sessions.** Login does
+   *   not require verification, so someone can register another person's
+   *   address, set a password and keep using the account. Once the real owner
+   *   arrives through a provider that vouches for the address, the squatter's
+   *   way in has to go.
+   */
+  private async prepareLinkByEmail(user: User): Promise<User> {
+    if (await this.holdsAnyPermission(user.id)) {
+      throw new ConflictException({
+        status: HttpStatus.CONFLICT,
+        error: 'social_link_requires_password',
+      });
+    }
+
+    if (user.emailVerified) {
+      return user;
+    }
+
+    await this.usersService.clearPassword(user.id);
+    await this.sessionService.deleteByUserId({ userId: user.id });
+    await this.usersService.update(user.id, {
+      emailVerified: true,
+      status: { id: StatusEnum.active },
+    });
+
+    return {
+      ...user,
+      password: null,
+      emailVerified: true,
+      status: { id: StatusEnum.active },
+    };
+  }
+
+  /** Whether any of the user's roles grants at least one permission. */
+  private async holdsAnyPermission(userId: User['id']): Promise<boolean> {
+    const userRoles = await this.userRolesService.findByUserId(userId);
+
+    for (const userRole of userRoles) {
+      const granted = await this.rolePermissionsService.findByRoleId(
+        userRole.role.id,
+      );
+
+      if (granted.length > 0) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * A keyed digest of the stored password hash, carried inside reset links.
+   *
+   * Keyed with the reset-link secret rather than a plain SHA so the token —
+   * which is only base64, readable by anyone holding the link — reveals
+   * nothing that helps an offline attack on the stored hash.
+   */
+  private passwordFingerprint(password: User['password'] | undefined): string {
+    return crypto
+      .createHmac(
+        'sha256',
+        this.configService.getOrThrow('auth.forgotSecret', { infer: true }),
+      )
+      .update(password ?? '')
+      .digest('base64url');
+  }
+
+  private fingerprintsMatch(a: string, b: string): boolean {
+    const left = Buffer.from(a);
+    const right = Buffer.from(b);
+
+    return left.length === right.length && crypto.timingSafeEqual(left, right);
   }
 
   private async getTokensData(data: {

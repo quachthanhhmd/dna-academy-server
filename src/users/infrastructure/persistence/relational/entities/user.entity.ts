@@ -84,8 +84,8 @@ export class UserEntity extends EntityRelationalHelper {
   @Column({ name: 'email', type: String, unique: true, nullable: true })
   email: string | null;
 
-  @Column({ name: 'password', nullable: true })
-  password?: string;
+  @Column({ name: 'password', type: String, nullable: true })
+  password?: string | null;
 
   @Column({ name: 'provider', default: AuthProvidersEnum.email })
   provider: string;

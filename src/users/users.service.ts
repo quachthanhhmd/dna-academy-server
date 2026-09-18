@@ -315,6 +315,18 @@ export class UsersService {
     });
   }
 
+  /**
+   * Removes the stored password, leaving the account to sign in some other way
+   * (a linked social identity, or "forgot password").
+   *
+   * Deliberately not `update({ password: null })`: `update` takes HTTP bodies,
+   * where a JSON null passes `@IsOptional()` and would skip the old-password
+   * check entirely.
+   */
+  async clearPassword(id: User['id']): Promise<void> {
+    await this.usersRepository.update(id, { password: null });
+  }
+
   async remove(id: User['id']): Promise<void> {
     await this.usersRepository.remove(id);
   }

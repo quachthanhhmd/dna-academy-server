@@ -64,7 +64,7 @@ export class User {
   email: string | null;
 
   @Exclude({ toPlainOnly: true })
-  password?: string;
+  password?: string | null;
 
   @ApiProperty({
     type: String,

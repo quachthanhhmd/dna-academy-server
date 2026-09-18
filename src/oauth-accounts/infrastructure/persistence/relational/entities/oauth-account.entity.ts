@@ -3,6 +3,7 @@ import { UserEntity } from '../../../../../users/infrastructure/persistence/rela
 import {
   CreateDateColumn,
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   ManyToOne,
@@ -11,6 +12,12 @@ import {
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
+// One account per provider identity. Social login resolves (provider, uid) to
+// a user, so a second row for the same identity would make that answer depend
+// on row order.
+@Index('UX_oauth_account_identity', ['provider', 'providerUid'], {
+  unique: true,
+})
 @Entity({
   name: 'oauth_account',
 })
