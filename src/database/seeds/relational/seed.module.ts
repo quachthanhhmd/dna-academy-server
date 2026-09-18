@@ -12,7 +12,7 @@ import { PermissionSeedModule } from './permission/permission-seed.module';
 import { RolePermissionSeedModule } from './role-permission/role-permission-seed.module';
 import { MasterDataGroupSeedModule } from './master-data-group/master-data-group-seed.module';
 import { MasterDataCodeSeedModule } from './master-data-code/master-data-code-seed.module';
-import { SuperAdminSeedModule } from './super-admin/super-admin-seed.module';
+import { AdminBootstrapSeedModule } from './admin-bootstrap/admin-bootstrap-seed.module';
 import { InstructorSeedModule } from './instructor/instructor-seed.module';
 import databaseConfig from '../../config/database.config';
 import appConfig from '../../../config/app.config';
@@ -28,7 +28,7 @@ import { envFilePaths } from '../../../config/env-files';
     RolePermissionSeedModule,
     MasterDataGroupSeedModule,
     MasterDataCodeSeedModule,
-    SuperAdminSeedModule,
+    AdminBootstrapSeedModule,
     InstructorSeedModule,
     ConfigModule.forRoot({
       isGlobal: true,

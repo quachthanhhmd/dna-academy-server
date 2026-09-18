@@ -1,3 +1,4 @@
+import { AuthProvidersEnum } from '../auth/auth-providers.enum';
 import {
   Body,
   Controller,
@@ -42,6 +43,9 @@ export class AuthFacebookController {
     const socialData =
       await this.authFacebookService.getProfileByToken(loginDto);
 
-    return this.authService.validateFacebookLogin(socialData);
+    return this.authService.validateSocialLogin(
+      AuthProvidersEnum.facebook,
+      socialData,
+    );
   }
 }

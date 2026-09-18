@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
 
-import { FindOptionsWhere, Repository, In } from 'typeorm';
+import { FindOptionsWhere, Repository, In, Raw } from 'typeorm';
 import { UserEntity } from '../entities/user.entity';
 import { NullableType } from '../../../../../utils/types/nullable.type';
 import { FilterUserDto, SortUserDto } from '../../../../dto/query-user.dto';
@@ -36,10 +36,13 @@ export class UsersRelationalRepository implements UserRepository {
     paginationOptions: IPaginationOptions;
   }): Promise<User[]> {
     const where: FindOptionsWhere<UserEntity> = {};
+    // Roles live in user_role (permission model D2), not the legacy column.
     if (filterOptions?.roles?.length) {
-      where.role = filterOptions.roles.map((role) => ({
-        id: Number(role.id),
-      }));
+      where.id = Raw(
+        (alias) =>
+          `${alias} IN (SELECT ur."user_id" FROM "user_role" ur WHERE ur."role_id" IN (:...roleIds))`,
+        { roleIds: filterOptions.roles.map((role) => Number(role.id)) },
+      );
     }
 
     const entities = await this.usersRepository.find({
@@ -79,22 +82,6 @@ export class UsersRelationalRepository implements UserRepository {
 
     const entity = await this.usersRepository.findOne({
       where: { email },
-    });
-
-    return entity ? UserMapper.toDomain(entity) : null;
-  }
-
-  async findBySocialIdAndProvider({
-    socialId,
-    provider,
-  }: {
-    socialId: User['socialId'];
-    provider: User['provider'];
-  }): Promise<NullableType<User>> {
-    if (!socialId || !provider) return null;
-
-    const entity = await this.usersRepository.findOne({
-      where: { socialId, provider },
     });
 
     return entity ? UserMapper.toDomain(entity) : null;

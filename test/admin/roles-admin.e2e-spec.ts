@@ -2,12 +2,12 @@ import { describe, expect, it, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
 import {
+  ADMIN_ROLE_ID,
+  USER_ROLE_ID,
   loginSeededSuperAdmin,
   makeSuperAdmin,
-  setUserRoles,
+  setUserRole,
 } from '../utils/admin';
-
-const SUPER_ADMIN_ROLE_ID = 3;
 
 describe('Admin / Roles', () => {
   const app = APP_URL;
@@ -71,11 +71,9 @@ describe('Admin / Roles', () => {
         .auth(superAdminToken, { type: 'bearer' })
         .expect(200)
         .expect(({ body }) => {
-          const superAdminRow = body.find(
-            (role) => role.id === SUPER_ADMIN_ROLE_ID,
-          );
-          expect(superAdminRow).toBeDefined();
-          expect(superAdminRow.assignedUsersCount).toBeGreaterThanOrEqual(1);
+          const adminRow = body.find((role) => role.id === ADMIN_ROLE_ID);
+          expect(adminRow).toBeDefined();
+          expect(adminRow.assignedUsersCount).toBeGreaterThanOrEqual(1);
         });
     });
 
@@ -166,7 +164,7 @@ describe('Admin / Roles', () => {
       const member = await registerAndLogin(
         `roles-admin.member.${runId}@example.com`,
       );
-      await setUserRoles(app, superAdminToken, member.userId, [roleId]);
+      await setUserRole(app, superAdminToken, member.userId, roleId);
 
       await request(app)
         .delete(`/api/v1/admin/roles/${roleId}`)
@@ -176,9 +174,9 @@ describe('Admin / Roles', () => {
           expect(body.code).toBe('ROLE_HAS_USERS');
         });
 
-      // Clear the assignment so the next test can delete the role. PUT
-      // replaces the whole set, so an empty array is the removal.
-      await setUserRoles(app, superAdminToken, member.userId, []);
+      // Move the member off the role so the next test can delete it. Every
+      // user holds exactly one role, so "no role" is not an option.
+      await setUserRole(app, superAdminToken, member.userId, USER_ROLE_ID);
     });
 
     it('should delete a role with no assigned users: DELETE /admin/roles/:id', async () => {

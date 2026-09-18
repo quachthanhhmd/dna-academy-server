@@ -9,9 +9,11 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
+@Unique('UQ_role_permission', ['role', 'permission'])
 @Entity({
   name: 'role_permission',
 })

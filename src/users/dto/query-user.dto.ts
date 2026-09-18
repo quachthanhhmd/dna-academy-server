@@ -1,12 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
 import { Transform, Type, plainToInstance } from 'class-transformer';
-import { User } from '../domain/user';
 import { RoleDto } from '../../roles/dto/role.dto';
 
 export class FilterUserDto {
@@ -17,14 +17,30 @@ export class FilterUserDto {
   roles?: RoleDto[] | null;
 }
 
+/**
+ * Columns a list may be ordered by. The key becomes a column name, so it is
+ * whitelisted: ordering by `password` would leak an ordering of hashes.
+ */
+export const USER_SORT_FIELDS = [
+  'id',
+  'email',
+  'firstName',
+  'lastName',
+  'fullName',
+  'createdAt',
+  'updatedAt',
+] as const;
+
 export class SortUserDto {
-  @ApiProperty()
+  @ApiProperty({ enum: USER_SORT_FIELDS })
   @Type(() => String)
   @IsString()
-  orderBy: keyof User;
+  @IsIn(USER_SORT_FIELDS)
+  orderBy: (typeof USER_SORT_FIELDS)[number];
 
-  @ApiProperty()
+  @ApiProperty({ enum: ['ASC', 'DESC', 'asc', 'desc'] })
   @IsString()
+  @IsIn(['ASC', 'DESC', 'asc', 'desc'])
   order: string;
 }
 

@@ -1,3 +1,4 @@
+import { AuthProvidersEnum } from '../auth/auth-providers.enum';
 import {
   Body,
   Controller,
@@ -34,6 +35,9 @@ export class AuthGoogleController {
   async login(@Body() loginDto: AuthGoogleLoginDto): Promise<LoginResponseDto> {
     const socialData = await this.authGoogleService.getProfileByToken(loginDto);
 
-    return this.authService.validateSocialLogin('google', socialData);
+    return this.authService.validateSocialLogin(
+      AuthProvidersEnum.google,
+      socialData,
+    );
   }
 }

@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { omitUndefined } from '../../../../../utils/omit-undefined';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { EntityManager, Repository, In } from 'typeorm';
 import { UserRoleEntity } from '../entities/user-role.entity';
 import { NullableType } from '../../../../../utils/types/nullable.type';
 import { UserRole } from '../../../../domain/user-role';
@@ -15,14 +14,6 @@ export class UserRoleRelationalRepository implements UserRoleRepository {
     @InjectRepository(UserRoleEntity)
     private readonly userRoleRepository: Repository<UserRoleEntity>,
   ) {}
-
-  async create(data: UserRole): Promise<UserRole> {
-    const persistenceModel = UserRoleMapper.toPersistence(data);
-    const newEntity = await this.userRoleRepository.save(
-      this.userRoleRepository.create(persistenceModel),
-    );
-    return UserRoleMapper.toDomain(newEntity);
-  }
 
   async findAllWithPagination({
     paginationOptions,
@@ -67,35 +58,37 @@ export class UserRoleRelationalRepository implements UserRoleRepository {
     });
   }
 
-  async removeByUserId(userId: UserRole['user']['id']): Promise<void> {
-    await this.userRoleRepository.delete({ user: { id: userId } });
-  }
+  async setRole(
+    userId: UserRole['user']['id'],
+    roleId: UserRole['role']['id'],
+    assignedById: UserRole['user']['id'] | null,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const write = async (em: EntityManager) => {
+      // An upsert on UX_user_role_user, not delete-then-insert: two
+      // concurrent changes for one user then serialise on the row instead of
+      // racing to insert a second one.
+      await em.query(
+        `INSERT INTO "user_role" ("user_id", "role_id", "assigned_by_id", "assigned_at")
+         VALUES ($1, $2, $3, now())
+         ON CONFLICT ("user_id") DO UPDATE
+            SET "role_id" = EXCLUDED."role_id",
+                "assigned_by_id" = EXCLUDED."assigned_by_id",
+                "assigned_at" = EXCLUDED."assigned_at",
+                "updated_at" = now()`,
+        [userId, roleId, assignedById],
+      );
+      await em.query(`UPDATE "user" SET "role_id" = $2 WHERE "id" = $1`, [
+        userId,
+        roleId,
+      ]);
+    };
 
-  async update(
-    id: UserRole['id'],
-    payload: Partial<UserRole>,
-  ): Promise<UserRole> {
-    const entity = await this.userRoleRepository.findOne({
-      where: { id },
-    });
-
-    if (!entity) {
-      throw new Error('Record not found');
+    if (manager) {
+      await write(manager);
+      return;
     }
 
-    const updatedEntity = await this.userRoleRepository.save(
-      this.userRoleRepository.create(
-        UserRoleMapper.toPersistence({
-          ...UserRoleMapper.toDomain(entity),
-          ...omitUndefined(payload),
-        }),
-      ),
-    );
-
-    return UserRoleMapper.toDomain(updatedEntity);
-  }
-
-  async remove(id: UserRole['id']): Promise<void> {
-    await this.userRoleRepository.delete(id);
+    await this.userRoleRepository.manager.transaction(write);
   }
 }

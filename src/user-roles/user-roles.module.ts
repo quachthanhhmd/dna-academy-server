@@ -1,5 +1,4 @@
 import { RolesModule } from '../roles/roles.module';
-import { UsersModule } from '../users/users.module';
 import {
   // do not remove this comment
   Module,
@@ -10,8 +9,6 @@ import { RelationalUserRolePersistenceModule } from './infrastructure/persistenc
 @Module({
   imports: [
     RolesModule,
-
-    UsersModule,
 
     // do not remove this comment
     RelationalUserRolePersistenceModule,

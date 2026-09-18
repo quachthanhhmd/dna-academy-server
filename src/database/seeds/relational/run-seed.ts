@@ -8,7 +8,7 @@ import { PermissionSeedService } from './permission/permission-seed.service';
 import { RolePermissionSeedService } from './role-permission/role-permission-seed.service';
 import { MasterDataGroupSeedService } from './master-data-group/master-data-group-seed.service';
 import { MasterDataCodeSeedService } from './master-data-code/master-data-code-seed.service';
-import { SuperAdminSeedService } from './super-admin/super-admin-seed.service';
+import { AdminBootstrapSeedService } from './admin-bootstrap/admin-bootstrap-seed.service';
 import { InstructorSeedService } from './instructor/instructor-seed.service';
 
 const runSeed = async () => {
@@ -24,7 +24,7 @@ const runSeed = async () => {
   await app.get(MasterDataGroupSeedService).run();
   await app.get(MasterDataCodeSeedService).run();
   await app.get(InstructorSeedService).run();
-  await app.get(SuperAdminSeedService).run();
+  await app.get(AdminBootstrapSeedService).run();
 
   await app.close();
 };

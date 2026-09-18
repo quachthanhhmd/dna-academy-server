@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { UsersModule } from './users/users.module';
+import { UsersAdminModule } from './users-admin/users-admin.module';
 import { FilesModule } from './files/files.module';
 import { AuthModule } from './auth/auth.module';
 import databaseConfig from './database/config/database.config';
@@ -233,6 +234,7 @@ import { UserLocaleInterceptor } from './utils/i18n/user-locale.interceptor';
       inject: [ConfigService],
     }),
     UsersModule,
+    UsersAdminModule,
     FilesModule,
     AuthModule,
     AuthFacebookModule,
