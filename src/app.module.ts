@@ -10,13 +10,11 @@ import mailConfig from './mail/config/mail.config';
 import fileConfig from './files/config/file.config';
 import facebookConfig from './auth-facebook/config/facebook.config';
 import googleConfig from './auth-google/config/google.config';
-import appleConfig from './auth-apple/config/apple.config';
 import learningConfig from './learning/config/learning.config';
 import certificateConfig from './certificates/config/certificate.config';
 import path from 'path';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthAppleModule } from './auth-apple/auth-apple.module';
 import { AuthFacebookModule } from './auth-facebook/auth-facebook.module';
 import { AuthGoogleModule } from './auth-google/auth-google.module';
 import { HeaderResolver, I18nModule } from 'nestjs-i18n';
@@ -203,7 +201,6 @@ import { UserLocaleInterceptor } from './utils/i18n/user-locale.interceptor';
         fileConfig,
         facebookConfig,
         googleConfig,
-        appleConfig,
         learningConfig,
         certificateConfig,
       ],
@@ -238,7 +235,6 @@ import { UserLocaleInterceptor } from './utils/i18n/user-locale.interceptor';
     AuthModule,
     AuthFacebookModule,
     AuthGoogleModule,
-    AuthAppleModule,
     SessionModule,
     MailModule,
     MailerModule,

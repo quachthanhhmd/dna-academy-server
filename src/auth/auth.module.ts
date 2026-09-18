@@ -14,6 +14,8 @@ import { StudentProfilesModule } from '../student-profiles/student-profiles.modu
 import { StudentCareerInterestsModule } from '../student-career-interests/student-career-interests.module';
 import { MasterDataCodesModule } from '../master-data-codes/master-data-codes.module';
 import { OnboardingGuard } from './guards/onboarding.guard';
+import { UserRolesModule } from '../user-roles/user-roles.module';
+import { RolePermissionsModule } from '../role-permissions/role-permissions.module';
 
 @Module({
   imports: [
@@ -26,6 +28,10 @@ import { OnboardingGuard } from './guards/onboarding.guard';
     StudentProfilesModule,
     StudentCareerInterestsModule,
     MasterDataCodesModule,
+    // Social login checks whether an account holds admin-panel permissions
+    // before linking it by email.
+    UserRolesModule,
+    RolePermissionsModule,
   ],
   controllers: [AuthController],
   providers: [

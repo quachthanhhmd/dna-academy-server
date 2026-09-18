@@ -43,7 +43,10 @@ export class AuthGoogleService {
 
     return {
       id: data.sub,
-      email: data.email,
+      // Social login matches existing accounts on this address, and Google
+      // signs tokens for addresses it has not verified. Anything short of an
+      // explicit `email_verified: true` is treated as no email at all.
+      email: data.email_verified === true ? data.email : undefined,
       firstName: data.given_name,
       lastName: data.family_name,
     };
