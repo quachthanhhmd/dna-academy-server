@@ -27,6 +27,8 @@ import {
 import { OnboardingGuard } from '../auth/guards/onboarding.guard';
 import { PermissionGuard } from '../authorization/permission.guard';
 import { RequirePermission } from '../authorization/require-permission.decorator';
+import { CourseAccessGuard } from '../course-access/course-access.guard';
+import { CourseAccess } from '../course-access/course-access.decorator';
 import { ReflectionService } from './services/reflection.service';
 import { CompletionService } from './services/completion.service';
 import { CareerReflectionService } from './services/career-reflection.service';
@@ -157,8 +159,9 @@ export class LearningCompletionController {
       'the enrollment as it stands now. The certificate number never changes.',
   })
   @ApiBearerAuth()
-  @UseGuards(AuthGuard('jwt'), PermissionGuard)
+  @UseGuards(AuthGuard('jwt'), PermissionGuard, CourseAccessGuard)
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { enrollment: 'id' } })
   @Post('enrollments/:id/certificate/regenerate')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: CertificateResponseDto })

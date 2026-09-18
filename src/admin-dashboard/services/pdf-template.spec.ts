@@ -13,6 +13,7 @@ const meta: DashboardMeta = {
   groupId: null,
   timezone: 'Asia/Ho_Chi_Minh',
   generatedAt: '2026-03-09T09:00:00+07:00',
+  scope: 'all',
 };
 
 const kpi = (value: number | null) => ({

@@ -28,6 +28,19 @@ export class InstructorListItemDto extends InstructorRefDto {
 
   @ApiProperty({ type: Number, nullable: true })
   avgRating: number | null;
+
+  @ApiProperty({
+    type: Boolean,
+    description: 'The profile is linked to a login account.',
+  })
+  hasAccount: boolean;
+
+  @ApiProperty({
+    type: Boolean,
+    description:
+      'The linked account has a password. Drives "Resend invite" (§1.7).',
+  })
+  accountActivated: boolean;
 }
 
 export class InstructorDetailDto extends InstructorListItemDto {
@@ -77,4 +90,14 @@ export class InstructorCourseDto {
 
   @ApiProperty({ type: Number })
   totalEnrollments: number;
+}
+
+export class InstructorCreatedDto extends InstructorDetailDto {
+  @ApiProperty({
+    type: Boolean,
+    description:
+      'The invite email went out. false with hasAccount true means it failed ' +
+      'or was not requested; resend it (§1.7).',
+  })
+  inviteSent: boolean;
 }

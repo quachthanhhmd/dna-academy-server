@@ -46,6 +46,8 @@ export class CourseRelationalRepository implements CourseRepository {
       levelId?: string;
       categoryId?: string;
       instructorId?: string;
+      /** Permission model §1.8 — only these courses; empty means none. */
+      courseIds?: string[];
     } | null;
     paginationOptions: IPaginationOptions;
   }): Promise<Course[]> {
@@ -65,6 +67,14 @@ export class CourseRelationalRepository implements CourseRepository {
     if (filterOptions?.categoryId) {
       query.andWhere('category.id = :categoryId', {
         categoryId: filterOptions.categoryId,
+      });
+    }
+    if (filterOptions?.courseIds) {
+      if (filterOptions.courseIds.length === 0) {
+        return [];
+      }
+      query.andWhere('course.id IN (:...courseIds)', {
+        courseIds: filterOptions.courseIds,
       });
     }
     // Since Epic 5 the instructor lives in the course_instructor join table,

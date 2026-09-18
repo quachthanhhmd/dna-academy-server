@@ -1,3 +1,4 @@
+import { CourseAccessModule } from '../course-access/course-access.module';
 import { CoursesModule } from '../courses/courses.module';
 import {
   // do not remove this comment
@@ -13,6 +14,7 @@ import { RelationalCareerReflectionQuestionPersistenceModule } from './infrastru
     // PermissionGuard is applied via @UseGuards on this module's controller,
     // so Nest builds it here and needs its own dependencies in scope.
     AuthorizationModule,
+    CourseAccessModule,
     CoursesModule,
 
     // do not remove this comment

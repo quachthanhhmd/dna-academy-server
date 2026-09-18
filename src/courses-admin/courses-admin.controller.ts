@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -41,10 +42,16 @@ import {
   InfinityPaginationResponseDto,
 } from '../utils/dto/infinity-pagination-response.dto';
 import { infinityPagination } from '../utils/infinity-pagination';
+import { CourseAccessGuard } from '../course-access/course-access.guard';
+import { CourseAccess } from '../course-access/course-access.decorator';
+import {
+  CourseAccessService,
+  CourseRole,
+} from '../course-access/course-access.service';
 
 @ApiTags('Admin / Courses')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@UseGuards(AuthGuard('jwt'), PermissionGuard, CourseAccessGuard)
 @Controller({
   path: 'admin/courses',
   version: '1',
@@ -56,6 +63,7 @@ export class CoursesAdminController {
     private readonly courseListsAdminService: CourseListsAdminService,
     private readonly courseGroupsAdminService: CourseGroupsAdminService,
     private readonly coursePublishAdminService: CoursePublishAdminService,
+    private readonly courseAccessService: CourseAccessService,
   ) {}
 
   @ApiOperation({
@@ -85,15 +93,35 @@ export class CoursesAdminController {
   @ApiOkResponse({ type: InfinityPaginationResponse(Course) })
   async findAll(
     @Query() query: FindAllCoursesAdminDto,
-  ): Promise<InfinityPaginationResponseDto<Course>> {
+    @Request() request,
+  ): Promise<
+    InfinityPaginationResponseDto<
+      Course & { myRole: CourseRole; canEdit: boolean }
+    >
+  > {
     const page = query?.page ?? 1;
     let limit = query?.limit ?? 10;
     if (limit > 50) {
       limit = 50;
     }
 
+    // §1.8 — without courses:edit_any, only the courses the caller teaches.
+    const scope = await this.courseAccessService.scopeOf(request.user.id);
+    const courses = await this.coursesAdminService.findAllWithFilters(
+      query,
+      scope.all ? undefined : scope.courseIds,
+    );
+    const primary = scope.all ? null : new Set(scope.primaryCourseIds);
+
     return infinityPagination(
-      await this.coursesAdminService.findAllWithFilters(query),
+      courses.map((course) => {
+        const myRole: CourseRole = primary
+          ? primary.has(course.id)
+            ? 'primary'
+            : 'co_instructor'
+          : 'admin';
+        return { ...course, myRole, canEdit: myRole !== 'co_instructor' };
+      }),
       { page, limit },
     );
   }
@@ -102,15 +130,24 @@ export class CoursesAdminController {
     summary: 'Get full course detail, including nested sections/lectures',
   })
   @RequirePermission('courses', 'view')
+  @CourseAccess({ mode: 'view', from: { course: 'id' } })
   @Get(':id')
   @ApiParam({ name: 'id', type: String })
-  @ApiNotFoundResponse()
-  findOne(@Param('id') id: string) {
-    return this.courseDetailService.findDetail(id);
+  @ApiNotFoundResponse({
+    description: 'Also for a course the caller does not teach.',
+  })
+  async findOne(@Param('id') id: string, @Request() request) {
+    const [detail, access] = await Promise.all([
+      this.courseDetailService.findDetail(id),
+      this.courseAccessService.assertCanView(request.user.id, id),
+    ]);
+
+    return { ...detail, ...access };
   }
 
   @ApiOperation({ summary: 'Update course fields' })
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { course: 'id' } })
   @Patch(':id')
   @ApiParam({ name: 'id', type: String })
   @ApiOkResponse({ type: Course })
@@ -119,15 +156,30 @@ export class CoursesAdminController {
     description:
       'Duplicate courseId, invalid levelId/categoryId/instructorId, or introVideoUrl is not a valid YouTube video',
   })
-  update(
+  async update(
     @Param('id') id: string,
     @Body() dto: UpdateCourseAdminDto,
+    @Request() request,
   ): Promise<Course | null> {
+    // Who teaches a course is an admin decision: a primary instructor could
+    // otherwise hand the course to someone else, or add co-instructors.
+    if (
+      (dto.primaryInstructorId !== undefined ||
+        dto.coInstructorIds !== undefined) &&
+      !(await this.courseAccessService.canEditAny(request.user.id))
+    ) {
+      throw new ForbiddenException({
+        status: HttpStatus.FORBIDDEN,
+        code: 'INSTRUCTOR_ASSIGNMENT_REQUIRES_ADMIN',
+      });
+    }
+
     return this.coursesAdminService.update(id, dto);
   }
 
   @ApiOperation({ summary: 'Replace all learning outcomes for the course' })
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { course: 'id' } })
   @Put(':id/outcomes')
   @ApiParam({ name: 'id', type: String })
   @ApiNotFoundResponse()
@@ -137,6 +189,7 @@ export class CoursesAdminController {
 
   @ApiOperation({ summary: 'Replace all requirements for the course' })
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { course: 'id' } })
   @Put(':id/requirements')
   @ApiParam({ name: 'id', type: String })
   @ApiNotFoundResponse()
@@ -149,6 +202,7 @@ export class CoursesAdminController {
 
   @ApiOperation({ summary: 'Replace all target learners for the course' })
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { course: 'id' } })
   @Put(':id/target-learners')
   @ApiParam({ name: 'id', type: String })
   @ApiNotFoundResponse()
@@ -165,6 +219,8 @@ export class CoursesAdminController {
       'Each id must be an active master_data_code under the course_group group.',
   })
   @RequirePermission('courses', 'edit')
+  // Catalogue placement ("featured", "popular") is curated by admins.
+  @CourseAccess({ mode: 'edit_any' })
   @Put(':id/groups')
   @ApiParam({ name: 'id', type: String })
   @ApiNotFoundResponse()

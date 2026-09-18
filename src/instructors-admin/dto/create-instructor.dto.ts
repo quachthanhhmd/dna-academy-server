@@ -1,3 +1,4 @@
+import { lowerCaseTransformer } from '../../utils/transformers/lower-case.transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
@@ -106,4 +107,30 @@ export class CreateInstructorDto {
   @IsOptional()
   @IsInt()
   userId?: number | null;
+
+  @ApiPropertyOptional({
+    type: Boolean,
+    description:
+      'Permission model §1.7 — also create a login account (role Instructor, ' +
+      'no password) and invite it. Needs instructors:create_account.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  createAccount?: boolean;
+
+  @ApiPropertyOptional({
+    example: 'a.nguyen@dna.vn',
+    description:
+      'The login email of the new account. Required with createAccount. Not ' +
+      'emailPublic, which stays the public contact address.',
+  })
+  @IsOptional()
+  @Transform(lowerCaseTransformer)
+  @IsEmail()
+  accountEmail?: string;
+
+  @ApiPropertyOptional({ type: Boolean, default: true })
+  @IsOptional()
+  @IsBoolean()
+  sendInvite?: boolean;
 }

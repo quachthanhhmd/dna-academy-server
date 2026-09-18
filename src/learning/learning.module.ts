@@ -1,3 +1,4 @@
+import { CourseAccessModule } from '../course-access/course-access.module';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
@@ -91,6 +92,8 @@ import { CertificatePdfService } from './services/certificate-pdf.service';
     // PermissionGuard on the admin certificate-regenerate route is built in
     // this injector, so its own dependencies must be visible here.
     AuthorizationModule,
+    // Admin learner-record routes check the caller teaches the course.
+    CourseAccessModule,
     // Brings FileUploaderService and the active driver's multer options
     // into scope for the quiz answer upload.
     FilesModule,

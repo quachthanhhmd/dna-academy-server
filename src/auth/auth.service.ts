@@ -40,6 +40,9 @@ import { ProfileResponseDto } from './dto/profile-response.dto';
 import { UserRolesService } from '../user-roles/user-roles.service';
 import { RolePermissionsService } from '../role-permissions/role-permissions.service';
 
+/** Permission model O1 — how long an instructor invite stays usable. */
+export const INVITE_EXPIRES_IN = '72h';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -513,7 +516,49 @@ export class AuthService {
       userId: user.id,
     });
 
-    await this.usersService.update(user.id, { password });
+    // §1.5 — the link was sent to the account's address, so following it
+    // proves the address. A deactivated account stays deactivated (D9).
+    await this.usersService.update(user.id, {
+      password,
+      emailVerified: true,
+      ...(user.status?.id?.toString() === StatusEnum.inactive.toString()
+        ? { status: { id: StatusEnum.active } }
+        : {}),
+    });
+  }
+
+  /**
+   * Permission model §2.9 — the invite for an account created without a
+   * password: a reset link bound to the account's current (empty) password,
+   * so it works once, living {@link INVITE_EXPIRES_IN} (O1).
+   */
+  async sendPasswordInvite(
+    user: Pick<User, 'id' | 'email' | 'password'>,
+  ): Promise<void> {
+    if (!user.email) {
+      return;
+    }
+
+    const hash = await this.jwtService.signAsync(
+      {
+        forgotUserId: user.id,
+        pwd: this.passwordFingerprint(user.password),
+      },
+      {
+        secret: this.configService.getOrThrow('auth.forgotSecret', {
+          infer: true,
+        }),
+        expiresIn: INVITE_EXPIRES_IN,
+      },
+    );
+
+    await this.mailService.instructorInvite({
+      to: user.email,
+      data: {
+        hash,
+        tokenExpires: Date.now() + ms(INVITE_EXPIRES_IN),
+      },
+    });
   }
 
   async me(userJwtPayload: JwtPayloadType): Promise<NullableType<User>> {

@@ -34,6 +34,7 @@ describe('AuthService', () => {
     userSignUp: jest.Mock<any>;
     forgotPassword: jest.Mock<any>;
     confirmNewEmail: jest.Mock<any>;
+    instructorInvite: jest.Mock<any>;
   };
   let configService: { getOrThrow: jest.Mock<any> };
   let oauthAccountsService: {
@@ -120,6 +121,9 @@ describe('AuthService', () => {
       userSignUp: (jest.fn() as jest.Mock<any>).mockResolvedValue(undefined),
       forgotPassword: jest.fn(),
       confirmNewEmail: jest.fn(),
+      instructorInvite: (jest.fn() as jest.Mock<any>).mockResolvedValue(
+        undefined,
+      ),
     };
 
     configService = {
@@ -426,6 +430,41 @@ describe('AuthService', () => {
       );
     });
 
+    // §1.5 — following a link sent to the address proves the address.
+    it('should mark the email verified and activate an unconfirmed account', async () => {
+      const hash = await issueResetHash();
+      usersService.findById.mockResolvedValue({
+        ...account,
+        emailVerified: false,
+        status: { id: StatusEnum.inactive },
+      });
+
+      await service.resetPassword(hash, 'new-secret');
+
+      expect(usersService.update).toHaveBeenCalledWith(account.id, {
+        password: 'new-secret',
+        emailVerified: true,
+        status: { id: StatusEnum.active },
+      });
+    });
+
+    // D9 — a password reset must not undo a deactivation.
+    it('should leave a deactivated account deactivated', async () => {
+      const hash = await issueResetHash();
+      usersService.findById.mockResolvedValue({
+        ...account,
+        status: { id: StatusEnum.deactivated },
+      });
+
+      await service.resetPassword(hash, 'new-secret');
+
+      const [, payload] = usersService.update.mock.calls[0] as [
+        number,
+        Record<string, unknown>,
+      ];
+      expect(payload.status).toBeUndefined();
+    });
+
     // A reset link sits in an inbox, browser history and possibly a proxy log.
     // Once the password has changed — through this link or any other way —
     // the link must stop working, not keep working until it expires.
@@ -535,6 +574,63 @@ describe('AuthService', () => {
       expect(usersService.update).not.toHaveBeenCalled();
     });
   });
+  // §1.7 / §2.9 — an instructor account starts with no password; the invite
+  // is a reset link with a longer life (O1: 72 hours).
+  describe('sendPasswordInvite', () => {
+    const invitee = {
+      ...baseUser,
+      id: 60,
+      email: 'teacher@example.com',
+      password: null,
+    };
+
+    beforeEach(() => {
+      service = makeService(new JwtService({}));
+    });
+
+    it('should mail a link to the account email', async () => {
+      await service.sendPasswordInvite(invitee);
+
+      const [call] = mailService.instructorInvite.mock.calls[0] as [
+        { to: string },
+      ];
+      expect(call.to).toBe('teacher@example.com');
+    });
+
+    it('should let the invitee set a password with it, once', async () => {
+      await service.sendPasswordInvite(invitee);
+      const hash = sentHash(mailService.instructorInvite);
+      usersService.findById.mockResolvedValue({ ...invitee });
+
+      await service.resetPassword(hash, 'chosen-secret');
+
+      expect(usersService.update).toHaveBeenCalledWith(
+        60,
+        expect.objectContaining({ password: 'chosen-secret' }),
+      );
+
+      usersService.findById.mockResolvedValue({
+        ...invitee,
+        password: '$2a$10$nowSetHash',
+      });
+      await expect(
+        service.resetPassword(hash, 'second-use'),
+      ).rejects.toMatchObject({
+        response: { errors: { hash: 'invalidHash' } },
+      });
+    });
+
+    it('should expire after 72 hours', async () => {
+      await service.sendPasswordInvite(invitee);
+      const hash = sentHash(mailService.instructorInvite);
+      const payload = JSON.parse(
+        Buffer.from(hash.split('.')[1], 'base64url').toString(),
+      );
+
+      expect(payload.exp - payload.iat).toBe(72 * 3600);
+    });
+  });
+
   describe('register', () => {
     beforeEach(() => {
       usersService.create.mockResolvedValue({ ...baseUser, id: 88 });

@@ -1,8 +1,11 @@
 import { UnprocessableEntityException } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
-import { RoleEnum } from '../../roles/roles.enum';
 import { DrilldownMetric } from '../dto/dashboard-query.dto';
-import { DashboardFilters, MetricsQueryService } from './metrics-query.service';
+import {
+  DashboardFilters,
+  MetricsQueryService,
+  isStudent,
+} from './metrics-query.service';
 
 export type StudentRow = {
   studentId: number;
@@ -57,7 +60,7 @@ export class StudentsService {
     } else if (metric === 'active') {
       // Same population as the Active Students card (D1/D8), so the drawer
       // lists exactly the people the card counted.
-      qb.andWhere('student.role_id = :role', { role: RoleEnum.user });
+      qb.andWhere(isStudent('student.id'));
       this.metrics.applyWindow(qb, filters.period, 'enrollment.lastAccessedAt');
     } else {
       qb.andWhere("enrollment.status <> 'cancelled'");

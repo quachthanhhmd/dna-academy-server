@@ -3,9 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from '../../users/infrastructure/persistence/relational/entities/user.entity';
 import { CourseRatingEntity } from '../../course-ratings/infrastructure/persistence/relational/entities/course-rating.entity';
-import { RoleEnum } from '../../roles/roles.enum';
 import { bucketKeys, previousPeriod, ResolvedPeriod } from '../period';
-import { DashboardFilters, MetricsQueryService } from './metrics-query.service';
+import {
+  DashboardFilters,
+  MetricsQueryService,
+  isStudent,
+} from './metrics-query.service';
 
 const { num, round } = MetricsQueryService;
 
@@ -154,12 +157,14 @@ export class KpisService {
     filters: DashboardFilters,
     prior: DashboardFilters,
   ): Promise<Kpi> {
-    const scoped = Boolean(filters.courseId || filters.groupId);
+    const scoped = Boolean(
+      filters.courseId || filters.groupId || filters.courseIds,
+    );
 
     const base = () => {
       const qb = this.users
         .createQueryBuilder('user')
-        .where('user.role_id = :role', { role: RoleEnum.user })
+        .where(isStudent('user.id'))
         .andWhere('user.deletedAt IS NULL');
 
       if (scoped) {
@@ -229,7 +234,7 @@ export class KpisService {
         .enrollmentQuery()
         .innerJoin('enrollment.student', 'student')
         .select('COUNT(DISTINCT enrollment.student_id)', 'v')
-        .where('student.role_id = :role', { role: RoleEnum.user });
+        .where(isStudent('student.id'));
 
       this.metrics.applyFilters(qb, filters, 'enrollment.course_id');
       this.metrics.applyWindow(qb, period, 'enrollment.lastAccessedAt');
@@ -248,7 +253,7 @@ export class KpisService {
         'bucket',
       )
       .addSelect('COUNT(DISTINCT enrollment.student_id)', 'value')
-      .where('student.role_id = :role', { role: RoleEnum.user })
+      .where(isStudent('student.id'))
       .groupBy('bucket');
 
     this.metrics.applyFilters(seriesQb, filters, 'enrollment.course_id');

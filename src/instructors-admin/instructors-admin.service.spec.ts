@@ -114,6 +114,8 @@ describe('InstructorsAdminService', () => {
       usersService as any,
       instructorStatsService as any,
       instructorProfilesService as any,
+      // Account creation is covered by test/admin/instructor-accounts.e2e-spec.ts.
+      {} as any,
     );
   });
 

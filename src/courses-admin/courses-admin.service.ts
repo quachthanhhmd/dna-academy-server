@@ -84,7 +84,7 @@ export class CoursesAdminService {
     return course;
   }
 
-  findAllWithFilters(query: FindAllCoursesAdminDto) {
+  findAllWithFilters(query: FindAllCoursesAdminDto, courseIds?: string[]) {
     const page = query?.page ?? 1;
     let limit = query?.limit ?? 10;
     if (limit > 50) {
@@ -97,6 +97,7 @@ export class CoursesAdminService {
         levelId: query?.levelId,
         categoryId: query?.categoryId,
         instructorId: query?.instructorId,
+        courseIds,
       },
       paginationOptions: { page, limit },
     });

@@ -10,7 +10,20 @@ export type DashboardFilters = {
   period: ResolvedPeriod;
   courseId?: string;
   groupId?: string;
+  /**
+   * Permission model §1.9 — the courses the caller may see. Absent means
+   * every course (`courses:edit_any`); empty means none at all, which yields
+   * the ordinary empty shape rather than platform totals.
+   */
+  courseIds?: string[];
 };
+
+/**
+ * D1 — a student is a user whose role is User. Read from `user_role`, not
+ * the legacy `user.role_id` (permission model §2.5).
+ */
+export const isStudent = (userIdColumn: string): string =>
+  `EXISTS (SELECT 1 FROM "user_role" "sr" WHERE "sr"."user_id" = ${userIdColumn} AND "sr"."role_id" = 2)`;
 
 /**
  * Epic 7 BE-1 — the shared SQL every dashboard endpoint composes from.
@@ -62,6 +75,16 @@ export class MetricsQueryService {
       qb.andWhere(`${courseIdColumn} = :courseId`, {
         courseId: filters.courseId,
       });
+    }
+
+    if (filters.courseIds) {
+      if (filters.courseIds.length === 0) {
+        qb.andWhere('1 = 0');
+      } else {
+        qb.andWhere(`${courseIdColumn} IN (:...scopeCourseIds)`, {
+          scopeCourseIds: filters.courseIds,
+        });
+      }
     }
 
     if (filters.groupId) {
