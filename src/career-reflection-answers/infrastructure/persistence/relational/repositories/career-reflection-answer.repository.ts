@@ -101,6 +101,55 @@ export class CareerReflectionAnswerRelationalRepository implements CareerReflect
     await this.careerReflectionAnswerRepository.delete(id);
   }
 
+  /**
+   * A real `INSERT … ON CONFLICT` against `UQ_cra_enrollment_question`.
+   *
+   * The previous write path read the existing answers and then chose between
+   * insert and update, with no constraint behind it — two submits arriving
+   * together could both see "no row" and both insert. The constraint makes a
+   * duplicate impossible and this statement makes the race harmless.
+   *
+   * `submitted_at` is set on insert only, so it keeps meaning "first
+   * submitted"; `updated_at` records the latest change. The dashboard windows
+   * responses on `submitted_at`, and an edit made a month later should not
+   * move a response into this month.
+   */
+  async upsertForEnrollment(
+    enrollmentId: string,
+    answers: {
+      questionId: string;
+      ratingAnswer: number | null;
+      textAnswer: string | null;
+    }[],
+  ): Promise<void> {
+    if (answers.length === 0) {
+      return;
+    }
+
+    await this.careerReflectionAnswerRepository.manager.transaction(
+      async (manager) => {
+        for (const answer of answers) {
+          await manager.query(
+            `INSERT INTO "career_reflection_answer"
+               ("enrollment_id", "question_id", "rating_answer", "text_answer",
+                "submitted_at")
+             VALUES ($1, $2, $3, $4, now())
+             ON CONFLICT ON CONSTRAINT "UQ_cra_enrollment_question"
+             DO UPDATE SET "rating_answer" = EXCLUDED."rating_answer",
+                           "text_answer"   = EXCLUDED."text_answer",
+                           "updated_at"    = now()`,
+            [
+              enrollmentId,
+              answer.questionId,
+              answer.ratingAnswer,
+              answer.textAnswer,
+            ],
+          );
+        }
+      },
+    );
+  }
+
   async removeByEnrollmentId(enrollmentId: string): Promise<void> {
     await this.careerReflectionAnswerRepository.delete({
       enrollment: { id: enrollmentId },

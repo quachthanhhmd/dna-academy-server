@@ -1,21 +1,72 @@
-import { describe, expect, it, beforeAll } from '@jest/globals';
+import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
+import { Client } from 'pg';
 import request from 'supertest';
-import { APP_URL } from '../utils/constants';
 import { loginSeededSuperAdmin } from '../utils/admin';
+import {
+  APP_URL,
+  DB_HOST,
+  DB_NAME,
+  DB_PASSWORD,
+  DB_PORT,
+  DB_USER,
+} from '../utils/constants';
+
+const BASE = '/api/v1/admin/career-reflection-questions';
 
 /**
- * Epic 4.1 D5 / §3.2 — `ADM_CRQ_20`, the authoring surface for the
- * post-completion reflection form.
+ * Epic 4.6 BE-6 — authoring the certificate-screen questions.
+ *
+ * **Every question here belongs to a throwaway course.** Suites run in
+ * parallel against one database, and since Epic 4.6 every active global
+ * question is required on every student's form — an active global question
+ * created here would make the other suites' valid submissions fail.
  */
 describe('Admin / Career Reflection Questions', () => {
   const app = APP_URL;
   const runId = Date.now();
 
+  let db: Client;
   let adminToken: string;
   let studentToken: string;
-  let sliderId: string;
+  let courseId: string;
+  let enrollmentId: string;
+  let selectionId: string;
+  let freeTextId: string;
+
+  const create = (payload: Record<string, unknown>) =>
+    request(app)
+      .post(BASE)
+      .auth(adminToken, { type: 'bearer' })
+      .send({ course: { id: courseId }, isActive: true, ...payload });
+
+  const patch = (id: string, payload: Record<string, unknown>) =>
+    request(app)
+      .patch(`${BASE}/${id}`)
+      .auth(adminToken, { type: 'bearer' })
+      .send(payload);
+
+  const answer = (
+    questionId: string,
+    rating: number | null,
+    text: string | null,
+  ) =>
+    db.query(
+      `INSERT INTO "career_reflection_answer"
+         ("enrollment_id", "question_id", "rating_answer", "text_answer", "submitted_at")
+       VALUES ($1, $2, $3, $4, now())`,
+      [enrollmentId, questionId, rating, text],
+    );
 
   beforeAll(async () => {
+    db = new Client({
+      host: DB_HOST,
+      port: DB_PORT,
+      user: DB_USER,
+      password: DB_PASSWORD,
+      database: DB_NAME,
+    });
+    await db.connect();
+
     adminToken = await loginSeededSuperAdmin(app);
 
     const email = `crq.student.${runId}@example.com`;
@@ -23,184 +74,334 @@ describe('Admin / Career Reflection Questions', () => {
       .post('/api/v1/auth/email/register')
       .send({ email, password: 'secret', firstName: 'CRQ', lastName: 'User' })
       .expect(204);
-
     const { body } = await request(app)
       .post('/api/v1/auth/email/login')
       .send({ email, password: 'secret' })
       .expect(200);
-
     studentToken = body.token;
+
+    const course = await db.query(
+      `INSERT INTO "course"
+         ("title", "slug", "status", "language", "price", "is_free",
+          "has_certificate", "enrollment_open", "total_sections",
+          "total_lectures", "total_duration_secs", "total_enrollments")
+       VALUES ($1, $2, 'draft', 'vi', 0, true, true, true, 0, 0, 0, 0)
+       RETURNING "id"`,
+      [`CRQ admin ${runId}`, `crq-admin-${runId}`],
+    );
+    courseId = course.rows[0].id;
+
+    const enrollment = await db.query(
+      `INSERT INTO "enrollment"
+         ("student_id", "course_id", "enrollment_date", "status", "progress_pct")
+       VALUES ($1, $2, now(), 'completed', 100) RETURNING "id"`,
+      [body.user.id, courseId],
+    );
+    enrollmentId = enrollment.rows[0].id;
   }, 120000);
 
-  const create = (payload: Record<string, unknown>) =>
-    request(app)
-      .post('/api/v1/admin/career-reflection-questions')
-      .auth(adminToken, { type: 'bearer' })
-      .send(payload);
+  afterAll(async () => {
+    if (!db) {
+      return;
+    }
 
-  it('should create a global slider question', async () => {
-    const { body } = await create({
-      questionText: `Slider ${runId}`,
-      questionType: 'slider',
-      labelMin: 'Không đồng ý',
-      labelMax: 'Đồng ý',
-      labelMinTranslations: { en: 'Disagree' },
-      labelMaxTranslations: { en: 'Agree' },
-      category: 'overall_usefulness',
-      displayOrder: 900,
-      isActive: true,
-    }).expect(201);
+    await db.query(
+      `DELETE FROM "career_reflection_answer" WHERE "enrollment_id" = $1`,
+      [enrollmentId],
+    );
+    await db.query(
+      `DELETE FROM "career_reflection_question" WHERE "course_id" = $1`,
+      [courseId],
+    );
+    await db.query(`DELETE FROM "enrollment" WHERE "id" = $1`, [enrollmentId]);
+    await db.query(`DELETE FROM "course" WHERE "id" = $1`, [courseId]);
+    await db.end();
+  });
 
-    expect(body).toMatchObject({
-      questionType: 'slider',
-      labelMin: 'Không đồng ý',
-      options: null,
+  describe('create', () => {
+    it('should create a selection with keys, translations and isRequired', async () => {
+      const { body } = await create({
+        questionType: 'selection',
+        questionText: 'Bạn có dự định chia sẻ?',
+        questionTextTranslations: { en: 'Will you share?' },
+        options: [
+          {
+            key: 1,
+            label: 'Chắc chắn',
+            labelTranslations: { en: 'Definitely' },
+          },
+          { key: 2, label: 'Không phải lúc này' },
+        ],
+        displayOrder: 50,
+      }).expect(201);
+
+      expect(body).toMatchObject({
+        questionType: 'selection',
+        isRequired: true,
+        questionTextTranslations: { en: 'Will you share?' },
+        options: [
+          {
+            key: 1,
+            label: 'Chắc chắn',
+            labelTranslations: { en: 'Definitely' },
+          },
+          { key: 2, label: 'Không phải lúc này' },
+        ],
+      });
+      expect(body).not.toHaveProperty('labelMin');
+
+      selectionId = body.id;
     });
 
-    sliderId = body.id;
-  }, 120000);
+    it('should create a free_text question with null options', async () => {
+      const { body } = await create({
+        questionType: 'free_text',
+        questionText: 'Góp ý thêm cho khóa học',
+        isRequired: false,
+        displayOrder: 51,
+      }).expect(201);
 
-  it('should create a radio question with its options', async () => {
-    const { body } = await create({
-      questionText: `Radio ${runId}`,
-      questionType: 'radio',
-      category: 'skill_fit',
-      displayOrder: 901,
-      isActive: true,
-      options: [
-        {
-          value: 1,
-          label: 'Cần luyện thêm',
-          labelTranslations: { en: 'Need Practice' },
-        },
-        { value: 2, label: 'Tốt', labelTranslations: { en: 'Good' } },
-        { value: 3, label: 'Rất tốt', labelTranslations: { en: 'Perfect' } },
-      ],
-    }).expect(201);
-
-    expect(body.options).toHaveLength(3);
-    expect(body.labelMin).toBeNull();
-  }, 120000);
-
-  // §3.3 — the shape rule is enforced before Postgres sees the row, so the
-  // author gets a named field rather than a constraint violation.
-  it('should refuse a radio with no options', async () => {
-    await create({
-      questionText: `Bad radio ${runId}`,
-      questionType: 'radio',
-      displayOrder: 902,
-      isActive: true,
-    })
-      .expect(422)
-      .expect(({ body }) =>
-        expect(body.errors.options).toBe('requiredForType'),
-      );
-  });
-
-  it('should refuse a slider that carries options', async () => {
-    await create({
-      questionText: `Bad slider ${runId}`,
-      questionType: 'slider',
-      displayOrder: 903,
-      isActive: true,
-      options: [
-        { value: 1, label: 'A' },
-        { value: 2, label: 'B' },
-      ],
-    })
-      .expect(422)
-      .expect(({ body }) =>
-        expect(body.errors.options).toBe('notAllowedForType'),
-      );
-  });
-
-  // D2 — two scales running in opposite directions land in the same category
-  // bucket, and averaging them produces a number that means nothing.
-  it('should refuse options that do not ascend', async () => {
-    await create({
-      questionText: `Descending ${runId}`,
-      questionType: 'select',
-      displayOrder: 904,
-      isActive: true,
-      options: [
-        { value: 3, label: 'Perfect' },
-        { value: 1, label: 'Need Practice' },
-      ],
-    })
-      .expect(422)
-      .expect(({ body }) => expect(body.errors.options).toBe('mustAscend'));
-  });
-
-  it('should refuse an unsupported question type', async () => {
-    await create({
-      questionText: `Freetext ${runId}`,
-      questionType: 'freetext',
-      displayOrder: 905,
-      isActive: true,
-    }).expect(422);
-  });
-
-  it('should list questions for authoring', async () => {
-    await request(app)
-      .get('/api/v1/admin/career-reflection-questions')
-      .auth(adminToken, { type: 'bearer' })
-      .expect(200)
-      .expect(({ body }) => {
-        expect(Array.isArray(body)).toBe(true);
-        expect(body.some((q) => q.id === sliderId)).toBe(true);
+      expect(body).toMatchObject({
+        questionType: 'free_text',
+        options: null,
+        isRequired: false,
       });
-  }, 120000);
 
-  it('should deactivate rather than delete', async () => {
-    await request(app)
-      .patch(`/api/v1/admin/career-reflection-questions/${sliderId}/deactivate`)
-      .auth(adminToken, { type: 'bearer' })
-      .expect(200)
-      .expect(({ body }) => expect(body.isActive).toBe(false));
+      freeTextId = body.id;
+    });
 
-    await request(app)
-      .get('/api/v1/admin/career-reflection-questions?isActive=false')
-      .auth(adminToken, { type: 'bearer' })
-      .expect(200)
-      .expect(({ body }) =>
-        expect(body.some((q) => q.id === sliderId)).toBe(true),
+    it('should accept an option label as long as the seeded Vietnamese ones', async () => {
+      const long =
+        'Hiểu rõ nội dung khóa học, qua đó giúp tôi khám phá ra được tôi "có thể" hợp với ngành/nghề này, tuy nhiên vẫn cần khám phá thêm';
+
+      expect(long.length).toBeGreaterThan(100);
+
+      const { body } = await create({
+        questionType: 'selection',
+        questionText: 'Nhãn dài',
+        options: [
+          { key: 1, label: long },
+          { key: 2, label: 'Ngắn' },
+        ],
+        displayOrder: 52,
+        isActive: false,
+      }).expect(201);
+
+      await request(app)
+        .delete(`${BASE}/${body.id}`)
+        .auth(adminToken, { type: 'bearer' })
+        .expect(204);
+    });
+
+    it('should require questionType', async () => {
+      await create({ questionText: 'Thiếu loại', displayOrder: 53 }).expect(
+        422,
       );
-  }, 120000);
+    });
 
-  it('should hide a deactivated question from the public read', async () => {
-    await request(app)
-      .get('/api/v1/career-reflection-questions/grouped')
-      .expect(200)
-      .expect(({ body }) => {
-        const all = Object.values(body).flat() as { id: string }[];
-        expect(all.some((q) => q.id === sliderId)).toBe(false);
-      });
-  }, 120000);
+    it.each(['slider', 'radio', 'select'])(
+      'should refuse the retired type %s',
+      async (questionType) => {
+        await create({
+          questionType,
+          questionText: 'Cũ',
+          options: [
+            { key: 1, label: 'A' },
+            { key: 2, label: 'B' },
+          ],
+          displayOrder: 54,
+        }).expect(422);
+      },
+    );
 
-  it('should refuse the authoring surface to a student', async () => {
-    await request(app)
-      .get('/api/v1/admin/career-reflection-questions')
-      .auth(studentToken, { type: 'bearer' })
-      .expect(403);
+    it('should refuse a selection with no options', async () => {
+      const { body } = await create({
+        questionType: 'selection',
+        questionText: 'Không có lựa chọn',
+        displayOrder: 55,
+      }).expect(422);
+
+      expect(body.errors).toEqual({ options: 'requiredForType' });
+    });
+
+    it('should refuse a free_text question that carries options', async () => {
+      const { body } = await create({
+        questionType: 'free_text',
+        questionText: 'Tự luận có lựa chọn',
+        options: [
+          { key: 1, label: 'A' },
+          { key: 2, label: 'B' },
+        ],
+        displayOrder: 56,
+      }).expect(422);
+
+      expect(body.errors).toEqual({ options: 'notAllowedForType' });
+    });
+
+    it('should refuse duplicate keys', async () => {
+      const { body } = await create({
+        questionType: 'selection',
+        questionText: 'Trùng khóa',
+        options: [
+          { key: 1, label: 'A' },
+          { key: 1, label: 'B' },
+        ],
+        displayOrder: 57,
+      }).expect(422);
+
+      expect(body.errors).toEqual({ options: 'duplicateKey' });
+    });
   });
 
-  it('should refuse creation to a student', async () => {
-    await request(app)
-      .post('/api/v1/admin/career-reflection-questions')
-      .auth(studentToken, { type: 'bearer' })
-      .send({
-        questionText: 'Nope',
-        questionType: 'slider',
-        displayOrder: 1,
-        isActive: true,
-      })
-      .expect(403);
+  describe('list', () => {
+    it('should list a course’s questions for authoring', async () => {
+      const { body } = await request(app)
+        .get(`${BASE}?courseId=${courseId}`)
+        .auth(adminToken, { type: 'bearer' })
+        .expect(200);
+
+      expect(body.map((q) => q.id)).toEqual(
+        expect.arrayContaining([selectionId, freeTextId]),
+      );
+    });
   });
 
-  it('should refuse an anonymous caller', async () => {
-    await request(app)
-      .get('/api/v1/admin/career-reflection-questions')
-      .expect(401);
+  describe('edits never strand answers already given', () => {
+    beforeAll(async () => {
+      await answer(selectionId, 2, null);
+    });
+
+    it('should allow relabelling and reordering, since answers store the key', async () => {
+      const { body } = await patch(selectionId, {
+        options: [
+          { key: 2, label: 'Để sau' },
+          { key: 1, label: 'Chắc chắn rồi', labelTranslations: { en: 'Sure' } },
+        ],
+      }).expect(200);
+
+      expect(body.options.map((o) => o.key)).toEqual([2, 1]);
+    });
+
+    it('should refuse to remove an option key that has answers', async () => {
+      const { body } = await patch(selectionId, {
+        options: [
+          { key: 1, label: 'Chắc chắn rồi' },
+          { key: 3, label: 'Mới' },
+        ],
+      }).expect(409);
+
+      expect(body.errors).toEqual({ options: 'optionKeyInUse:2' });
+    });
+
+    it('should allow removing a key nobody chose', async () => {
+      await patch(selectionId, {
+        options: [
+          { key: 2, label: 'Để sau' },
+          { key: 3, label: 'Mới' },
+        ],
+      }).expect(200);
+    });
+
+    it('should refuse to change the type of an answered question', async () => {
+      const { body } = await patch(selectionId, {
+        questionType: 'free_text',
+      }).expect(409);
+
+      expect(body.errors).toEqual({ questionType: 'questionHasAnswers' });
+    });
+
+    it('should allow changing the type of an unanswered question', async () => {
+      const { body } = await patch(freeTextId, {
+        questionType: 'selection',
+        options: [
+          { key: 1, label: 'Có' },
+          { key: 2, label: 'Không' },
+        ],
+      }).expect(200);
+
+      expect(body.questionType).toBe('selection');
+
+      await patch(freeTextId, { questionType: 'free_text' }).expect(200);
+    });
+  });
+
+  describe('delete and deactivate', () => {
+    it('should refuse to delete an answered question', async () => {
+      const { body } = await request(app)
+        .delete(`${BASE}/${selectionId}`)
+        .auth(adminToken, { type: 'bearer' })
+        .expect(409);
+
+      expect(body.errors).toEqual({ id: 'questionHasAnswers' });
+    });
+
+    it('should deactivate an answered question and keep its answers', async () => {
+      await request(app)
+        .patch(`${BASE}/${selectionId}/deactivate`)
+        .auth(adminToken, { type: 'bearer' })
+        .expect(200)
+        .expect(({ body }) => expect(body.isActive).toBe(false));
+
+      const { rows } = await db.query(
+        `SELECT COUNT(*)::int AS n FROM "career_reflection_answer" WHERE "question_id" = $1`,
+        [selectionId],
+      );
+
+      expect(rows[0].n).toBe(1);
+    });
+
+    it('should hide a deactivated question from the student form', async () => {
+      const { body } = await request(app)
+        .get(`/api/v1/career-reflection-questions/grouped?courseId=${courseId}`)
+        .expect(200);
+
+      expect(body.questions.some((q) => q.id === selectionId)).toBe(false);
+    });
+
+    it('should delete an unanswered question outright', async () => {
+      await request(app)
+        .delete(`${BASE}/${freeTextId}`)
+        .auth(adminToken, { type: 'bearer' })
+        .expect(204);
+
+      await request(app)
+        .delete(`${BASE}/${freeTextId}`)
+        .auth(adminToken, { type: 'bearer' })
+        .expect(404);
+    });
+  });
+
+  describe('permissions', () => {
+    it('should refuse the authoring surface to a student', async () => {
+      await request(app)
+        .get(BASE)
+        .auth(studentToken, { type: 'bearer' })
+        .expect(403);
+    });
+
+    it('should refuse creation to a student', async () => {
+      await request(app)
+        .post(BASE)
+        .auth(studentToken, { type: 'bearer' })
+        .send({
+          questionText: 'Nope',
+          questionType: 'free_text',
+          displayOrder: 1,
+          isActive: false,
+        })
+        .expect(403);
+    });
+
+    it('should refuse deletion to a student', async () => {
+      await request(app)
+        .delete(`${BASE}/${selectionId}`)
+        .auth(studentToken, { type: 'bearer' })
+        .expect(403);
+    });
+
+    it('should refuse an anonymous caller', async () => {
+      await request(app).get(BASE).expect(401);
+    });
   });
 
   /**

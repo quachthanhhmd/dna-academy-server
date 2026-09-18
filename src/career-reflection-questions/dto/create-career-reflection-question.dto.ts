@@ -1,124 +1,79 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsNotEmptyObject,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { CourseDto } from '../../courses/dto/course.dto';
+import { IsTranslationMap } from '../../utils/i18n/is-translation-map.validator';
+import { TranslationMap } from '../../utils/i18n/translation-map.type';
 import {
   CAREER_QUESTION_TYPES,
   OPTION_COUNT_MAX,
   OPTION_COUNT_MIN,
+  OPTION_LABEL_MAX,
 } from '../career-reflection-question-types';
-import { TranslationMap } from '../../utils/i18n/translation-map.type';
-import { IsTranslationMap } from '../../utils/i18n/is-translation-map.validator';
 
-import {
-  // decorators here
-  Type,
-} from 'class-transformer';
-
-import {
-  // decorators here
-
-  ValidateNested,
-  IsNotEmptyObject,
-  IsOptional,
-  IsString,
-  IsNumber,
-  IsBoolean,
-  IsIn,
-  IsArray,
-  IsInt,
-  MaxLength,
-  ArrayMinSize,
-  ArrayMaxSize,
-} from 'class-validator';
-
-import {
-  // decorators here
-  ApiProperty,
-} from '@nestjs/swagger';
-
-/** Epic 4.1 §3.1 — one choice on a radio/select question. */
+/** Epic 4.6 §2.2 — one choice on a `selection` question. */
 export class CareerReflectionOptionDto {
   @ApiProperty({
-    required: true,
-    type: () => Number,
+    type: Number,
+    example: 1,
     description:
-      "What lands in ratingAnswer. The option's own value, never its index.",
+      'What lands in ratingAnswer. Stable identity: never renumber a key that ' +
+      'has answers — reorder the array instead.',
   })
   @IsInt()
-  value: number;
+  @Min(1)
+  key: number;
 
-  @ApiProperty({ required: true, type: () => String })
+  @ApiProperty({ type: String, description: 'Default locale (vi).' })
   @IsString()
-  @MaxLength(100)
+  @IsNotEmpty()
+  @MaxLength(OPTION_LABEL_MAX)
   label: string;
 
-  @ApiProperty({ required: false, type: () => Object })
+  @ApiPropertyOptional({ type: Object, example: { en: 'Definitely' } })
   @IsOptional()
   @IsTranslationMap()
   labelTranslations?: TranslationMap | null;
 }
 
 export class CreateCareerReflectionQuestionDto {
-  @ApiProperty({
-    required: true,
-    type: () => Boolean,
-  })
-  @IsBoolean()
-  isActive: boolean;
+  @ApiProperty({ enum: CAREER_QUESTION_TYPES, example: 'selection' })
+  @IsIn(CAREER_QUESTION_TYPES)
+  questionType: string;
 
-  @ApiProperty({
-    required: true,
-    type: () => Number,
-  })
-  @IsNumber()
-  displayOrder: number;
-
-  @ApiProperty({
-    required: true,
-    type: () => String,
-  })
+  @ApiProperty({ type: String, description: 'Default locale (vi).' })
   @IsString()
+  @IsNotEmpty()
   questionText: string;
 
-  @ApiProperty({
-    required: false,
-    enum: CAREER_QUESTION_TYPES,
-    default: 'slider',
-    description: 'How the post-completion form renders this question.',
+  @ApiPropertyOptional({
+    type: Object,
+    example: { en: 'What is your next intention?' },
   })
   @IsOptional()
-  @IsIn(CAREER_QUESTION_TYPES)
-  questionType?: string;
-
-  @ApiProperty({
-    required: false,
-    type: () => String,
-    description: 'Slider only. Default locale (vi); see labelMinTranslations.',
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  labelMin?: string | null;
-
-  @ApiProperty({ required: false, type: () => String })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  labelMax?: string | null;
-
-  @ApiProperty({ required: false, type: () => Object })
-  @IsOptional()
   @IsTranslationMap()
-  labelMinTranslations?: TranslationMap | null;
+  questionTextTranslations?: TranslationMap | null;
 
-  @ApiProperty({ required: false, type: () => Object })
-  @IsOptional()
-  @IsTranslationMap()
-  labelMaxTranslations?: TranslationMap | null;
-
-  @ApiProperty({
-    required: false,
+  @ApiPropertyOptional({
     type: () => [CareerReflectionOptionDto],
     description:
-      'radio/select only, ordered ascending from least to most positive.',
+      '`selection` only, 2–7 choices. Array order is display order. Must be ' +
+      'omitted or null for `free_text`.',
   })
   @IsOptional()
   @IsArray()
@@ -128,27 +83,38 @@ export class CreateCareerReflectionQuestionDto {
   @Type(() => CareerReflectionOptionDto)
   options?: CareerReflectionOptionDto[] | null;
 
-  @ApiProperty({
-    required: false,
-    type: () => String,
+  @ApiPropertyOptional({ type: Boolean, default: true })
+  @IsOptional()
+  @IsBoolean()
+  isRequired?: boolean;
+
+  @ApiProperty({ type: Boolean })
+  @IsBoolean()
+  isActive: boolean;
+
+  @ApiProperty({ type: Number, example: 1 })
+  @IsNumber()
+  displayOrder: number;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
     description:
-      'Groups the question on the post-completion form, e.g. interest, ' +
-      'understanding, confidence, skill_fit, advanced_intention, ' +
-      'overall_usefulness. Null lands in the "uncategorized" bucket.',
+      'Epic 4.6 D6: retained for existing rows, no longer used by the form ' +
+      'or the dashboard.',
   })
   @IsOptional()
   @IsString()
   category?: string | null;
 
-  @ApiProperty({
-    required: false,
+  @ApiPropertyOptional({
     type: () => CourseDto,
+    nullable: true,
+    description: 'Omit or null for a global question shown on every course.',
   })
   @IsOptional()
   @ValidateNested()
   @Type(() => CourseDto)
   @IsNotEmptyObject()
   course?: CourseDto | null;
-
-  // Don't forget to use the class-validator decorators in the DTO properties.
 }

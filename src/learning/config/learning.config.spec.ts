@@ -89,4 +89,41 @@ describe('learningConfig', () => {
       reflectionMinWords: 10,
     });
   });
+  describe('CAREER_REFLECTION_MIN_CHARS (Epic 4.6 D3)', () => {
+    it('should default to 10 characters', () => {
+      delete process.env.CAREER_REFLECTION_MIN_CHARS;
+
+      expect(load()).toMatchObject({ careerReflectionMinChars: 10 });
+    });
+
+    it('should read the value from the environment', () => {
+      process.env.CAREER_REFLECTION_MIN_CHARS = '25';
+
+      expect(load()).toMatchObject({ careerReflectionMinChars: 25 });
+    });
+
+    it('should treat an empty string as absent', () => {
+      process.env.CAREER_REFLECTION_MIN_CHARS = '';
+
+      expect(load()).toMatchObject({ careerReflectionMinChars: 10 });
+    });
+
+    it('should reject zero, which would accept a blank answer', () => {
+      process.env.CAREER_REFLECTION_MIN_CHARS = '0';
+
+      expect(load).toThrow();
+    });
+
+    it('should reject a value no answer could ever reach', () => {
+      process.env.CAREER_REFLECTION_MIN_CHARS = '6000';
+
+      expect(load).toThrow();
+    });
+
+    it('should reject a non-numeric value', () => {
+      process.env.CAREER_REFLECTION_MIN_CHARS = 'ten';
+
+      expect(load).toThrow();
+    });
+  });
 });

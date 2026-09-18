@@ -72,11 +72,43 @@ export class CareerReflectionQuestionRelationalRepository implements CareerRefle
         courseId,
       })
       .orderBy('question.displayOrder', 'ASC')
+      // A course-specific question sharing a display order with a global one
+      // must not swap places between two loads of the same form.
+      .addOrderBy('question.course', 'ASC', 'NULLS FIRST')
+      .addOrderBy('question.createdAt', 'ASC')
       .getMany();
 
     return entities.map((entity) =>
       CareerReflectionQuestionMapper.toDomain(entity),
     );
+  }
+
+  /**
+   * Read straight from `career_reflection_answer` rather than through the
+   * answers module, which already depends on this one — importing it back
+   * would make the two modules circular for the sake of a count.
+   */
+  async countAnswers(id: CareerReflectionQuestion['id']): Promise<number> {
+    const [row] = await this.careerReflectionQuestionRepository.manager.query(
+      `SELECT COUNT(*)::int AS n FROM "career_reflection_answer" WHERE "question_id" = $1`,
+      [id],
+    );
+
+    return row?.n ?? 0;
+  }
+
+  async answeredOptionKeys(
+    id: CareerReflectionQuestion['id'],
+  ): Promise<number[]> {
+    const rows: { key: number }[] =
+      await this.careerReflectionQuestionRepository.manager.query(
+        `SELECT DISTINCT "rating_answer" AS key
+           FROM "career_reflection_answer"
+          WHERE "question_id" = $1 AND "rating_answer" IS NOT NULL`,
+        [id],
+      );
+
+    return rows.map((row) => Number(row.key));
   }
 
   async findForAdmin(filters: {

@@ -6,4 +6,9 @@ export type LearningConfig = {
   quizPassThresholdDefault: number;
   /** Minimum words per required reflection answer on a non-draft submit. */
   reflectionMinWords: number;
+  /**
+   * Epic 4.6 D3 — minimum trimmed characters for a free-text career
+   * reflection answer. Sent to the client too, so both sides enforce one rule.
+   */
+  careerReflectionMinChars: number;
 };

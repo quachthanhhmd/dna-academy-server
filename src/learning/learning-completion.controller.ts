@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Get,
   HttpCode,
@@ -9,13 +10,17 @@ import {
   Put,
   Query,
   Request,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
@@ -24,7 +29,10 @@ import { PermissionGuard } from '../authorization/permission.guard';
 import { RequirePermission } from '../authorization/require-permission.decorator';
 import { ReflectionService } from './services/reflection.service';
 import { CompletionService } from './services/completion.service';
+import { CareerReflectionService } from './services/career-reflection.service';
 import { CertificateGeneratorService } from './services/certificate-generator.service';
+import { CertificatePdfService } from './services/certificate-pdf.service';
+import { LocaleContext } from '../utils/i18n/locale-context';
 import { SubmitReflectionDto } from './dto/reflection.dto';
 import {
   CertificateResponseDto,
@@ -41,6 +49,8 @@ export class LearningCompletionController {
     private readonly reflectionService: ReflectionService,
     private readonly completionService: CompletionService,
     private readonly certificateGenerator: CertificateGeneratorService,
+    private readonly careerReflectionService: CareerReflectionService,
+    private readonly certificatePdf: CertificatePdfService,
   ) {}
 
   @ApiOperation({ summary: 'Get reflection questions and saved answers' })
@@ -90,6 +100,54 @@ export class LearningCompletionController {
     @Request() request,
   ): Promise<CertificateResponseDto> {
     return this.completionService.getCertificate(id, request.user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Download the certificate as a PDF',
+    description:
+      'Epic 4.6 — rendered on the server from the same snapshots as ' +
+      '`GET …/certificate`, in the request locale, A4 landscape. Cached in ' +
+      'memory by content, so repeat downloads do not re-render and a ' +
+      'regenerate is picked up automatically. 409 until the course is complete.',
+  })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), OnboardingGuard)
+  @Get('enrollments/:id/certificate/download')
+  @ApiProduces('application/pdf')
+  @ApiOkResponse({ description: 'The certificate PDF' })
+  @ApiConflictResponse({ description: '`certificateNotReady`' })
+  async downloadCertificate(
+    @Param('id') id: string,
+    @Request() request,
+    @Res() res: Response,
+  ): Promise<void> {
+    // The same read the screen makes: ownership, and issuing a certificate
+    // for an enrollment completed before issuing was automatic.
+    const summary = await this.completionService.getCertificate(
+      id,
+      request.user.id,
+    );
+
+    if (!summary.ready || !summary.certificate) {
+      throw new ConflictException({
+        status: HttpStatus.CONFLICT,
+        error: 'certificateNotReady',
+      });
+    }
+
+    const file = await this.certificatePdf.render(
+      summary.certificate,
+      LocaleContext.current(),
+    );
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${CertificatePdfService.filename(summary.certificate)}"`,
+    );
+    // The file is personal; no shared cache may keep it.
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(file);
   }
 
   @ApiOperation({
@@ -153,19 +211,27 @@ export class LearningCompletionController {
   }
 
   @ApiOperation({
-    summary: 'Career reflection questions for a course, grouped by category',
+    summary: 'Career reflection questions for a course',
     description:
-      'Course-specific questions plus the global ones (courseId IS NULL). ' +
-      'Questions without a category land in the "uncategorized" bucket.',
+      "Epic 4.6. The course's own active questions plus the global ones " +
+      '(courseId IS NULL), as one flat list ordered by displayOrder, localized ' +
+      'by the request locale with a Vietnamese fallback. The path keeps ' +
+      '"/grouped" for compatibility; the body is no longer grouped.',
   })
   @Get('career-reflection-questions/grouped')
   @ApiQuery({ name: 'courseId', type: String })
   @ApiOkResponse()
   careerQuestions(@Query('courseId') courseId: string) {
-    return this.completionService.getCareerReflectionQuestions(courseId);
+    return this.careerReflectionService.questionsForCourse(courseId);
   }
 
-  @ApiOperation({ summary: 'Submit the post-completion career reflection' })
+  @ApiOperation({
+    summary: 'Save or update the career reflection',
+    description:
+      'Epic 4.6. Validates the whole form and reports every problem at once ' +
+      'under errors.answers[questionId]. Re-submitting updates the existing ' +
+      'answers (one row per question).',
+  })
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'), OnboardingGuard)
   @Post('enrollments/:id/career-reflection')
@@ -176,21 +242,21 @@ export class LearningCompletionController {
     @Body() dto: SubmitCareerReflectionDto,
     @Request() request,
   ) {
-    return this.completionService.submitCareerReflection(
+    return this.careerReflectionService.submit(
       id,
       request.user.id,
       dto.answers,
     );
   }
 
+  @ApiOperation({
+    summary: 'Questions and saved answers, for pre-filling the form',
+  })
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'), OnboardingGuard)
   @Get('enrollments/:id/career-reflection')
   @ApiOkResponse()
   getCareerReflection(@Param('id') id: string, @Request() request) {
-    return this.completionService.getCareerReflectionAnswers(
-      id,
-      request.user.id,
-    );
+    return this.careerReflectionService.getForEnrollment(id, request.user.id);
   }
 }

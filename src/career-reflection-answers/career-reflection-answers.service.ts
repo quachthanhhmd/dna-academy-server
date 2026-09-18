@@ -164,6 +164,20 @@ export class CareerReflectionAnswersService {
   }
 
   /** Epic 4.2 §3.2 — bulk clear for the admin progress reset. */
+  upsertForEnrollment(
+    enrollmentId: string,
+    answers: {
+      questionId: string;
+      ratingAnswer: number | null;
+      textAnswer: string | null;
+    }[],
+  ) {
+    return this.careerReflectionAnswerRepository.upsertForEnrollment(
+      enrollmentId,
+      answers,
+    );
+  }
+
   removeByEnrollmentId(enrollmentId: string) {
     return this.careerReflectionAnswerRepository.removeByEnrollmentId(
       enrollmentId,

@@ -42,6 +42,24 @@ export class RoleSeedService {
       );
     }
 
+    const countInstructor = await this.repository.count({
+      where: {
+        id: RoleEnum.instructor,
+      },
+    });
+
+    if (!countInstructor) {
+      await this.repository.save(
+        this.repository.create({
+          id: RoleEnum.instructor,
+          name: 'Instructor',
+          description:
+            'A teaching account. Excluded from student metrics; grants no admin access.',
+          isActive: true,
+        }),
+      );
+    }
+
     const countSuperAdmin = await this.repository.count({
       where: {
         id: RoleEnum.superAdmin,

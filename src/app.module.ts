@@ -114,6 +114,7 @@ import { MasterDataAdminModule } from './master-data-admin/master-data-admin.mod
 
 import { YoutubeModule } from './youtube/youtube.module';
 
+import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 import { CoursesAdminModule } from './courses-admin/courses-admin.module';
 
 import { InstructorsModule } from './instructors/instructors.module';
@@ -146,6 +147,7 @@ import { UserLocaleInterceptor } from './utils/i18n/user-locale.interceptor';
     RolesAdminModule,
     MasterDataAdminModule,
     YoutubeModule,
+    AdminDashboardModule,
     CoursesAdminModule,
     InstructorsModule,
     CourseInstructorsModule,

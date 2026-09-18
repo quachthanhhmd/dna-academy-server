@@ -5,7 +5,7 @@ import { CourseMapper } from '../../../../../courses/infrastructure/persistence/
 import { CareerReflectionQuestionEntity } from '../entities/career-reflection-question.entity';
 
 /**
- * Epic 4.1 §3.1 — labels pass through this mapper **raw**, unlike master data,
+ * Epic 4.1 §3.1 / 4.6 — question text and labels pass through this mapper **raw**, unlike master data,
  * which localizes inside its mapper.
  *
  * The reason is `update()`: it is a read-modify-write through both mappers, so
@@ -25,17 +25,13 @@ export class CareerReflectionQuestionMapper {
 
     domainEntity.questionType = raw.questionType;
 
-    domainEntity.labelMin = raw.labelMin;
-
-    domainEntity.labelMax = raw.labelMax;
-
-    domainEntity.labelMinTranslations = raw.labelMinTranslations;
-
-    domainEntity.labelMaxTranslations = raw.labelMaxTranslations;
+    domainEntity.isRequired = raw.isRequired;
 
     domainEntity.options = raw.options;
 
     domainEntity.questionText = raw.questionText;
+
+    domainEntity.questionTextTranslations = raw.questionTextTranslations;
 
     domainEntity.category = raw.category;
 
@@ -62,17 +58,14 @@ export class CareerReflectionQuestionMapper {
 
     persistenceEntity.questionType = domainEntity.questionType;
 
-    persistenceEntity.labelMin = domainEntity.labelMin;
-
-    persistenceEntity.labelMax = domainEntity.labelMax;
-
-    persistenceEntity.labelMinTranslations = domainEntity.labelMinTranslations;
-
-    persistenceEntity.labelMaxTranslations = domainEntity.labelMaxTranslations;
+    persistenceEntity.isRequired = domainEntity.isRequired;
 
     persistenceEntity.options = domainEntity.options;
 
     persistenceEntity.questionText = domainEntity.questionText;
+
+    persistenceEntity.questionTextTranslations =
+      domainEntity.questionTextTranslations;
 
     persistenceEntity.category = domainEntity.category;
 

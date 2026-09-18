@@ -299,11 +299,17 @@ describe('Epic 4 v2 — learning flow', () => {
         .expect(({ body }) => expect(body.rating).toBe(4));
     });
 
-    it('should list career reflection questions grouped by category', async () => {
+    // Epic 4.6 — a flat, ordered list; the path keeps "/grouped" only for
+    // compatibility.
+    it('should list the career reflection questions for the course', async () => {
       await request(app)
         .get(`/api/v1/career-reflection-questions/grouped?courseId=${courseId}`)
         .expect(200)
-        .expect(({ body }) => expect(typeof body).toBe('object'));
+        .expect(({ body }) => {
+          expect(Array.isArray(body.questions)).toBe(true);
+          expect(body.questions.length).toBeGreaterThanOrEqual(5);
+          expect(body.rules.minTextLength).toEqual(expect.any(Number));
+        });
     });
 
     it('should surface the certificate id on My Courses', async () => {
