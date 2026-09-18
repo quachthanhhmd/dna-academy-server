@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { useContainer } from 'class-validator';
 import { AppModule } from './app.module';
@@ -14,7 +15,26 @@ import { AllConfigType } from './config/config.type';
 import { ResolvePromisesInterceptor } from './utils/serializer.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    cors: true,
+  });
+
+  // Behind a load balancer `request.ip` is the balancer's address, so every
+  // client would share one rate-limit budget. APP_TRUST_PROXY names the proxies
+  // to trust: a hop count (`1`) or their addresses/subnets. `true` is refused —
+  // trusting any X-Forwarded-For lets a client pick its own IP.
+  const trustProxy = process.env.APP_TRUST_PROXY?.trim();
+  if (trustProxy && trustProxy !== 'false') {
+    if (trustProxy === 'true') {
+      throw new Error(
+        'APP_TRUST_PROXY=true would let clients spoof their IP; set a hop count or proxy addresses',
+      );
+    }
+    app.set(
+      'trust proxy',
+      /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy,
+    );
+  }
   useContainer(app.select(AppModule), { fallbackOnErrors: true });
   const configService = app.get(ConfigService<AllConfigType>);
 

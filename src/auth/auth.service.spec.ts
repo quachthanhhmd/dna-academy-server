@@ -1,4 +1,12 @@
-import { describe, expect, it, beforeEach, jest } from '@jest/globals';
+import {
+  describe,
+  expect,
+  it,
+  afterEach,
+  beforeEach,
+  jest,
+} from '@jest/globals';
+import bcrypt from 'bcryptjs';
 import {
   ConflictException,
   ForbiddenException,
@@ -628,6 +636,93 @@ describe('AuthService', () => {
       );
 
       expect(payload.exp - payload.iat).toBe(72 * 3600);
+    });
+  });
+
+  // Password guessing against one account, from however many addresses:
+  // 10 failed attempts per 15 minutes. Failures only — someone who signs in
+  // often is never locked out, and a success wipes the slate.
+  describe('failed login limit', () => {
+    let account: Record<string, unknown>;
+    let now: number;
+
+    beforeEach(() => {
+      now = 9_000_000;
+      jest.spyOn(Date, 'now').mockImplementation(() => now);
+      account = {
+        ...baseUser,
+        id: 70,
+        email: 'guessed@example.com',
+        provider: AuthProvidersEnum.email,
+        // bcrypt('right-password')
+        password: bcrypt.hashSync('right-password', 4),
+      };
+      usersService.findByEmail.mockImplementation((email: unknown) =>
+        Promise.resolve(email === account.email ? account : null),
+      );
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    const tryLogin = (password: string, email = 'guessed@example.com') =>
+      service.validateLogin({ email, password }).then(
+        () => 'ok',
+        (error) => error.getStatus?.() ?? error,
+      );
+
+    it('should refuse the 11th attempt after 10 failures, even with the right password', async () => {
+      for (let i = 0; i < 10; i += 1) {
+        expect(await tryLogin('wrong')).toBe(422);
+      }
+
+      expect(await tryLogin('right-password')).toBe(429);
+    });
+
+    it('should count failures for an address with no account too', async () => {
+      for (let i = 0; i < 10; i += 1) {
+        expect(await tryLogin('x', 'nobody@example.com')).toBe(422);
+      }
+
+      expect(await tryLogin('x', 'nobody@example.com')).toBe(429);
+    });
+
+    it('should treat an email case-insensitively', async () => {
+      for (let i = 0; i < 10; i += 1) {
+        await tryLogin('wrong', 'Guessed@Example.com');
+      }
+
+      expect(await tryLogin('right-password')).toBe(429);
+    });
+
+    it('should clear the count on a successful login', async () => {
+      for (let i = 0; i < 9; i += 1) {
+        await tryLogin('wrong');
+      }
+      expect(await tryLogin('right-password')).toBe('ok');
+
+      for (let i = 0; i < 9; i += 1) {
+        expect(await tryLogin('wrong')).toBe(422);
+      }
+      expect(await tryLogin('right-password')).toBe('ok');
+    });
+
+    it('should let the account try again once the window has passed', async () => {
+      for (let i = 0; i < 10; i += 1) {
+        await tryLogin('wrong');
+      }
+      now += 15 * 60_000 + 1;
+
+      expect(await tryLogin('right-password')).toBe('ok');
+    });
+
+    it('should not limit other emails', async () => {
+      for (let i = 0; i < 10; i += 1) {
+        await tryLogin('wrong');
+      }
+
+      expect(await tryLogin('x', 'someone-else@example.com')).toBe(422);
     });
   });
 

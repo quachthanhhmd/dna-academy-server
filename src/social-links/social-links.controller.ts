@@ -1,4 +1,9 @@
 import {
+  RateLimit,
+  RateLimitGuard,
+} from '../utils/rate-limit/rate-limit.guard';
+import { MINUTE } from '../utils/rate-limit/rate-limit.constants';
+import {
   Body,
   Controller,
   Delete,
@@ -84,6 +89,8 @@ export class SocialLinksController {
   }
 
   @ApiOperation({ summary: 'Link a Facebook account' })
+  @UseGuards(RateLimitGuard)
+  @RateLimit(10, 15 * MINUTE)
   @Post('facebook')
   @HttpCode(HttpStatus.CREATED)
   @ApiCreatedResponse({ type: SocialLinkResponseDto })
@@ -98,6 +105,8 @@ export class SocialLinksController {
   }
 
   @ApiOperation({ summary: 'Link a Google account' })
+  @UseGuards(RateLimitGuard)
+  @RateLimit(10, 15 * MINUTE)
   @Post('google')
   @HttpCode(HttpStatus.CREATED)
   @ApiCreatedResponse({ type: SocialLinkResponseDto })

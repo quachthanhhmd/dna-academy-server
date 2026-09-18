@@ -495,6 +495,30 @@ With custom roles first-class (D4), editing a role must not be a way up:
 | 422 | `password: required \| incorrectPassword` | `POST /auth/me/social-links/*` |
 | 422 | `roleId: notExists` | `PUT /admin/users/:id/roles` |
 | 503 | `invite_not_sent` | `POST /admin/instructors/:id/invite` |
+| 429 | `RATE_LIMITED` (`code`, with `retryAfterSecs`) | §1.13 |
+
+### 1.13 Rate limits — **[as built]**
+
+`429 { "status": 429, "code": "RATE_LIMITED", "retryAfterSecs": 540 }`, with a `Retry-After`
+header on the route-level limits. Show "Too many attempts — try again in N minutes"; do not retry
+automatically.
+
+| Route | Limit | Counted by | Why this number |
+|---|---|---|---|
+| `POST /auth/email/login` | **10 failed** / 15 min | email — failures only; a success resets it | Password guessing against one account, from any number of IPs. A person mistypes 2–3 times; 10 leaves room without giving a guesser more than ~1000 tries a day. |
+| `POST /auth/email/login` | 100 / 15 min | IP | Many accounts sprayed from one source. High, because a whole class signs in from one school NAT. |
+| `POST /auth/forgot/password` | 3 / hour · 20 / hour | email · IP | Each call emails someone: stops an inbox being flooded. 3 covers "the email didn't arrive" twice. |
+| `POST /auth/email/confirm/resend` | 3 / hour · 20 / hour | email · IP | Same reason. |
+| `POST /auth/reset/password` | 20 / 15 min | IP | The hash cannot be guessed; this only caps waste. |
+| `POST /auth/email/register` | 60 / hour | IP | Sends an email per account; 60 lets a class register together. |
+| `POST /auth/facebook/login`, `/auth/google/login` | 60 / 15 min | IP | Each call reaches the provider's API. |
+| `POST /auth/me/social-links/*` | 10 / 15 min | user | It checks the account password; a stolen token must not become a password oracle. |
+| `PATCH /auth/me` | 20 / 15 min | user | Changing the password checks the old one; ordinary profile saves stay well under it. |
+| `POST /admin/instructors/:id/invite` | 3 / hour · 20 / hour | instructor · admin | Each call emails the instructor. |
+
+Operations: counters live in each API process's memory (a restart clears them; N replicas give
+N× the budget). Behind a load balancer set `APP_TRUST_PROXY` to the hop count, or every client
+shares one IP budget. `RATE_LIMIT_IP_MULTIPLIER` widens only the per-IP limits.
 
 ---
 
@@ -526,8 +550,8 @@ should be that user's own first social login.
 ### 2.2 Tasks, in order
 
 > **Status 18/09/2026:** BE-1 … BE-15 done on `feat/permission-model` (BE-1, BE-3 and the
-> `oauth_account` unique index shipped earlier in `fix/auth-security`). **BE-16 not done** — it
-> deletes rows from the shared dev database and needs a go-ahead. Migrations added:
+> `oauth_account` unique index shipped earlier in `fix/auth-security`). **BE-16 done** 18/09 — the 60
+> unreferenced `UR Custom Role <timestamp>` rows were deleted from the dev database. Migrations added:
 > `1787700000000` constraints, `…001` Super Admin merge, `…002` one role per user, `…003`
 > permission catalogue and grants (a migration, not a boot seed, so production gets it and a
 > revoked Instructor grant stays revoked), `…004` Google `social_id` → `oauth_account`,

@@ -1,4 +1,9 @@
 import {
+  RateLimit,
+  RateLimitGuard,
+} from '../utils/rate-limit/rate-limit.guard';
+import { HOUR } from '../utils/rate-limit/rate-limit.constants';
+import {
   Body,
   Controller,
   Delete,
@@ -155,6 +160,11 @@ export class InstructorsAdminController {
       'already_activated once a password has been set.',
   })
   @RequirePermission('instructors', 'create_account')
+  // Each call emails someone: 3 an hour to one instructor, 20 an hour from
+  // one admin.
+  @UseGuards(RateLimitGuard)
+  @RateLimit(3, HOUR, { param: 'id' })
+  @RateLimit(20, HOUR)
   @Post(':id/invite')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()

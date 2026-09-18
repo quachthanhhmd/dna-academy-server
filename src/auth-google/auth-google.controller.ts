@@ -1,3 +1,8 @@
+import {
+  RateLimit,
+  RateLimitGuard,
+} from '../utils/rate-limit/rate-limit.guard';
+import { MINUTE } from '../utils/rate-limit/rate-limit.constants';
 import { AuthProvidersEnum } from '../auth/auth-providers.enum';
 import {
   Body,
@@ -6,6 +11,7 @@ import {
   HttpStatus,
   Post,
   SerializeOptions,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from '../auth/auth.service';
@@ -30,6 +36,9 @@ export class AuthGoogleController {
   @SerializeOptions({
     groups: ['me'],
   })
+  // Each call reaches the provider's API; bound what one address can spend.
+  @UseGuards(RateLimitGuard)
+  @RateLimit(60, 15 * MINUTE, 'ip')
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: AuthGoogleLoginDto): Promise<LoginResponseDto> {

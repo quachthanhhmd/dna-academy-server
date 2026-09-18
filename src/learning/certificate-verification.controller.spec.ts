@@ -22,6 +22,6 @@ describe('CertificateVerificationController rate limit', () => {
   });
 
   it('should allow 20 calls a minute', () => {
-    expect(options).toEqual({ limit: 20, windowMs: 60_000 });
+    expect(options).toEqual([{ limit: 20, windowMs: 60_000, by: 'caller' }]);
   });
 });

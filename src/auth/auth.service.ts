@@ -39,12 +39,15 @@ import { AuthOnboardingDto } from './dto/auth-onboarding.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
 import { UserRolesService } from '../user-roles/user-roles.service';
 import { RolePermissionsService } from '../role-permissions/role-permissions.service';
+import { LoginFailureLimiter } from './login-failure-limiter';
 
 /** Permission model O1 — how long an instructor invite stays usable. */
 export const INVITE_EXPIRES_IN = '72h';
 
 @Injectable()
 export class AuthService {
+  private readonly loginFailures = new LoginFailureLimiter();
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
@@ -60,6 +63,23 @@ export class AuthService {
   ) {}
 
   async validateLogin(loginDto: AuthEmailLoginDto): Promise<LoginResponseDto> {
+    this.loginFailures.assertAllowed(loginDto.email);
+
+    try {
+      const response = await this.checkEmailLogin(loginDto);
+      this.loginFailures.clear(loginDto.email);
+      return response;
+    } catch (error) {
+      if (error instanceof UnprocessableEntityException) {
+        this.loginFailures.recordFailure(loginDto.email);
+      }
+      throw error;
+    }
+  }
+
+  private async checkEmailLogin(
+    loginDto: AuthEmailLoginDto,
+  ): Promise<LoginResponseDto> {
     const user = await this.usersService.findByEmail(loginDto.email);
 
     if (!user) {
