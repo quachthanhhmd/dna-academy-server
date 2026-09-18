@@ -21,13 +21,13 @@
 
 | # | Decision | Locked |
 |---|---|---|
-| **D1** | Who is a "student" | Users holding role **`user`**. A new role **`instructor` (id 4)** is added so teaching accounts stop being counted as students — see BE-0. |
+| **D1** | Who is a "student" | Users whose **`user_role`** is **User**. A role **`instructor` (id 4)** keeps teaching accounts out of the count — see BE-0. **Amended 17/09:** roles are read from `user_role`, not `user.role_id` — [`epic_1_permission_model.md`](./epic_1_permission_model.md) §2.5. |
 | **D2** | Completion rate | **Cohort-based.** Denominator = enrollments *created* in the period; numerator = how many of *those* completed. Not "completions this month ÷ enrolments this month", which can exceed 100%. |
 | **D3** | "Completed" bucket & KPI | Keyed on **`enrollment.status = 'completed'`**, never on `progress_pct = 100`. Status is what issues the certificate, and Epic 4.2 D7 made it sticky. |
 | **D4** | Average rating | **Includes unmoderated ratings.** `course_rating` is averaged with no `review_status` filter, which matches what `course.avg_rating` already stores — so the dashboard and the catalog can never disagree. |
 | **D5** | Export | **CSV and server-rendered PDF.** The PDF is real work with a real dependency — BE-7. |
 | **D6** | Timezone | **`Asia/Ho_Chi_Minh`.** A "day" is 00:00–23:59 Vietnam time, every bucket boundary and every period edge. Columns are `timestamptz` since migration `1787200000000`, so one `AT TIME ZONE` does it. |
-| **D7** | Permission | **`dashboard:view`** and **`dashboard:export`** — not `analytics:*`, which does not exist (BE-9). |
+| **D7** | Permission | **`dashboard:view`** and **`dashboard:export`** — not `analytics:*`, which does not exist (BE-9). **Amended 17/09:** `/students` and `/reflection/comments` move to **`dashboard:view_students`**, and every aggregate is scoped to the caller's primary courses unless they hold `courses:edit_any` — [`epic_1_permission_model.md`](./epic_1_permission_model.md) §1.9, §2.7. |
 | **D8** | "Active students" | Distinct students whose `enrollment.last_accessed_at` falls in the period. Not "enrolled in the period", which measures acquisition and calls a daily learner inactive. |
 
 ### Carried from the review, unchanged
@@ -157,9 +157,10 @@ also teaches keeps the stronger role.
 must not gain admin-panel access as a side effect of this epic; give it permissions when there
 is a feature that needs them.
 
-> **Note for the definition.** `user.role_id` is the legacy single role and `user_role` is the
-> RBAC join table. The student KPI counts `user.role_id = 2` because that is the column every
-> account is guaranteed to have. There is also a `student_profile` table (one row per onboarded
+> **Note for the definition — superseded 17/09.** `user.role_id` was chosen here because it was
+> the column every account was guaranteed to have. The permission model makes `user_role` the only
+> source of truth and backfills a row for every user, so the KPI now counts `user_role`
+> ([`epic_1_permission_model.md`](./epic_1_permission_model.md) §2.5). There is also a `student_profile` table (one row per onboarded
 > user) — a stricter definition if "registered" should mean "finished onboarding". Flagged, not
 > chosen; D1 stands.
 
@@ -206,7 +207,7 @@ sparkline over the current period's buckets.
 
 | KPI | Definition |
 |---|---|
-| Registered students | `COUNT(user) WHERE role_id = 2` — **not period-filtered**; it is a running total. The delta compares users created in this period vs the previous one. |
+| Registered students | `COUNT(user_role) WHERE role_id = 2` — **not period-filtered**; it is a running total. The delta compares users created in this period vs the previous one. Read `user_role`, not `user.role_id` (permission model §2.5). |
 | Active students | `COUNT(DISTINCT enrollment.student_id) WHERE last_accessed_at IN period` (D8) |
 | Enrollments | `COUNT(enrollment) WHERE enrollment_date IN period AND status <> 'cancelled'` |
 | Completed courses | `COUNT(enrollment) WHERE status = 'completed' AND completed_at IN period` (D3) |
