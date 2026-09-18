@@ -1,20 +1,7 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
-  Query,
-} from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Query } from '@nestjs/common';
 import { MasterDataCodesService } from './master-data-codes.service';
-import { CreateMasterDataCodeDto } from './dto/create-master-data-code.dto';
-import { UpdateMasterDataCodeDto } from './dto/update-master-data-code.dto';
 import {
   ApiBearerAuth,
-  ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
@@ -30,6 +17,13 @@ import {
 import { infinityPagination } from '../utils/infinity-pagination';
 import { FindAllMasterDataCodesDto } from './dto/find-all-master-data-codes.dto';
 
+/**
+ * Read-only. Onboarding populates its selects from `GET ?groupKey=`.
+ *
+ * The generated create, edit and delete handlers were open to every logged-in
+ * user (permission model §1.10); master data is written through
+ * `/admin/master-data`, behind `master_data:*`.
+ */
 @ApiTags('Masterdatacodes')
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'))
@@ -41,14 +35,6 @@ export class MasterDataCodesController {
   constructor(
     private readonly masterDataCodesService: MasterDataCodesService,
   ) {}
-
-  @Post()
-  @ApiCreatedResponse({
-    type: MasterDataCode,
-  })
-  create(@Body() createMasterDataCodeDto: CreateMasterDataCodeDto) {
-    return this.masterDataCodesService.create(createMasterDataCodeDto);
-  }
 
   @Get()
   @ApiOperation({
@@ -100,31 +86,5 @@ export class MasterDataCodesController {
   })
   findById(@Param('id') id: string) {
     return this.masterDataCodesService.findById(id);
-  }
-
-  @Patch(':id')
-  @ApiParam({
-    name: 'id',
-    type: String,
-    required: true,
-  })
-  @ApiOkResponse({
-    type: MasterDataCode,
-  })
-  update(
-    @Param('id') id: string,
-    @Body() updateMasterDataCodeDto: UpdateMasterDataCodeDto,
-  ) {
-    return this.masterDataCodesService.update(id, updateMasterDataCodeDto);
-  }
-
-  @Delete(':id')
-  @ApiParam({
-    name: 'id',
-    type: String,
-    required: true,
-  })
-  remove(@Param('id') id: string) {
-    return this.masterDataCodesService.remove(id);
   }
 }

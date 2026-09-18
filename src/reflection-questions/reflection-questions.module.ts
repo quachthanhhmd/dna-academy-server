@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { ReflectionQuestionsService } from './reflection-questions.service';
-import { ReflectionQuestionsController } from './reflection-questions.controller';
 import { RelationalReflectionQuestionPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -18,7 +17,6 @@ import { RelationalReflectionQuestionPersistenceModule } from './infrastructure/
     // do not remove this comment
     RelationalReflectionQuestionPersistenceModule,
   ],
-  controllers: [ReflectionQuestionsController],
   providers: [ReflectionQuestionsService],
   exports: [
     ReflectionQuestionsService,

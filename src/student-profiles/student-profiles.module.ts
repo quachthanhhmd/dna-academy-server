@@ -5,7 +5,6 @@ import {
   Module,
 } from '@nestjs/common';
 import { StudentProfilesService } from './student-profiles.service';
-import { StudentProfilesController } from './student-profiles.controller';
 import { RelationalStudentProfilePersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -17,7 +16,6 @@ import { RelationalStudentProfilePersistenceModule } from './infrastructure/pers
     // do not remove this comment
     RelationalStudentProfilePersistenceModule,
   ],
-  controllers: [StudentProfilesController],
   providers: [StudentProfilesService],
   exports: [StudentProfilesService, RelationalStudentProfilePersistenceModule],
 })

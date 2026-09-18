@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { EnrollmentsService } from './enrollments.service';
-import { EnrollmentsController } from './enrollments.controller';
 import { RelationalEnrollmentPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -27,7 +26,6 @@ import { RelationalEnrollmentPersistenceModule } from './infrastructure/persiste
     // do not remove this comment
     RelationalEnrollmentPersistenceModule,
   ],
-  controllers: [EnrollmentsController],
   providers: [EnrollmentsService],
   exports: [EnrollmentsService, RelationalEnrollmentPersistenceModule],
 })

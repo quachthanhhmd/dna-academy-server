@@ -5,7 +5,6 @@ import {
   Module,
 } from '@nestjs/common';
 import { CourseGroupAssignmentsService } from './course-group-assignments.service';
-import { CourseGroupAssignmentsController } from './course-group-assignments.controller';
 import { RelationalCourseGroupAssignmentPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -17,7 +16,6 @@ import { RelationalCourseGroupAssignmentPersistenceModule } from './infrastructu
     // do not remove this comment
     RelationalCourseGroupAssignmentPersistenceModule,
   ],
-  controllers: [CourseGroupAssignmentsController],
   providers: [CourseGroupAssignmentsService],
   exports: [
     CourseGroupAssignmentsService,

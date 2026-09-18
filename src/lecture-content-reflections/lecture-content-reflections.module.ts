@@ -4,7 +4,6 @@ import {
   Module,
 } from '@nestjs/common';
 import { LectureContentReflectionsService } from './lecture-content-reflections.service';
-import { LectureContentReflectionsController } from './lecture-content-reflections.controller';
 import { RelationalLectureContentReflectionPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -14,7 +13,6 @@ import { RelationalLectureContentReflectionPersistenceModule } from './infrastru
     // do not remove this comment
     RelationalLectureContentReflectionPersistenceModule,
   ],
-  controllers: [LectureContentReflectionsController],
   providers: [LectureContentReflectionsService],
   exports: [
     LectureContentReflectionsService,

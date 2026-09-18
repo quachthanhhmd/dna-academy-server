@@ -143,21 +143,16 @@ describe('Admin / Sections', () => {
       .send({ title: 'Section With Lecture', displayOrder: 3 })
       .expect(201);
 
-    // Uses the generic (pre-existing, not-yet-admin-wrapped) /lectures
-    // endpoint purely to seed a lecture under this section for the cascade
-    // delete check below — the admin lectures endpoints land in a later task.
     await request(app)
-      .post('/api/v1/lectures')
+      .post(`/api/v1/admin/courses/${courseId}/sections/${section.id}/lectures`)
       .auth(superAdminToken, { type: 'bearer' })
       .send({
         title: 'A lecture',
         lectureType: 'article',
-        status: 'draft',
         durationSecs: 60,
         isPreview: false,
         requiresCompletion: true,
         displayOrder: 1,
-        section: { id: section.id },
       })
       .expect(201);
 

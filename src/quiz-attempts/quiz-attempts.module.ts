@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { QuizAttemptsService } from './quiz-attempts.service';
-import { QuizAttemptsController } from './quiz-attempts.controller';
 import { RelationalQuizAttemptPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -21,7 +20,6 @@ import { RelationalQuizAttemptPersistenceModule } from './infrastructure/persist
     // do not remove this comment
     RelationalQuizAttemptPersistenceModule,
   ],
-  controllers: [QuizAttemptsController],
   providers: [QuizAttemptsService],
   exports: [QuizAttemptsService, RelationalQuizAttemptPersistenceModule],
 })
