@@ -11,6 +11,7 @@ import { SectionsService } from '../sections/sections.service';
 import { Section } from '../sections/domain/section';
 import { LecturesService } from '../lectures/lectures.service';
 import { CourseAggregatesService } from './course-aggregates.service';
+import { LecturesAdminService } from './lectures-admin.service';
 import { CreateSectionAdminDto } from './dto/create-section-admin.dto';
 import { UpdateSectionAdminDto } from './dto/update-section-admin.dto';
 
@@ -21,6 +22,7 @@ export class SectionsAdminService {
     private readonly sectionsService: SectionsService,
     private readonly lecturesService: LecturesService,
     private readonly courseAggregatesService: CourseAggregatesService,
+    private readonly lecturesAdminService: LecturesAdminService,
   ) {}
 
   async create(courseId: Course['id'], dto: CreateSectionAdminDto) {
@@ -74,7 +76,11 @@ export class SectionsAdminService {
         });
       }
 
-      await this.lecturesService.removeBySectionId(sectionId);
+      // Same path as deleting a lecture on its own: content rows reference
+      // the lecture, so a bulk delete of the lectures alone is a foreign-key
+      // violation, and a lecture with learner data is refused rather than
+      // taken down with the section.
+      await this.lecturesAdminService.deleteLecturesOfSection(sectionId);
     }
 
     await this.sectionsService.remove(sectionId);

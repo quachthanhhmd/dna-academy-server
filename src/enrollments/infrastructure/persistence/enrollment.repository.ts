@@ -50,5 +50,11 @@ export abstract class EnrollmentRepository {
     payload: DeepPartial<Enrollment>,
   ): Promise<Enrollment | null>;
 
+  /**
+   * Clears `lastLecture` on every enrolment pointing at this lecture, so the
+   * lecture can be deleted. The pointer only drives "Continue Learning".
+   */
+  abstract clearLastLecture(lectureId: string): Promise<void>;
+
   abstract remove(id: Enrollment['id']): Promise<void>;
 }

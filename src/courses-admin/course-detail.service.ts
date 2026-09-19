@@ -48,10 +48,22 @@ export class CourseDetailService {
       this.courseInstructorsService.findViewByCourseId(courseId),
     ]);
 
+    // One query for the whole course, not one per lecture: the curriculum
+    // screen labels every row "has content / no content", and before this it
+    // only knew about lectures saved in the current session — so after a
+    // reload every lecture claimed to be empty.
+    const withContent =
+      await this.lecturesService.findIdsWithContentByCourseId(courseId);
+
     const sectionsWithLectures = await Promise.all(
       sections.map(async (section) => ({
         ...section,
-        lectures: await this.lecturesService.findBySectionId(section.id),
+        lectures: (await this.lecturesService.findBySectionId(section.id)).map(
+          (lecture) => ({
+            ...lecture,
+            hasContent: withContent.has(lecture.id),
+          }),
+        ),
       })),
     );
 

@@ -41,6 +41,7 @@ describe('LectureContentAdminService', () => {
   };
   let quizAnswerOptionsService: {
     removeByQuestionIds: jest.Mock<any>;
+    findByQuestionIds: jest.Mock<any>;
     create: jest.Mock<any>;
   };
   let lectureContentReflectionsService: {
@@ -96,6 +97,7 @@ describe('LectureContentAdminService', () => {
     };
     quizAnswerOptionsService = {
       removeByQuestionIds: jest.fn(),
+      findByQuestionIds: (jest.fn() as jest.Mock<any>).mockResolvedValue([]),
       create: jest.fn(),
     };
     lectureContentReflectionsService = {
@@ -543,5 +545,184 @@ describe('LectureContentAdminService', () => {
     expect(courseAggregatesService.recalculate).toHaveBeenCalledWith(
       'course-1',
     );
+  });
+
+  /*
+    The editor had no way to read content back: `GET /admin/courses/:id` lists
+    lectures without it, so reopening a lecture showed empty fields and saving
+    replaced what was there with whatever the admin had just typed.
+  */
+  describe('findContent', () => {
+    const lectureOfType = (lectureType: string) =>
+      lecturesService.findById.mockResolvedValue({ id: 'lec-1', lectureType });
+
+    it('should 404 an unknown lecture', async () => {
+      lecturesService.findById.mockResolvedValue(null);
+
+      await expect(service.findContent('nope')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('should return null when the lecture has no content yet', async () => {
+      lectureOfType('video');
+
+      await expect(service.findContent('lec-1')).resolves.toBeNull();
+    });
+
+    it('should read back a video in the shape save accepts', async () => {
+      lectureOfType('video');
+      lectureContentVideosService.findByLectureId.mockResolvedValue({
+        youtubeUrl: 'https://www.youtube.com/watch?v=abc',
+      });
+
+      await expect(service.findContent('lec-1')).resolves.toEqual({
+        lectureType: 'video',
+        youtubeUrl: 'https://www.youtube.com/watch?v=abc',
+      });
+    });
+
+    it('should read back an article', async () => {
+      lectureOfType('article');
+      lectureContentArticlesService.findByLectureId.mockResolvedValue({
+        body: '<p>Nội dung</p>',
+      });
+
+      await expect(service.findContent('lec-1')).resolves.toEqual({
+        lectureType: 'article',
+        body: '<p>Nội dung</p>',
+      });
+    });
+
+    it('should read back a document', async () => {
+      lectureOfType('pdf_document');
+      lectureContentDocumentsService.findByLectureId.mockResolvedValue({
+        fileUrl: 'https://cdn/x.pdf',
+        fileName: 'x.pdf',
+        isDownloadable: true,
+      });
+
+      await expect(service.findContent('lec-1')).resolves.toEqual({
+        lectureType: 'pdf_document',
+        fileUrl: 'https://cdn/x.pdf',
+        fileName: 'x.pdf',
+        isDownloadable: true,
+      });
+    });
+
+    it('should read back a reflection with its questions in display order', async () => {
+      lectureOfType('reflection');
+      lectureContentReflectionsService.findByLectureId.mockResolvedValue({
+        minResponseLength: 50,
+      });
+      reflectionQuestionsService.findByLectureId.mockResolvedValue([
+        { questionText: 'Second', displayOrder: 2 },
+        { questionText: 'First', displayOrder: 1 },
+      ]);
+
+      await expect(service.findContent('lec-1')).resolves.toEqual({
+        lectureType: 'reflection',
+        minResponseLength: 50,
+        reflectionQuestions: [
+          { questionText: 'First', displayOrder: 1 },
+          { questionText: 'Second', displayOrder: 2 },
+        ],
+      });
+    });
+
+    describe('quiz', () => {
+      beforeEach(() => {
+        lectureOfType('quiz');
+        lectureContentQuizzesService.findByLectureId.mockResolvedValue({
+          passingScore: 60,
+          passThresholdPercent: 70,
+          allowResume: true,
+          instructions: 'Đọc kỹ đề',
+          timeLimitSecs: 600,
+        });
+        quizQuestionsService.findByLectureId.mockResolvedValue([
+          {
+            id: 'q2',
+            questionText: 'Second',
+            questionType: 'true_false',
+            isRequired: true,
+            displayOrder: 2,
+          },
+          {
+            id: 'q1',
+            questionText: 'First',
+            questionType: 'multiple_choice',
+            isRequired: true,
+            displayOrder: 1,
+            explanation: 'Vì vậy',
+          },
+        ]);
+        quizAnswerOptionsService.findByQuestionIds.mockResolvedValue([
+          {
+            question: { id: 'q1' },
+            optionText: 'B',
+            isCorrect: true,
+            displayOrder: 2,
+          },
+          {
+            question: { id: 'q1' },
+            optionText: 'A',
+            isCorrect: false,
+            displayOrder: 1,
+          },
+        ]);
+      });
+
+      it('should order questions and their options by displayOrder', async () => {
+        const content: any = await service.findContent('lec-1');
+
+        expect(content.quizQuestions.map((q: any) => q.questionText)).toEqual([
+          'First',
+          'Second',
+        ]);
+        expect(
+          content.quizQuestions[0].options.map((o: any) => o.optionText),
+        ).toEqual(['A', 'B']);
+      });
+
+      // The answer key. This route is admin-only; the player strips it.
+      it('should include isCorrect on the options', async () => {
+        const content: any = await service.findContent('lec-1');
+
+        expect(content.quizQuestions[0].options[1]).toEqual({
+          optionText: 'B',
+          isCorrect: true,
+          displayOrder: 2,
+        });
+      });
+
+      /*
+        Round-trip matters more than the minimum shape: reopening a quiz and
+        saving it must not quietly drop the timer or a per-question
+        explanation, which is the same class of loss this endpoint exists to
+        stop.
+      */
+      it('should return the fields save accepts beyond the visible form', async () => {
+        const content: any = await service.findContent('lec-1');
+
+        expect(content).toMatchObject({
+          passThresholdPercent: 70,
+          timeLimitSecs: 600,
+          instructions: 'Đọc kỹ đề',
+        });
+        expect(content.quizQuestions[0].explanation).toBe('Vì vậy');
+      });
+
+      it('should not query options when the quiz has no questions', async () => {
+        quizQuestionsService.findByLectureId.mockResolvedValue([]);
+
+        const content: any = await service.findContent('lec-1');
+
+        expect(content.quizQuestions).toEqual([]);
+        expect(
+          quizAnswerOptionsService.findByQuestionIds,
+        ).not.toHaveBeenCalled();
+      });
+    });
   });
 });

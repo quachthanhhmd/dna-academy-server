@@ -12,6 +12,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomStringGenerator } from '@nestjs/common/utils/random-string-generator.util';
 import { ConfigService } from '@nestjs/config';
 import { FileType } from '../../../domain/file';
+import { isAllowedUpload } from '../../../file-upload-rules';
 import { AllConfigType } from '../../../../config/config.type';
 
 @Injectable()
@@ -47,7 +48,7 @@ export class FilesS3PresignedService {
       });
     }
 
-    if (!file.fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
+    if (!isAllowedUpload(file.fileName)) {
       throw new UnprocessableEntityException({
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         errors: {

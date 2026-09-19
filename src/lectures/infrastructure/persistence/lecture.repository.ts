@@ -34,6 +34,18 @@ export abstract class LectureRepository {
 
   abstract countBySectionId(sectionId: string): Promise<number>;
 
+  /**
+   * Ids of the course's lectures that already have content saved for their
+   * own `lectureType`. One query for the whole course.
+   */
+  abstract findIdsWithContentByCourseId(courseId: string): Promise<Set<string>>;
+
+  /**
+   * Whether any learner data references this lecture — progress, a quiz
+   * attempt, a saved quiz, or a reflection response.
+   */
+  abstract hasLearnerData(lectureId: Lecture['id']): Promise<boolean>;
+
   abstract getCourseAggregates(
     courseId: string,
   ): Promise<{ totalLectures: number; totalDurationSecs: number }>;

@@ -236,6 +236,10 @@ export class EnrollmentsService {
     });
   }
 
+  clearLastLecture(lectureId: string) {
+    return this.enrollmentRepository.clearLastLecture(lectureId);
+  }
+
   remove(id: Enrollment['id']) {
     return this.enrollmentRepository.remove(id);
   }

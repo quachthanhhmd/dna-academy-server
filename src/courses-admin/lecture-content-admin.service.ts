@@ -34,6 +34,149 @@ export class LectureContentAdminService {
     private readonly courseAggregatesService: CourseAggregatesService,
   ) {}
 
+  /**
+   * The lecture's saved content, in the same shape `save` accepts.
+   *
+   * The editor had no way to read this back: `GET /admin/courses/:id` lists
+   * lectures without their content, so reopening a lecture in a later session
+   * showed empty fields and saving overwrote real content with whatever was
+   * on screen.
+   *
+   * It returns every field `SaveLectureContentDto` carries, not only the ones
+   * the form shows today — a quiz reopened and saved must not silently lose
+   * its time limit or its per-question explanations.
+   *
+   * `null` means "no content row yet", which the controller answers as 204.
+   */
+  async findContent(
+    lectureId: Lecture['id'],
+  ): Promise<Record<string, unknown> | null> {
+    const lecture = await this.findLectureOrThrow(lectureId);
+
+    switch (lecture.lectureType) {
+      case 'video': {
+        const video =
+          await this.lectureContentVideosService.findByLectureId(lectureId);
+
+        return video
+          ? { lectureType: 'video', youtubeUrl: video.youtubeUrl }
+          : null;
+      }
+      case 'article': {
+        const article =
+          await this.lectureContentArticlesService.findByLectureId(lectureId);
+
+        return article ? { lectureType: 'article', body: article.body } : null;
+      }
+      case 'pdf_document': {
+        const document =
+          await this.lectureContentDocumentsService.findByLectureId(lectureId);
+
+        return document
+          ? {
+              lectureType: 'pdf_document',
+              fileUrl: document.fileUrl,
+              fileName: document.fileName ?? null,
+              isDownloadable: document.isDownloadable,
+            }
+          : null;
+      }
+      case 'quiz':
+        return this.findQuizContent(lectureId);
+      case 'reflection':
+        return this.findReflectionContent(lectureId);
+      default:
+        return null;
+    }
+  }
+
+  private async findQuizContent(
+    lectureId: Lecture['id'],
+  ): Promise<Record<string, unknown> | null> {
+    const quiz =
+      await this.lectureContentQuizzesService.findByLectureId(lectureId);
+
+    if (!quiz) {
+      return null;
+    }
+
+    const questions =
+      await this.quizQuestionsService.findByLectureId(lectureId);
+    const options = questions.length
+      ? await this.quizAnswerOptionsService.findByQuestionIds(
+          questions.map((question) => question.id),
+        )
+      : [];
+
+    const byQuestion = new Map<string, typeof options>();
+
+    for (const option of options) {
+      const list = byQuestion.get(option.question.id) ?? [];
+      list.push(option);
+      byQuestion.set(option.question.id, list);
+    }
+
+    const byDisplayOrder = <T extends { displayOrder: number }>(a: T, b: T) =>
+      a.displayOrder - b.displayOrder;
+
+    return {
+      lectureType: 'quiz',
+      passingScore: quiz.passingScore,
+      passThresholdPercent: quiz.passThresholdPercent,
+      allowResume: quiz.allowResume,
+      instructions: quiz.instructions ?? null,
+      timeLimitSecs: quiz.timeLimitSecs ?? null,
+      quizQuestions: [...questions].sort(byDisplayOrder).map((question) => ({
+        questionText: question.questionText,
+        questionType: question.questionType,
+        isRequired: question.isRequired,
+        displayOrder: question.displayOrder,
+        ratingMin: question.ratingMin ?? null,
+        ratingMax: question.ratingMax ?? null,
+        ratingLabelMin: question.ratingLabelMin ?? null,
+        ratingLabelMax: question.ratingLabelMax ?? null,
+        minWordCount: question.minWordCount ?? null,
+        explanation: question.explanation ?? null,
+        allowedMimeTypes: question.allowedMimeTypes ?? null,
+        maxFileSizeMb: question.maxFileSizeMb ?? null,
+        // `isCorrect` is the answer key. This endpoint is admin-only —
+        // the student-facing player strips it.
+        options: [...(byQuestion.get(question.id) ?? [])]
+          .sort(byDisplayOrder)
+          .map((option) => ({
+            optionText: option.optionText,
+            isCorrect: option.isCorrect,
+            displayOrder: option.displayOrder,
+          })),
+      })),
+    };
+  }
+
+  private async findReflectionContent(
+    lectureId: Lecture['id'],
+  ): Promise<Record<string, unknown> | null> {
+    const reflection =
+      await this.lectureContentReflectionsService.findByLectureId(lectureId);
+
+    if (!reflection) {
+      return null;
+    }
+
+    const questions =
+      await this.reflectionQuestionsService.findByLectureId(lectureId);
+
+    return {
+      lectureType: 'reflection',
+      minResponseLength: reflection.minResponseLength,
+      reflectionQuestions: [...questions]
+        .sort((a, b) => a.displayOrder - b.displayOrder)
+        .map((question) => ({
+          questionText: question.questionText,
+          displayOrder: question.displayOrder,
+        })),
+    };
+  }
+
   async save(lectureId: Lecture['id'], dto: SaveLectureContentDto) {
     const lecture = await this.findLectureOrThrow(lectureId);
     const courseId = lecture.section.course.id;
@@ -263,6 +406,27 @@ export class LectureContentAdminService {
     }
 
     return content;
+  }
+
+  /**
+   * Removes every content row a lecture may hold, whatever its type.
+   *
+   * Used when deleting a lecture: content rows reference it, so deleting the
+   * lecture first is a foreign-key violation — which is what surfaced as a
+   * 500 for any lecture that had been filled in. Every type is cleared, not
+   * just the current one, because switching a lecture's type can leave the
+   * previous content behind.
+   */
+  async clearAllContent(lectureId: Lecture['id']): Promise<void> {
+    for (const type of [
+      'video',
+      'article',
+      'pdf_document',
+      'quiz',
+      'reflection',
+    ]) {
+      await this.clearContentForType(lectureId, type);
+    }
   }
 
   /** Deletes any existing content for `type`; returns whether anything was cleared. */

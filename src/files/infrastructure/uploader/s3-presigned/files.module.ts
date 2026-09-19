@@ -13,6 +13,7 @@ import multerS3 from 'multer-s3';
 import { FilesS3PresignedService } from './files.service';
 
 import { RelationalFilePersistenceModule } from '../../persistence/relational/relational-persistence.module';
+import { isAllowedUpload } from '../../../file-upload-rules';
 import { AllConfigType } from '../../../../config/config.type';
 
 @Module({
@@ -36,7 +37,7 @@ import { AllConfigType } from '../../../../config/config.type';
 
         return {
           fileFilter: (request, file, callback) => {
-            if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
+            if (!isAllowedUpload(file.originalname, file.mimetype)) {
               return callback(
                 new UnprocessableEntityException({
                   status: HttpStatus.UNPROCESSABLE_ENTITY,

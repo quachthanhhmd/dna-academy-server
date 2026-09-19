@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   HttpStatus,
   Injectable,
   NotFoundException,
@@ -10,7 +11,9 @@ import { SectionsService } from '../sections/sections.service';
 import { Section } from '../sections/domain/section';
 import { LecturesService } from '../lectures/lectures.service';
 import { Lecture } from '../lectures/domain/lecture';
+import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { CourseAggregatesService } from './course-aggregates.service';
+import { LectureContentAdminService } from './lecture-content-admin.service';
 import { CreateLectureAdminDto } from './dto/create-lecture-admin.dto';
 import { UpdateLectureAdminDto } from './dto/update-lecture-admin.dto';
 
@@ -48,6 +51,8 @@ export class LecturesAdminService {
     private readonly sectionsService: SectionsService,
     private readonly lecturesService: LecturesService,
     private readonly courseAggregatesService: CourseAggregatesService,
+    private readonly lectureContentAdminService: LectureContentAdminService,
+    private readonly enrollmentsService: EnrollmentsService,
   ) {}
 
   async create(
@@ -114,8 +119,47 @@ export class LecturesAdminService {
     await this.findSectionInCourseOrThrow(courseId, sectionId);
     await this.findLectureInSectionOrThrow(sectionId, lectureId);
 
-    await this.lecturesService.remove(lectureId);
+    await this.deleteLecture(lectureId);
     await this.courseAggregatesService.recalculate(courseId);
+  }
+
+  /**
+   * Deletes one lecture and everything that exists only to describe it.
+   *
+   * Eleven tables reference `lecture`, and deleting the row first meant a
+   * foreign-key violation surfacing as a 500 for any lecture that had been
+   * filled in — so no quiz or article lecture could be removed at all.
+   *
+   * Order matters: content rows are cleared through the same service path the
+   * editor uses, so the rules for what a lecture's content *is* stay in one
+   * place, and only then is the lecture removed.
+   *
+   * Learner data is never deleted quietly. A lecture a student has opened,
+   * attempted or written about is refused with 409: the request to tidy up a
+   * curriculum should not erase somebody's attempt history. `lastLecture` is
+   * the exception — it is a bookmark for "Continue Learning", not something a
+   * student produced, so it is released rather than defended.
+   */
+  private async deleteLecture(lectureId: Lecture['id']): Promise<void> {
+    if (await this.lecturesService.hasLearnerData(lectureId)) {
+      throw new ConflictException({
+        status: HttpStatus.CONFLICT,
+        code: 'lectureHasLearnerData',
+      });
+    }
+
+    await this.lectureContentAdminService.clearAllContent(lectureId);
+    await this.enrollmentsService.clearLastLecture(lectureId);
+    await this.lecturesService.remove(lectureId);
+  }
+
+  /** Used by the forced section delete, which removes its lectures first. */
+  async deleteLecturesOfSection(sectionId: Section['id']): Promise<void> {
+    const lectures = await this.lecturesService.findBySectionId(sectionId);
+
+    for (const lecture of lectures) {
+      await this.deleteLecture(lecture.id);
+    }
   }
 
   async reorder(
