@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   HttpStatus,
   Injectable,
   NotFoundException,
@@ -38,9 +39,15 @@ import { AuthOnboardingDto } from './dto/auth-onboarding.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
 import { UserRolesService } from '../user-roles/user-roles.service';
 import { RolePermissionsService } from '../role-permissions/role-permissions.service';
+import { LoginFailureLimiter } from './login-failure-limiter';
+
+/** Permission model O1 — how long an instructor invite stays usable. */
+export const INVITE_EXPIRES_IN = '72h';
 
 @Injectable()
 export class AuthService {
+  private readonly loginFailures = new LoginFailureLimiter();
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
@@ -56,6 +63,23 @@ export class AuthService {
   ) {}
 
   async validateLogin(loginDto: AuthEmailLoginDto): Promise<LoginResponseDto> {
+    this.loginFailures.assertAllowed(loginDto.email);
+
+    try {
+      const response = await this.checkEmailLogin(loginDto);
+      this.loginFailures.clear(loginDto.email);
+      return response;
+    } catch (error) {
+      if (error instanceof UnprocessableEntityException) {
+        this.loginFailures.recordFailure(loginDto.email);
+      }
+      throw error;
+    }
+  }
+
+  private async checkEmailLogin(
+    loginDto: AuthEmailLoginDto,
+  ): Promise<LoginResponseDto> {
     const user = await this.usersService.findByEmail(loginDto.email);
 
     if (!user) {
@@ -102,7 +126,23 @@ export class AuthService {
     return this.buildLoginResponse(user);
   }
 
+  /**
+   * D9 — a deactivated account gets no new session, by any login method.
+   * Called only once the caller has proved who they are, so the account's
+   * state is not disclosed to someone guessing.
+   */
+  private assertCanSignIn(user: User): void {
+    if (user.status?.id?.toString() === StatusEnum.deactivated.toString()) {
+      throw new ForbiddenException({
+        status: HttpStatus.FORBIDDEN,
+        code: 'ACCOUNT_DEACTIVATED',
+      });
+    }
+  }
+
   private async buildLoginResponse(user: User): Promise<LoginResponseDto> {
+    this.assertCanSignIn(user);
+
     const hash = crypto
       .createHash('sha256')
       .update(randomStringGenerator())
@@ -115,7 +155,6 @@ export class AuthService {
 
     const { token, refreshToken, tokenExpires } = await this.getTokensData({
       id: user.id,
-      role: user.role,
       sessionId: session.id,
       hash,
     });
@@ -129,79 +168,27 @@ export class AuthService {
     };
   }
 
+  /**
+   * Permission model §2.8 — Facebook and Google sign in through one path.
+   *
+   * 1. A linked identity signs in as its account, which is left untouched
+   *    (G4: the address a provider reports can drift to one the user does not
+   *    control).
+   * 2. Otherwise an email the provider vouches for (G2) links to the account
+   *    holding it — unless that account holds any admin-panel permission
+   *    (G3), and after taking an unverified account back from whoever
+   *    registered it (G1).
+   * 3. Otherwise a new User account is created.
+   *
+   * Links are only ever written here and by `/auth/me/social-links` (G6), and
+   * `(provider, provider_uid)` is unique (G5).
+   */
   async validateSocialLogin(
-    authProvider: string,
+    provider: AuthProvidersEnum,
     socialData: SocialInterface,
   ): Promise<LoginResponseDto> {
-    let user: NullableType<User> = null;
-    const socialEmail = socialData.email?.toLowerCase();
-    let userByEmail: NullableType<User> = null;
-
-    if (socialEmail) {
-      userByEmail = await this.usersService.findByEmail(socialEmail);
-    }
-
-    if (socialData.id) {
-      user = await this.usersService.findBySocialIdAndProvider({
-        socialId: socialData.id,
-        provider: authProvider,
-      });
-    }
-
-    // A returning user is identified by their provider id and left untouched:
-    // the email a provider reports can drift to an address the user does not
-    // control, and copying it onto the account would route "forgot password"
-    // there.
-    if (!user && userByEmail) {
-      user = await this.prepareLinkByEmail(userByEmail);
-    } else if (!user && socialData.id) {
-      const role = {
-        id: RoleEnum.user,
-      };
-      const status = {
-        id: StatusEnum.active,
-      };
-
-      user = await this.usersService.create({
-        email: socialEmail ?? null,
-        firstName: socialData.firstName ?? null,
-        lastName: socialData.lastName ?? null,
-        fullName:
-          [socialData.firstName, socialData.lastName]
-            .filter(Boolean)
-            .join(' ') ||
-          (socialEmail ?? ''),
-        emailVerified: true,
-        onboardingDone: false,
-        socialId: socialData.id,
-        provider: authProvider,
-        role,
-        status,
-      });
-
-      user = await this.usersService.findById(user.id);
-    }
-
-    if (!user) {
-      throw new UnprocessableEntityException({
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        errors: {
-          user: 'userNotFound',
-        },
-      });
-    }
-
-    return this.buildLoginResponse(user);
-  }
-
-  async validateFacebookLogin(
-    socialData: SocialInterface,
-  ): Promise<LoginResponseDto> {
-    const provider = AuthProvidersEnum.facebook;
-
     // TypeORM ignores an undefined property in `where`, so a missing uid would
-    // widen findByProviderAndProviderUid to every Facebook-linked account and
-    // sign in as whichever came first.
+    // widen the lookup to every account linked to this provider.
     if (!socialData.id) {
       throw new UnprocessableEntityException({
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -211,24 +198,35 @@ export class AuthService {
       });
     }
 
-    const oauthAccount =
-      await this.oauthAccountsService.findByProviderAndProviderUid(
-        provider,
-        socialData.id,
-      );
+    const link = await this.oauthAccountsService.findByProviderAndProviderUid(
+      provider,
+      socialData.id,
+    );
 
-    if (oauthAccount) {
-      // Existing link: do NOT overwrite manually updated user fields on re-login.
-      return this.buildLoginResponse(oauthAccount.user);
+    if (link) {
+      // A link outliving its account (deleted since) must not resurrect it.
+      if (!link.user) {
+        throw new UnprocessableEntityException({
+          status: HttpStatus.UNPROCESSABLE_ENTITY,
+          errors: {
+            user: 'userNotFound',
+          },
+        });
+      }
+
+      return this.buildLoginResponse(link.user);
     }
 
     const socialEmail = socialData.email?.toLowerCase();
-    let user: NullableType<User> = socialEmail
+    const existing = socialEmail
       ? await this.usersService.findByEmail(socialEmail)
       : null;
 
-    if (user) {
-      user = await this.prepareLinkByEmail(user);
+    let user: User;
+
+    if (existing) {
+      this.assertCanSignIn(existing);
+      user = await this.prepareLinkByEmail(existing);
     } else {
       user = await this.usersService.create({
         email: socialEmail ?? null,
@@ -240,16 +238,16 @@ export class AuthService {
             .join(' ') ||
           (socialEmail ?? ''),
         profilePictureUrl: socialData.picture ?? null,
-        emailVerified: true,
+        // Only an address the provider vouched for reaches this point.
+        emailVerified: Boolean(socialEmail),
         onboardingDone: false,
         provider,
-        role: {
-          id: RoleEnum.user,
-        },
         status: {
           id: StatusEnum.active,
         },
       });
+
+      await this.userRolesService.setRole(user.id, RoleEnum.user, null);
     }
 
     await this.oauthAccountsService.create({
@@ -268,13 +266,12 @@ export class AuthService {
       fullName: `${dto.firstName} ${dto.lastName}`,
       emailVerified: false,
       onboardingDone: false,
-      role: {
-        id: RoleEnum.user,
-      },
       status: {
         id: StatusEnum.inactive,
       },
     });
+
+    await this.userRolesService.setRole(user.id, RoleEnum.user, null);
 
     await this.studentProfilesService.create({
       user: { id: user.id },
@@ -539,7 +536,49 @@ export class AuthService {
       userId: user.id,
     });
 
-    await this.usersService.update(user.id, { password });
+    // §1.5 — the link was sent to the account's address, so following it
+    // proves the address. A deactivated account stays deactivated (D9).
+    await this.usersService.update(user.id, {
+      password,
+      emailVerified: true,
+      ...(user.status?.id?.toString() === StatusEnum.inactive.toString()
+        ? { status: { id: StatusEnum.active } }
+        : {}),
+    });
+  }
+
+  /**
+   * Permission model §2.9 — the invite for an account created without a
+   * password: a reset link bound to the account's current (empty) password,
+   * so it works once, living {@link INVITE_EXPIRES_IN} (O1).
+   */
+  async sendPasswordInvite(
+    user: Pick<User, 'id' | 'email' | 'password'>,
+  ): Promise<void> {
+    if (!user.email) {
+      return;
+    }
+
+    const hash = await this.jwtService.signAsync(
+      {
+        forgotUserId: user.id,
+        pwd: this.passwordFingerprint(user.password),
+      },
+      {
+        secret: this.configService.getOrThrow('auth.forgotSecret', {
+          infer: true,
+        }),
+        expiresIn: INVITE_EXPIRES_IN,
+      },
+    );
+
+    await this.mailService.instructorInvite({
+      to: user.email,
+      data: {
+        hash,
+        tokenExpires: Date.now() + ms(INVITE_EXPIRES_IN),
+      },
+    });
   }
 
   async me(userJwtPayload: JwtPayloadType): Promise<NullableType<User>> {
@@ -674,15 +713,15 @@ export class AuthService {
 
     const user = await this.usersService.findById(session.user.id);
 
-    if (!user?.role) {
+    if (
+      !user ||
+      user.status?.id?.toString() === StatusEnum.deactivated.toString()
+    ) {
       throw new UnauthorizedException();
     }
 
     const { token, refreshToken, tokenExpires } = await this.getTokensData({
       id: session.user.id,
-      role: {
-        id: user.role.id,
-      },
       sessionId: session.id,
       hash,
     });
@@ -923,9 +962,13 @@ export class AuthService {
     return left.length === right.length && crypto.timingSafeEqual(left, right);
   }
 
+  /**
+   * The access token names the user and the session, nothing else. Roles and
+   * permissions are read from the database on each request, so a demotion
+   * takes effect on the next one (permission model §2.5).
+   */
   private async getTokensData(data: {
     id: User['id'];
-    role: User['role'];
     sessionId: Session['id'];
     hash: Session['hash'];
   }) {
@@ -939,7 +982,6 @@ export class AuthService {
       await this.jwtService.signAsync(
         {
           id: data.id,
-          role: data.role,
           sessionId: data.sessionId,
         },
         {

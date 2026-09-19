@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { CareerReflectionAnswersService } from './career-reflection-answers.service';
-import { CareerReflectionAnswersController } from './career-reflection-answers.controller';
 import { RelationalCareerReflectionAnswerPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -21,7 +20,6 @@ import { RelationalCareerReflectionAnswerPersistenceModule } from './infrastruct
     // do not remove this comment
     RelationalCareerReflectionAnswerPersistenceModule,
   ],
-  controllers: [CareerReflectionAnswersController],
   providers: [CareerReflectionAnswersService],
   exports: [
     CareerReflectionAnswersService,

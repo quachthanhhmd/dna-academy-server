@@ -2,12 +2,13 @@ import { describe, expect, it, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
 import {
+  ADMIN_ROLE_ID,
+  INSTRUCTOR_ROLE_ID,
+  USER_ROLE_ID,
   loginSeededSuperAdmin,
   makeSuperAdmin,
-  setUserRoles,
+  setUserRole,
 } from '../utils/admin';
-
-const SUPER_ADMIN_ROLE_ID = 3;
 
 describe('Admin / Roles', () => {
   const app = APP_URL;
@@ -71,11 +72,9 @@ describe('Admin / Roles', () => {
         .auth(superAdminToken, { type: 'bearer' })
         .expect(200)
         .expect(({ body }) => {
-          const superAdminRow = body.find(
-            (role) => role.id === SUPER_ADMIN_ROLE_ID,
-          );
-          expect(superAdminRow).toBeDefined();
-          expect(superAdminRow.assignedUsersCount).toBeGreaterThanOrEqual(1);
+          const adminRow = body.find((role) => role.id === ADMIN_ROLE_ID);
+          expect(adminRow).toBeDefined();
+          expect(adminRow.assignedUsersCount).toBeGreaterThanOrEqual(1);
         });
     });
 
@@ -166,7 +165,7 @@ describe('Admin / Roles', () => {
       const member = await registerAndLogin(
         `roles-admin.member.${runId}@example.com`,
       );
-      await setUserRoles(app, superAdminToken, member.userId, [roleId]);
+      await setUserRole(app, superAdminToken, member.userId, roleId);
 
       await request(app)
         .delete(`/api/v1/admin/roles/${roleId}`)
@@ -176,9 +175,9 @@ describe('Admin / Roles', () => {
           expect(body.code).toBe('ROLE_HAS_USERS');
         });
 
-      // Clear the assignment so the next test can delete the role. PUT
-      // replaces the whole set, so an empty array is the removal.
-      await setUserRoles(app, superAdminToken, member.userId, []);
+      // Move the member off the role so the next test can delete it. Every
+      // user holds exactly one role, so "no role" is not an option.
+      await setUserRole(app, superAdminToken, member.userId, USER_ROLE_ID);
     });
 
     it('should delete a role with no assigned users: DELETE /admin/roles/:id', async () => {
@@ -192,5 +191,115 @@ describe('Admin / Roles', () => {
         .auth(superAdminToken, { type: 'bearer' })
         .expect(404);
     });
+  });
+
+  // With custom roles first-class (D4), roles:edit must not be a way up.
+  describe('escalation through role editing', () => {
+    const permissionIds = async (roleId: number, keys: string[]) => {
+      const { body } = await request(app)
+        .get(`/api/v1/admin/roles/${roleId}/permissions`)
+        .auth(superAdminToken, { type: 'bearer' })
+        .expect(200);
+      return (
+        body as {
+          module: { name: string };
+          permissions: { id: string; action: string }[];
+        }[]
+      ).flatMap((group) =>
+        group.permissions
+          .filter((p) => keys.includes(`${group.module.name}:${p.action}`))
+          .map((p) => p.id),
+      );
+    };
+
+    const newRole = async (name: string, keys: string[]) => {
+      const { body: role } = await request(app)
+        .post('/api/v1/admin/roles')
+        .auth(superAdminToken, { type: 'bearer' })
+        .send({ name: `${name} ${Date.now()}` })
+        .expect(201);
+      await request(app)
+        .put(`/api/v1/admin/roles/${role.id}/permissions`)
+        .auth(superAdminToken, { type: 'bearer' })
+        .send({ permissionIds: await permissionIds(role.id, keys) })
+        .expect(200);
+      return role.id as number;
+    };
+
+    let editorToken: string;
+    let editorRoleId: number;
+
+    beforeAll(async () => {
+      editorRoleId = await newRole('Role editor', [
+        'roles:view',
+        'roles:edit',
+        'roles:delete',
+      ]);
+      const editor = await registerAndLogin(
+        `roles-admin.editor.${Date.now()}@example.com`,
+      );
+      await setUserRole(app, superAdminToken, editor.userId, editorRoleId);
+      editorToken = editor.token;
+    });
+
+    it('should not let a role editor grant their own role more', async () => {
+      const { body } = await request(app)
+        .put(`/api/v1/admin/roles/${editorRoleId}/permissions`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({
+          permissionIds: await permissionIds(editorRoleId, [
+            'roles:view',
+            'roles:edit',
+            'users:assign_role',
+          ]),
+        })
+        .expect(403);
+
+      expect(body.code).toBe('ROLE_EXCEEDS_CALLER');
+    });
+
+    it('should not let a role editor change a role stronger than theirs', async () => {
+      const { body } = await request(app)
+        .put(`/api/v1/admin/roles/${INSTRUCTOR_ROLE_ID}/permissions`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({ permissionIds: [] })
+        .expect(403);
+
+      expect(body.code).toBe('ROLE_EXCEEDS_CALLER');
+    });
+
+    it('should let a role editor change a role within their own permissions', async () => {
+      const weaker = await newRole('Weaker', ['roles:view']);
+
+      await request(app)
+        .put(`/api/v1/admin/roles/${weaker}/permissions`)
+        .auth(editorToken, { type: 'bearer' })
+        .send({ permissionIds: await permissionIds(weaker, ['roles:edit']) })
+        .expect(200);
+    });
+
+    // Admin holds every permission by definition; editing it could only
+    // lock everyone out.
+    it('should keep the Admin role’s permissions fixed, even for an admin', async () => {
+      const { body } = await request(app)
+        .put(`/api/v1/admin/roles/${ADMIN_ROLE_ID}/permissions`)
+        .auth(superAdminToken, { type: 'bearer' })
+        .send({ permissionIds: [] })
+        .expect(409);
+
+      expect(body.error).toBe('built_in_role');
+    });
+
+    it.each([ADMIN_ROLE_ID, USER_ROLE_ID, INSTRUCTOR_ROLE_ID])(
+      'should refuse to delete built-in role %i',
+      async (roleId) => {
+        const { body } = await request(app)
+          .delete(`/api/v1/admin/roles/${roleId}`)
+          .auth(superAdminToken, { type: 'bearer' })
+          .expect(409);
+
+        expect(body.error).toBe('built_in_role');
+      },
+    );
   });
 });

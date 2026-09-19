@@ -1,10 +1,17 @@
 import {
+  RateLimit,
+  RateLimitGuard,
+} from '../utils/rate-limit/rate-limit.guard';
+import { MINUTE } from '../utils/rate-limit/rate-limit.constants';
+import { AuthProvidersEnum } from '../auth/auth-providers.enum';
+import {
   Body,
   Controller,
   HttpCode,
   HttpStatus,
   Post,
   SerializeOptions,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from '../auth/auth.service';
@@ -34,6 +41,9 @@ export class AuthFacebookController {
   @SerializeOptions({
     groups: ['me'],
   })
+  // Each call reaches the provider's API; bound what one address can spend.
+  @UseGuards(RateLimitGuard)
+  @RateLimit(60, 15 * MINUTE, 'ip')
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -42,6 +52,9 @@ export class AuthFacebookController {
     const socialData =
       await this.authFacebookService.getProfileByToken(loginDto);
 
-    return this.authService.validateFacebookLogin(socialData);
+    return this.authService.validateSocialLogin(
+      AuthProvidersEnum.facebook,
+      socialData,
+    );
   }
 }

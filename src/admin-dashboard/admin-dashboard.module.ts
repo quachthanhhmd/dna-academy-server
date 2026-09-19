@@ -1,3 +1,4 @@
+import { CourseAccessModule } from '../course-access/course-access.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CareerReflectionAnswerEntity } from '../career-reflection-answers/infrastructure/persistence/relational/entities/career-reflection-answer.entity';
@@ -26,6 +27,8 @@ import { StudentsService } from './services/students.service';
       CareerReflectionQuestionEntity,
     ]),
     AuthorizationModule,
+    // Scope: which courses the caller is primary on (permission model §1.9).
+    CourseAccessModule,
     // One Chromium per process, shared with the certificate download.
     PdfModule,
   ],

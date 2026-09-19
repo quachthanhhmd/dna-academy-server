@@ -8,9 +8,11 @@ import {
   ManyToOne,
   Column,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
+@Unique('UQ_permission_module_action', ['module', 'action'])
 @Entity({
   name: 'permission',
 })

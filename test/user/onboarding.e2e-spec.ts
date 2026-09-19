@@ -1,6 +1,8 @@
-import { describe, expect, it, beforeAll } from '@jest/globals';
+import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
+import { loginSeededSuperAdmin } from '../utils/admin';
+import { deactivateMasterDataCodes } from '../utils/cleanup';
 
 describe('Student Onboarding (Epic 1)', () => {
   const app = APP_URL;
@@ -11,7 +13,8 @@ describe('Student Onboarding (Epic 1)', () => {
   let careerInterestCodeId: string;
   let otherCareerInterestCodeId: string;
 
-  let setupToken: string;
+  let adminToken: string;
+  const createdCodes: { groupKey: string; id: string }[] = [];
 
   const registerAndLogin = async (email: string, password = 'secret') => {
     await request(app)
@@ -25,108 +28,78 @@ describe('Student Onboarding (Epic 1)', () => {
       .then(({ body }) => body.token as string);
   };
 
-  const createMasterDataGroup = async (token: string, groupKey: string) => {
-    const { body: group } = await request(app)
-      .post('/api/v1/master-data-groups')
-      .auth(token, { type: 'bearer' })
-      .send({
-        displayOrder: 1,
-        isActive: true,
-        name: `${groupKey}-${runId}`,
-        groupKey,
-      })
-      .expect(201);
-
-    return group.id as string;
-  };
-
+  /**
+   * Fixture codes go in through the admin route, as real master data does. The
+   * generated `/master-data-groups` and `/master-data-codes` writes this suite
+   * used to call were open to any logged-in user — permission model §1.10.
+   */
   const createMasterDataCode = async (
-    token: string,
-    groupId: string,
+    groupKey: string,
     code: string,
     name: string,
   ) => {
     const { body: masterDataCode } = await request(app)
-      .post('/api/v1/master-data-codes')
-      .auth(token, { type: 'bearer' })
-      .send({
-        displayOrder: 1,
-        isActive: true,
-        name,
-        code,
-        group: { id: groupId },
-      })
+      .post(`/api/v1/admin/master-data/groups/${groupKey}/codes`)
+      .auth(adminToken, { type: 'bearer' })
+      .send({ displayOrder: 1, isActive: true, name: `${name} ${runId}`, code })
       .expect(201);
+
+    createdCodes.push({ groupKey, id: masterDataCode.id as string });
 
     return masterDataCode.id as string;
   };
 
   beforeAll(async () => {
-    // Any authenticated user can create master data — use a throwaway account
-    // to seed the lookup codes this suite needs.
-    setupToken = await registerAndLogin(
-      `onboarding.setup.${runId}@example.com`,
-    );
+    adminToken = await loginSeededSuperAdmin(app);
 
     // PATCH /auth/profile/onboarding hardcodes these exact group keys, so the
-    // codes used in onboarding assertions must live under them (not a per-run
-    // suffixed key) even though multiple test runs will each add their own rows.
-    const educationStageGroupId = await createMasterDataGroup(
-      setupToken,
-      'education_stage',
-    );
-    const careerInterestGroupId = await createMasterDataGroup(
-      setupToken,
-      'career_interest',
-    );
-
+    // codes used in onboarding assertions must live under them.
     educationStageCodeId = await createMasterDataCode(
-      setupToken,
-      educationStageGroupId,
+      'education_stage',
       `high_school_${runId}`,
       'High School',
     );
     otherEducationStageCodeId = await createMasterDataCode(
-      setupToken,
-      educationStageGroupId,
+      'education_stage',
       `university_${runId}`,
       'University',
     );
     careerInterestCodeId = await createMasterDataCode(
-      setupToken,
-      careerInterestGroupId,
+      'career_interest',
       `engineering_${runId}`,
       'Engineering',
     );
     otherCareerInterestCodeId = await createMasterDataCode(
-      setupToken,
-      careerInterestGroupId,
+      'career_interest',
       'other',
       'Other',
     );
   });
 
+  afterAll(async () => {
+    for (const groupKey of ['education_stage', 'career_interest']) {
+      await deactivateMasterDataCodes(
+        app,
+        adminToken,
+        groupKey,
+        createdCodes.filter((c) => c.groupKey === groupKey).map((c) => c.id),
+      );
+    }
+  });
+
   describe('GET /master-data-codes?groupKey=... (FE dropdown source)', () => {
     it('should only return codes belonging to the requested group', async () => {
-      // Use a groupKey unique to this test (not the shared 'education_stage'
-      // group, which accumulates rows across runs) so the result set is exact.
-      const groupKey = `e2e_filter_test_${runId}`;
-      const groupId = await createMasterDataGroup(setupToken, groupKey);
-      const codeId = await createMasterDataCode(
-        setupToken,
-        groupId,
-        'sample',
-        'Sample',
-      );
-
       const { body } = await request(app)
-        .get(`/api/v1/master-data-codes?groupKey=${groupKey}&limit=50`)
-        .auth(setupToken, { type: 'bearer' })
+        .get('/api/v1/master-data-codes?groupKey=career_interest&limit=50')
+        .auth(adminToken, { type: 'bearer' })
         .expect(200);
 
-      expect(body.data).toHaveLength(1);
-      expect(body.data[0].id).toBe(codeId);
-      expect(body.data[0].group.groupKey).toBe(groupKey);
+      const ids = body.data.map((code) => code.id);
+      expect(ids).toContain(careerInterestCodeId);
+      expect(ids).not.toContain(educationStageCodeId);
+      body.data.forEach((code) => {
+        expect(code.group.groupKey).toBe('career_interest');
+      });
     });
   });
 

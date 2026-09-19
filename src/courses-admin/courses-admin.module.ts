@@ -1,3 +1,4 @@
+import { CourseAccessModule } from '../course-access/course-access.module';
 import { Module } from '@nestjs/common';
 import { CoursesModule } from '../courses/courses.module';
 import { MasterDataCodesModule } from '../master-data-codes/master-data-codes.module';
@@ -59,6 +60,7 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
     LectureContentReflectionsModule,
     ReflectionQuestionsModule,
     AuthorizationModule,
+    CourseAccessModule,
   ],
   controllers: [
     CoursesAdminController,

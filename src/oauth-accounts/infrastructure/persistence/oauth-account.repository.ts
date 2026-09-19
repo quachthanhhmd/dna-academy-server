@@ -25,6 +25,8 @@ export abstract class OauthAccountRepository {
     providerUid: string,
   ): Promise<NullableType<OauthAccount>>;
 
+  abstract findByUserId(userId: number): Promise<OauthAccount[]>;
+
   abstract update(
     id: OauthAccount['id'],
     payload: DeepPartial<OauthAccount>,

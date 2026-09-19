@@ -4,9 +4,11 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   Column,
+  Unique,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
+@Unique('UQ_module_name', ['name'])
 @Entity({
   name: 'module',
 })

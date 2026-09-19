@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { CertificatesService } from './certificates.service';
-import { CertificatesController } from './certificates.controller';
 import { RelationalCertificatePersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -27,7 +26,6 @@ import { RelationalCertificatePersistenceModule } from './infrastructure/persist
     // do not remove this comment
     RelationalCertificatePersistenceModule,
   ],
-  controllers: [CertificatesController],
   providers: [CertificatesService],
   exports: [CertificatesService, RelationalCertificatePersistenceModule],
 })

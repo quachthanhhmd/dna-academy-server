@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { MasterDataGroupSeedService } from '../master-data-group/master-data-group-seed.service';
 import { MasterDataCodeSeedService } from '../master-data-code/master-data-code-seed.service';
-import { SuperAdminSeedService } from '../super-admin/super-admin-seed.service';
+import { AdminBootstrapSeedService } from '../admin-bootstrap/admin-bootstrap-seed.service';
 
 /**
  * Runs the hard-coded startup seeds on every application boot.
@@ -18,7 +18,7 @@ export class MasterDataStartupSeedService implements OnApplicationBootstrap {
   constructor(
     private readonly groupSeedService: MasterDataGroupSeedService,
     private readonly codeSeedService: MasterDataCodeSeedService,
-    private readonly superAdminSeedService: SuperAdminSeedService,
+    private readonly adminBootstrapSeedService: AdminBootstrapSeedService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -27,7 +27,7 @@ export class MasterDataStartupSeedService implements OnApplicationBootstrap {
       await this.codeSeedService.run();
       // Without this a fresh database has nobody who can pass a
       // @RequirePermission check, including the route that assigns roles.
-      await this.superAdminSeedService.run();
+      await this.adminBootstrapSeedService.run();
     } catch (error) {
       // Seeding is a convenience, not a precondition for serving traffic —
       // a failure here (e.g. migrations not yet applied) must not stop boot.

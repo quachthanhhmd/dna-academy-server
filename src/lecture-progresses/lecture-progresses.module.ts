@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { LectureProgressesService } from './lecture-progresses.service';
-import { LectureProgressesController } from './lecture-progresses.controller';
 import { RelationalLectureProgressPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -21,7 +20,6 @@ import { RelationalLectureProgressPersistenceModule } from './infrastructure/per
     // do not remove this comment
     RelationalLectureProgressPersistenceModule,
   ],
-  controllers: [LectureProgressesController],
   providers: [LectureProgressesService],
   exports: [
     LectureProgressesService,

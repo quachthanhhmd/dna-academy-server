@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { ReflectionResponsesService } from './reflection-responses.service';
-import { ReflectionResponsesController } from './reflection-responses.controller';
 import { RelationalReflectionResponsePersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -21,7 +20,6 @@ import { RelationalReflectionResponsePersistenceModule } from './infrastructure/
     // do not remove this comment
     RelationalReflectionResponsePersistenceModule,
   ],
-  controllers: [ReflectionResponsesController],
   providers: [ReflectionResponsesService],
   exports: [
     ReflectionResponsesService,

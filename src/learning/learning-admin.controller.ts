@@ -17,6 +17,8 @@ import {
 } from '@nestjs/swagger';
 import { PermissionGuard } from '../authorization/permission.guard';
 import { RequirePermission } from '../authorization/require-permission.decorator';
+import { CourseAccessGuard } from '../course-access/course-access.guard';
+import { CourseAccess } from '../course-access/course-access.decorator';
 import { EnrollmentResetService } from './services/enrollment-reset.service';
 import { ResetProgressResultDto } from './dto/progress.dto';
 
@@ -25,7 +27,7 @@ import { ResetProgressResultDto } from './dto/progress.dto';
  */
 @ApiTags('Admin / Enrollments')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@UseGuards(AuthGuard('jwt'), PermissionGuard, CourseAccessGuard)
 @Controller({ path: 'admin/enrollments', version: '1' })
 export class LearningAdminController {
   constructor(private readonly resetService: EnrollmentResetService) {}
@@ -43,6 +45,7 @@ export class LearningAdminController {
       'same number. Every call is logged with the acting admin.',
   })
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { enrollment: 'id' } })
   @Delete(':id/progress')
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: ResetProgressResultDto })

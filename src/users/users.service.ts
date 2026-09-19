@@ -12,11 +12,9 @@ import { User } from './domain/user';
 import bcrypt from 'bcryptjs';
 import { AuthProvidersEnum } from '../auth/auth-providers.enum';
 import { FilesService } from '../files/files.service';
-import { RoleEnum } from '../roles/roles.enum';
 import { StatusEnum } from '../statuses/statuses.enum';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { FileType } from '../files/domain/file';
-import { Role } from '../roles/domain/role';
 import { Status } from '../statuses/domain/status';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -74,26 +72,6 @@ export class UsersService {
       photo = null;
     }
 
-    let role: Role | undefined = undefined;
-
-    if (createUserDto.role?.id) {
-      const roleObject = Object.values(RoleEnum)
-        .map(String)
-        .includes(String(createUserDto.role.id));
-      if (!roleObject) {
-        throw new UnprocessableEntityException({
-          status: HttpStatus.UNPROCESSABLE_ENTITY,
-          errors: {
-            role: 'roleNotExists',
-          },
-        });
-      }
-
-      role = {
-        id: Number(createUserDto.role.id),
-      };
-    }
-
     let status: Status | undefined = undefined;
 
     if (createUserDto.status?.id) {
@@ -140,10 +118,8 @@ export class UsersService {
       email: email,
       password: password,
       photo: photo,
-      role: role,
       status: status,
       provider: createUserDto.provider ?? AuthProvidersEnum.email,
-      socialId: createUserDto.socialId,
     });
   }
 
@@ -173,19 +149,6 @@ export class UsersService {
 
   findByEmail(email: User['email']): Promise<NullableType<User>> {
     return this.usersRepository.findByEmail(email);
-  }
-
-  findBySocialIdAndProvider({
-    socialId,
-    provider,
-  }: {
-    socialId: User['socialId'];
-    provider: User['provider'];
-  }): Promise<NullableType<User>> {
-    return this.usersRepository.findBySocialIdAndProvider({
-      socialId,
-      provider,
-    });
   }
 
   async update(
@@ -246,26 +209,6 @@ export class UsersService {
       photo = null;
     }
 
-    let role: Role | undefined = undefined;
-
-    if (updateUserDto.role?.id) {
-      const roleObject = Object.values(RoleEnum)
-        .map(String)
-        .includes(String(updateUserDto.role.id));
-      if (!roleObject) {
-        throw new UnprocessableEntityException({
-          status: HttpStatus.UNPROCESSABLE_ENTITY,
-          errors: {
-            role: 'roleNotExists',
-          },
-        });
-      }
-
-      role = {
-        id: Number(updateUserDto.role.id),
-      };
-    }
-
     let status: Status | undefined = undefined;
 
     if (updateUserDto.status?.id) {
@@ -308,10 +251,8 @@ export class UsersService {
       email,
       password,
       photo,
-      role,
       status,
       provider: updateUserDto.provider,
-      socialId: updateUserDto.socialId,
     });
   }
 

@@ -176,6 +176,8 @@ export class CoursesService {
       levelId?: string;
       categoryId?: string;
       instructorId?: string;
+      /** Permission model §1.8 — only these courses; empty means none. */
+      courseIds?: string[];
     } | null;
     paginationOptions: IPaginationOptions;
   }) {

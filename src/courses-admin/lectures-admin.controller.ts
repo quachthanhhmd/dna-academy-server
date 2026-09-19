@@ -23,6 +23,8 @@ import {
 import { LecturesAdminService } from './lectures-admin.service';
 import { PermissionGuard } from '../authorization/permission.guard';
 import { RequirePermission } from '../authorization/require-permission.decorator';
+import { CourseAccessGuard } from '../course-access/course-access.guard';
+import { CourseAccess } from '../course-access/course-access.decorator';
 import { CreateLectureAdminDto } from './dto/create-lecture-admin.dto';
 import { UpdateLectureAdminDto } from './dto/update-lecture-admin.dto';
 import { ReorderItemsDto } from './dto/reorder-items.dto';
@@ -30,7 +32,7 @@ import { Lecture } from '../lectures/domain/lecture';
 
 @ApiTags('Admin / Courses')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@UseGuards(AuthGuard('jwt'), PermissionGuard, CourseAccessGuard)
 @Controller({
   path: 'admin/courses/:courseId/sections/:sectionId/lectures',
   version: '1',
@@ -40,6 +42,7 @@ export class LecturesAdminController {
 
   @ApiOperation({ summary: 'Create a lecture within a section' })
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { course: 'courseId' } })
   @Post()
   @ApiParam({ name: 'courseId', type: String })
   @ApiParam({ name: 'sectionId', type: String })
@@ -59,6 +62,7 @@ export class LecturesAdminController {
       "orderedIds must be exactly the section's current lecture ids, in the desired order.",
   })
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { course: 'courseId' } })
   @Patch('reorder')
   @ApiParam({ name: 'courseId', type: String })
   @ApiParam({ name: 'sectionId', type: String })
@@ -81,6 +85,7 @@ export class LecturesAdminController {
 
   @ApiOperation({ summary: 'Update a lecture' })
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { course: 'courseId' } })
   @Patch(':id')
   @ApiParam({ name: 'courseId', type: String })
   @ApiParam({ name: 'sectionId', type: String })
@@ -98,6 +103,7 @@ export class LecturesAdminController {
 
   @ApiOperation({ summary: 'Delete a lecture' })
   @RequirePermission('courses', 'delete')
+  @CourseAccess({ mode: 'edit', from: { course: 'courseId' } })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiParam({ name: 'courseId', type: String })

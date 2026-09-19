@@ -1,13 +1,9 @@
-import { DeepPartial } from '../../../utils/types/deep-partial.type';
+import { EntityManager } from 'typeorm';
 import { NullableType } from '../../../utils/types/nullable.type';
 import { IPaginationOptions } from '../../../utils/types/pagination-options';
 import { UserRole } from '../../domain/user-role';
 
 export abstract class UserRoleRepository {
-  abstract create(
-    data: Omit<UserRole, 'id' | 'createdAt' | 'updatedAt'>,
-  ): Promise<UserRole>;
-
   abstract findAllWithPagination({
     paginationOptions,
   }: {
@@ -22,12 +18,18 @@ export abstract class UserRoleRepository {
 
   abstract countByRoleId(roleId: UserRole['role']['id']): Promise<number>;
 
-  abstract removeByUserId(userId: UserRole['user']['id']): Promise<void>;
-
-  abstract update(
-    id: UserRole['id'],
-    payload: DeepPartial<UserRole>,
-  ): Promise<UserRole | null>;
-
-  abstract remove(id: UserRole['id']): Promise<void>;
+  /**
+   * Gives `userId` exactly one role — `roleId` — and mirrors it onto the
+   * legacy `user.role_id`, atomically. The only writer of either column
+   * (permission model §2.5).
+   *
+   * Runs on `manager` when given, so a caller creating the account in its own
+   * transaction gets the role inside it; otherwise opens one.
+   */
+  abstract setRole(
+    userId: UserRole['user']['id'],
+    roleId: UserRole['role']['id'],
+    assignedById: UserRole['user']['id'] | null,
+    manager?: EntityManager,
+  ): Promise<void>;
 }

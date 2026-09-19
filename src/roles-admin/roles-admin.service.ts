@@ -1,5 +1,8 @@
+import { AuthorizationService } from '../authorization/authorization.service';
+import { RoleEnum } from '../roles/roles.enum';
 import {
   ConflictException,
+  ForbiddenException,
   HttpStatus,
   Injectable,
   NotFoundException,
@@ -22,6 +25,7 @@ export class RolesAdminService {
     private readonly userRolesService: UserRolesService,
     private readonly rolePermissionsService: RolePermissionsService,
     private readonly permissionsService: PermissionsService,
+    private readonly authorizationService: AuthorizationService,
   ) {}
 
   async findAllWithStats(): Promise<RoleWithStatsDto[]> {
@@ -75,6 +79,7 @@ export class RolesAdminService {
 
   async remove(id: Role['id']): Promise<void> {
     await this.findOrThrow(id);
+    this.assertNotBuiltIn(id, BUILT_IN_ROLES);
 
     const assignedUsersCount = await this.userRolesService.countByRoleId(id);
 
@@ -127,8 +132,12 @@ export class RolesAdminService {
   async setPermissions(
     roleId: Role['id'],
     permissionIds: string[],
+    actorId: number,
   ): Promise<ModulePermissionsDto[]> {
     await this.findOrThrow(roleId);
+    // Admin holds every permission by definition (§0.3); editing it could
+    // only take access away from everyone who holds it.
+    this.assertNotBuiltIn(roleId, [RoleEnum.admin]);
 
     const foundPermissions =
       await this.permissionsService.findByIds(permissionIds);
@@ -139,6 +148,8 @@ export class RolesAdminService {
         errors: { permissionIds: 'notExists' },
       });
     }
+
+    await this.assertWithinCaller(actorId, roleId, foundPermissions);
 
     await this.rolePermissionsService.removeByRoleId(roleId);
 
@@ -164,4 +175,49 @@ export class RolesAdminService {
 
     return role;
   }
+
+  private assertNotBuiltIn(roleId: Role['id'], protectedIds: number[]): void {
+    if (protectedIds.includes(roleId)) {
+      throw new ConflictException({
+        status: HttpStatus.CONFLICT,
+        error: 'built_in_role',
+      });
+    }
+  }
+
+  /**
+   * A role may only be edited by someone holding every permission it has now
+   * and every permission it will have — otherwise `roles:edit` on a custom
+   * role grants its holder anything, starting with their own role.
+   */
+  private async assertWithinCaller(
+    actorId: number,
+    roleId: Role['id'],
+    granted: { id: string }[],
+  ): Promise<void> {
+    const [caller, current, all] = await Promise.all([
+      this.authorizationService.permissionsOf(actorId),
+      this.authorizationService.permissionsOfRole(roleId),
+      this.permissionsService.findAll(),
+    ]);
+    const keyOf = new Map(
+      all.map((p) => [p.id, `${p.module?.name}:${p.action}`]),
+    );
+    const next = granted.map((p) => keyOf.get(p.id));
+    const callerHas = new Set(caller);
+
+    if (![...current, ...next].every((key) => key && callerHas.has(key))) {
+      throw new ForbiddenException({
+        status: HttpStatus.FORBIDDEN,
+        code: 'ROLE_EXCEEDS_CALLER',
+      });
+    }
+  }
 }
+
+/** Roles the code keys on (RoleEnum); deleting one would break it. */
+const BUILT_IN_ROLES: number[] = [
+  RoleEnum.admin,
+  RoleEnum.user,
+  RoleEnum.instructor,
+];

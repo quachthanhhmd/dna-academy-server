@@ -18,6 +18,8 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 @Index('UX_oauth_account_identity', ['provider', 'providerUid'], {
   unique: true,
 })
+// Listing an account's links (GET /auth/me/social-links).
+@Index('IDX_oauth_account_user', ['user'])
 @Entity({
   name: 'oauth_account',
 })

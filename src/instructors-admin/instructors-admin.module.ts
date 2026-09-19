@@ -1,3 +1,6 @@
+import { UserRolesModule } from '../user-roles/user-roles.module';
+import { AuthModule } from '../auth/auth.module';
+import { InstructorAccountsService } from './instructor-accounts.service';
 import { Module } from '@nestjs/common';
 import { InstructorsModule } from '../instructors/instructors.module';
 import { InstructorExpertisesModule } from '../instructor-expertises/instructor-expertises.module';
@@ -21,9 +24,16 @@ import { InstructorStatsService } from './instructor-stats.service';
     UsersModule,
     EnrollmentsModule,
     AuthorizationModule,
+    // §2.9 — instructor accounts: role writes and the invite email.
+    UserRolesModule,
+    AuthModule,
   ],
   controllers: [InstructorsAdminController],
-  providers: [InstructorsAdminService, InstructorStatsService],
+  providers: [
+    InstructorsAdminService,
+    InstructorStatsService,
+    InstructorAccountsService,
+  ],
   exports: [InstructorsAdminService, InstructorStatsService],
 })
 export class InstructorsAdminModule {}

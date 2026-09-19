@@ -1,3 +1,4 @@
+import { CourseAccessModule } from '../course-access/course-access.module';
 import { CoursesModule } from '../courses/courses.module';
 import {
   // do not remove this comment
@@ -5,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { CareerReflectionQuestionsService } from './career-reflection-questions.service';
-import { CareerReflectionQuestionsController } from './career-reflection-questions.controller';
 import { CareerReflectionQuestionsAdminController } from './career-reflection-questions-admin.controller';
 import { RelationalCareerReflectionQuestionPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
@@ -14,18 +14,16 @@ import { RelationalCareerReflectionQuestionPersistenceModule } from './infrastru
     // PermissionGuard is applied via @UseGuards on this module's controller,
     // so Nest builds it here and needs its own dependencies in scope.
     AuthorizationModule,
+    CourseAccessModule,
     CoursesModule,
 
     // do not remove this comment
     RelationalCareerReflectionQuestionPersistenceModule,
   ],
-  controllers: [
-    CareerReflectionQuestionsController,
-    // Epic 4.1 D5 — the supported authoring surface. The generated CRUD above
-    // stays for now; removing it is what would free the public read from its
-    // `/grouped` suffix, and §7 Q5 schedules that deliberately.
-    CareerReflectionQuestionsAdminController,
-  ],
+  // Epic 4.1 D5 — the only authoring surface. The generated CRUD that sat
+  // beside it put the global question bank behind `courses:edit`, which
+  // instructors hold; it was removed by the permission model (§1.10).
+  controllers: [CareerReflectionQuestionsAdminController],
   providers: [CareerReflectionQuestionsService],
   exports: [
     CareerReflectionQuestionsService,

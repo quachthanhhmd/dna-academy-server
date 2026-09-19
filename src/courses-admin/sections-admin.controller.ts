@@ -25,6 +25,8 @@ import {
 import { SectionsAdminService } from './sections-admin.service';
 import { PermissionGuard } from '../authorization/permission.guard';
 import { RequirePermission } from '../authorization/require-permission.decorator';
+import { CourseAccessGuard } from '../course-access/course-access.guard';
+import { CourseAccess } from '../course-access/course-access.decorator';
 import { CreateSectionAdminDto } from './dto/create-section-admin.dto';
 import { UpdateSectionAdminDto } from './dto/update-section-admin.dto';
 import { ReorderItemsDto } from './dto/reorder-items.dto';
@@ -33,7 +35,7 @@ import { Section } from '../sections/domain/section';
 
 @ApiTags('Admin / Courses')
 @ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), PermissionGuard)
+@UseGuards(AuthGuard('jwt'), PermissionGuard, CourseAccessGuard)
 @Controller({
   path: 'admin/courses/:courseId/sections',
   version: '1',
@@ -45,6 +47,7 @@ export class SectionsAdminController {
     summary: 'List sections for a course, ordered by displayOrder',
   })
   @RequirePermission('courses', 'view')
+  @CourseAccess({ mode: 'view', from: { course: 'courseId' } })
   @Get()
   @ApiParam({ name: 'courseId', type: String })
   @ApiOkResponse({ type: [Section] })
@@ -55,6 +58,7 @@ export class SectionsAdminController {
 
   @ApiOperation({ summary: 'Create a section' })
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { course: 'courseId' } })
   @Post()
   @ApiParam({ name: 'courseId', type: String })
   @ApiCreatedResponse({ type: Section })
@@ -72,6 +76,7 @@ export class SectionsAdminController {
       "orderedIds must be exactly the course's current section ids, in the desired order.",
   })
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { course: 'courseId' } })
   @Patch('reorder')
   @ApiParam({ name: 'courseId', type: String })
   @ApiOkResponse({ type: [Section] })
@@ -85,6 +90,7 @@ export class SectionsAdminController {
 
   @ApiOperation({ summary: 'Update a section' })
   @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { course: 'courseId' } })
   @Patch(':id')
   @ApiParam({ name: 'courseId', type: String })
   @ApiParam({ name: 'id', type: String })
@@ -104,6 +110,7 @@ export class SectionsAdminController {
       'If the section has lectures, the request body must include { force: true } to cascade-delete them; otherwise this returns 409 SECTION_HAS_LECTURES.',
   })
   @RequirePermission('courses', 'delete')
+  @CourseAccess({ mode: 'edit', from: { course: 'courseId' } })
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiParam({ name: 'courseId', type: String })

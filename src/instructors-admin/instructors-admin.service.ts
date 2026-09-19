@@ -16,11 +16,13 @@ import { UsersService } from '../users/users.service';
 import { User } from '../users/domain/user';
 import { Instructor } from '../instructors/domain/instructor';
 import { InstructorStatsService } from './instructor-stats.service';
+import { InstructorAccountsService } from './instructor-accounts.service';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { UpdateInstructorDto } from './dto/update-instructor.dto';
 import { FindAllInstructorsDto } from './dto/find-all-instructors.dto';
 import {
   InstructorCourseDto,
+  InstructorCreatedDto,
   InstructorDetailDto,
   InstructorListItemDto,
 } from './dto/instructor-response.dto';
@@ -42,24 +44,31 @@ export class InstructorsAdminService {
     private readonly usersService: UsersService,
     private readonly instructorStatsService: InstructorStatsService,
     private readonly instructorProfilesService: InstructorProfilesService,
+    private readonly instructorAccounts: InstructorAccountsService,
   ) {}
 
   async create(
     dto: CreateInstructorDto,
     createdByUserId: User['id'],
-  ): Promise<InstructorDetailDto> {
+  ): Promise<InstructorCreatedDto> {
+    const accountEmail = dto.createAccount
+      ? await this.assertAccountEmailAvailable(dto)
+      : null;
+
     // Validate everything that can be rejected before writing a single row —
-    // there is no transaction spanning the three tables below.
+    // there is no transaction spanning the profile's side tables below.
     const expertiseCodes = await this.resolveExpertiseCodes(
       dto.expertiseCodeIds,
     );
-    const user = await this.resolveUserLink(dto.userId ?? null, null);
+    const user = accountEmail
+      ? null
+      : await this.resolveUserLink(dto.userId ?? null, null);
 
     const slug = dto.slug
       ? await this.assertSlugAvailable(dto.slug, null)
       : await this.generateUniqueSlug(dto.fullName);
 
-    const instructor = await this.instructorsService.create({
+    const profile: Omit<Instructor, 'id' | 'createdAt' | 'updatedAt'> = {
       user,
       createdBy: { id: createdByUserId } as User,
       slug,
@@ -74,12 +83,82 @@ export class InstructorsAdminService {
       totalCourses: 0,
       totalStudents: 0,
       avgRating: null,
+    };
+
+    const { instructorId, account } = accountEmail
+      ? await this.instructorAccounts.createWithAccount(
+          profile,
+          accountEmail,
+          createdByUserId,
+        )
+      : {
+          instructorId: (await this.instructorsService.create(profile)).id,
+          account: null,
+        };
+
+    await this.replaceExpertise(instructorId, expertiseCodes);
+    await this.replaceSocialLinks(instructorId, dto.socialLinks);
+
+    // After the commit: an email for a rolled-back account would be worse
+    // than a missing one, which can be resent (§2.9).
+    const inviteSent =
+      account && dto.sendInvite !== false
+        ? await this.instructorAccounts.sendInvite(account)
+        : false;
+
+    return { ...(await this.findOne(instructorId)), inviteSent };
+  }
+
+  /** §1.7 — `POST /admin/instructors/:id/invite`. */
+  async resendInvite(id: Instructor['id']): Promise<void> {
+    const instructor = await this.findOrThrow(id);
+
+    if (!instructor.user) {
+      throw new ConflictException({
+        status: HttpStatus.CONFLICT,
+        error: 'no_linked_account',
+      });
+    }
+
+    if (instructor.user.password) {
+      throw new ConflictException({
+        status: HttpStatus.CONFLICT,
+        error: 'already_activated',
+      });
+    }
+
+    await this.instructorAccounts.sendInvite(instructor.user, {
+      throwOnFailure: true,
     });
+  }
 
-    await this.replaceExpertise(instructor.id, expertiseCodes);
-    await this.replaceSocialLinks(instructor.id, dto.socialLinks);
+  private async assertAccountEmailAvailable(
+    dto: CreateInstructorDto,
+  ): Promise<string> {
+    if (!dto.accountEmail) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { accountEmail: 'required' },
+      });
+    }
 
-    return this.findOne(instructor.id);
+    if (dto.userId !== undefined && dto.userId !== null) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { userId: 'conflictsWithCreateAccount' },
+      });
+    }
+
+    // To give an existing account a profile, change its role instead
+    // (§1.6.2) — that keeps its password and its history.
+    if (await this.usersService.findByEmail(dto.accountEmail)) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { accountEmail: 'emailAlreadyExists' },
+      });
+    }
+
+    return dto.accountEmail;
   }
 
   async findAll(query: FindAllInstructorsDto): Promise<{
@@ -276,6 +355,8 @@ export class InstructorsAdminService {
   private toListItem(instructor: Instructor): InstructorListItemDto {
     return {
       ...toInstructorRef(instructor),
+      hasAccount: Boolean(instructor.user),
+      accountActivated: Boolean(instructor.user?.password),
       isActive: instructor.isActive,
       displayOrder: instructor.displayOrder,
       totalCourses: instructor.totalCourses ?? 0,

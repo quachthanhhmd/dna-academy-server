@@ -9,7 +9,6 @@ import {
 } from '@nestjs/common';
 import { AuthorizationModule } from '../authorization/authorization.module';
 import { QuizAttemptAnswersService } from './quiz-attempt-answers.service';
-import { QuizAttemptAnswersController } from './quiz-attempt-answers.controller';
 import { RelationalQuizAttemptAnswerPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -30,7 +29,6 @@ import { RelationalQuizAttemptAnswerPersistenceModule } from './infrastructure/p
     // do not remove this comment
     RelationalQuizAttemptAnswerPersistenceModule,
   ],
-  controllers: [QuizAttemptAnswersController],
   providers: [QuizAttemptAnswersService],
   exports: [
     QuizAttemptAnswersService,

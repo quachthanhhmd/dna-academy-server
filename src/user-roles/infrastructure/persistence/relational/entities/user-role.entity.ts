@@ -10,9 +10,12 @@ import {
   ManyToOne,
   Column,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
 
+// Permission model D3 — one role per user.
+@Index('UX_user_role_user', ['user'], { unique: true })
 @Entity({
   name: 'user_role',
 })

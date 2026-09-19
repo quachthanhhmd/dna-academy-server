@@ -1,7 +1,9 @@
 import {
   Controller,
+  ForbiddenException,
   Get,
   Query,
+  Request,
   Res,
   UnprocessableEntityException,
   UseGuards,
@@ -16,6 +18,10 @@ import {
 } from '@nestjs/swagger';
 import { PermissionGuard } from '../authorization/permission.guard';
 import { RequirePermission } from '../authorization/require-permission.decorator';
+import { CourseAccessService } from '../course-access/course-access.service';
+import { AuthorizationService } from '../authorization/authorization.service';
+
+const STUDENT_LEVEL_DATASETS: string[] = ['students', 'reflection-comments'];
 import { buildContext, envelope } from './dashboard-context';
 import {
   DashboardQueryDto,
@@ -53,47 +59,77 @@ export class AdminDashboardController {
     private readonly datasets: ExportDatasetService,
     private readonly csv: CsvService,
     private readonly pdf: PdfService,
+    private readonly courseAccess: CourseAccessService,
+    private readonly authorization: AuthorizationService,
   ) {}
+
+  /**
+   * Permission model §1.9 — without `courses:edit_any` every figure covers
+   * only the courses where the caller is the primary instructor (D8). A
+   * course filter outside that scope is a 404, like the course itself.
+   */
+  private async context(query: DashboardQueryDto, request) {
+    const scope = await this.courseAccess.scopeOf(request.user.id);
+
+    if (scope.all) {
+      return buildContext(query);
+    }
+
+    if (query.courseId && !scope.primaryCourseIds.includes(query.courseId)) {
+      throw this.courseAccess.notFound();
+    }
+
+    return buildContext(query, new Date(), scope.primaryCourseIds);
+  }
 
   @Get('kpis')
   @ApiOperation({
     summary: 'Seven KPI values with a previous-period delta and a sparkline',
   })
   @ApiOkResponse({ description: 'Envelope with `data.kpis`.' })
-  async getKpis(@Query() query: DashboardQueryDto) {
-    const { filters, meta } = buildContext(query);
+  async getKpis(@Query() query: DashboardQueryDto, @Request() request) {
+    const { filters, meta } = await this.context(query, request);
 
     return envelope({ kpis: await this.kpis.build(filters) }, meta);
   }
 
   @Get('enrollments-over-time')
   @ApiOperation({ summary: 'Enrolment buckets stacked by source' })
-  async getEnrollmentsOverTime(@Query() query: DashboardQueryDto) {
-    const { filters, meta } = buildContext(query);
+  async getEnrollmentsOverTime(
+    @Query() query: DashboardQueryDto,
+    @Request() request,
+  ) {
+    const { filters, meta } = await this.context(query, request);
 
     return envelope(await this.charts.enrollmentsOverTime(filters), meta);
   }
 
   @Get('progress-distribution')
   @ApiOperation({ summary: 'Six mutually exclusive progress buckets' })
-  async getProgressDistribution(@Query() query: DashboardQueryDto) {
-    const { filters, meta } = buildContext(query);
+  async getProgressDistribution(
+    @Query() query: DashboardQueryDto,
+    @Request() request,
+  ) {
+    const { filters, meta } = await this.context(query, request);
 
     return envelope(await this.charts.progressDistribution(filters), meta);
   }
 
   @Get('top-courses')
   @ApiOperation({ summary: 'Top 10 courses by enrolments' })
-  async getTopCourses(@Query() query: DashboardQueryDto) {
-    const { filters, meta } = buildContext(query);
+  async getTopCourses(@Query() query: DashboardQueryDto, @Request() request) {
+    const { filters, meta } = await this.context(query, request);
 
     return envelope({ courses: await this.charts.topCourses(filters) }, meta);
   }
 
   @Get('enrollment-status')
   @ApiOperation({ summary: 'Enrolment counts per status' })
-  async getEnrollmentStatus(@Query() query: DashboardQueryDto) {
-    const { filters, meta } = buildContext(query);
+  async getEnrollmentStatus(
+    @Query() query: DashboardQueryDto,
+    @Request() request,
+  ) {
+    const { filters, meta } = await this.context(query, request);
 
     return envelope(await this.charts.enrollmentStatus(filters), meta);
   }
@@ -103,19 +139,23 @@ export class AdminDashboardController {
     summary:
       'Option distribution per selection question, response rate, totals',
   })
-  async getReflection(@Query() query: DashboardQueryDto) {
-    const { filters, meta } = buildContext(query);
+  async getReflection(@Query() query: DashboardQueryDto, @Request() request) {
+    const { filters, meta } = await this.context(query, request);
 
     return envelope(await this.reflection.summary(filters), meta);
   }
 
   @Get('reflection/comments')
+  @RequirePermission('dashboard', 'view_students')
   @ApiOperation({
     summary:
       'Free-text reflection answers, newest first, filterable by question',
   })
-  async getReflectionComments(@Query() query: ReflectionCommentsQueryDto) {
-    const { filters, meta } = buildContext(query);
+  async getReflectionComments(
+    @Query() query: ReflectionCommentsQueryDto,
+    @Request() request,
+  ) {
+    const { filters, meta } = await this.context(query, request);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const { items, total } = await this.reflection.comments(
@@ -129,13 +169,14 @@ export class AdminDashboardController {
   }
 
   @Get('students')
+  @RequirePermission('dashboard', 'view_students')
   @ApiOperation({
     summary: 'Student-level drill-down behind every KPI and bucket',
     description:
-      'Returns personal data. Gated by `dashboard:view` server-side (§1.4).',
+      'Returns personal data. Gated by `dashboard:view_students` (permission model §1.9).',
   })
-  async getStudents(@Query() query: StudentsQueryDto) {
-    const { filters, meta } = buildContext(query);
+  async getStudents(@Query() query: StudentsQueryDto, @Request() request) {
+    const { filters, meta } = await this.context(query, request);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const { items, total } = await this.students.list(
@@ -161,10 +202,31 @@ export class AdminDashboardController {
   @Get('export')
   @RequirePermission('dashboard', 'export')
   @ApiOperation({ summary: 'Download a dataset as CSV or PDF' })
-  async export(@Query() query: ExportQueryDto, @Res() res: Response) {
-    const { filters, meta } = buildContext(query);
+  async export(
+    @Query() query: ExportQueryDto,
+    @Res() res: Response,
+    @Request() request,
+  ) {
+    const { filters, meta } = await this.context(query, request);
     const format = query.format ?? 'csv';
     const dataset = query.dataset ?? 'overview';
+
+    // The same rows /students and /reflection/comments guard; exporting them
+    // must not be a way around dashboard:view_students.
+    if (
+      STUDENT_LEVEL_DATASETS.includes(dataset) &&
+      !(await this.authorization.hasPermission(
+        request.user.id,
+        'dashboard',
+        'view_students',
+      ))
+    ) {
+      throw new ForbiddenException({
+        code: 'PERMISSION_DENIED',
+        required: { module: 'dashboard', action: 'view_students' },
+      });
+    }
+
     const stamp = (value: string) => value.slice(0, 10).replace(/-/g, '');
     const filename = `dashboard-${dataset}-${stamp(meta.period.from)}-${stamp(
       meta.period.to,

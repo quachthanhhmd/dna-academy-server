@@ -4,7 +4,6 @@ import {
   Module,
 } from '@nestjs/common';
 import { CourseRequirementsService } from './course-requirements.service';
-import { CourseRequirementsController } from './course-requirements.controller';
 import { RelationalCourseRequirementPersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -14,7 +13,6 @@ import { RelationalCourseRequirementPersistenceModule } from './infrastructure/p
     // do not remove this comment
     RelationalCourseRequirementPersistenceModule,
   ],
-  controllers: [CourseRequirementsController],
   providers: [CourseRequirementsService],
   exports: [
     CourseRequirementsService,

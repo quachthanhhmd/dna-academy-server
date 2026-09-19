@@ -232,6 +232,16 @@ export class ReflectionService {
       );
     }
 
+    // Permission model §1.9 — other courses' questions stay out of scope.
+    if (filters.courseIds) {
+      qb.andWhere(
+        filters.courseIds.length
+          ? '(question.course_id IS NULL OR question.course_id IN (:...scopeCourseIds))'
+          : 'question.course_id IS NULL',
+        { scopeCourseIds: filters.courseIds },
+      );
+    }
+
     if (filters.groupId) {
       qb.andWhere(
         `(question.course_id IS NULL OR question.course_id IN (

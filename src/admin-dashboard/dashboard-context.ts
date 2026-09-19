@@ -10,6 +10,11 @@ export type DashboardMeta = {
   groupId: string | null;
   timezone: string;
   generatedAt: string;
+  /**
+   * Permission model §1.9 — `own`: only courses where the caller is the
+   * primary instructor.
+   */
+  scope: 'all' | 'own';
 };
 
 export type DashboardContext = {
@@ -33,6 +38,7 @@ const vnNow = (now: Date): string => {
 export const buildContext = (
   query: DashboardQueryDto,
   now: Date = new Date(),
+  courseIds?: string[],
 ): DashboardContext => {
   const period = resolvePeriod(
     query.period ?? '30d',
@@ -42,13 +48,19 @@ export const buildContext = (
   );
 
   return {
-    filters: { period, courseId: query.courseId, groupId: query.groupId },
+    filters: {
+      period,
+      courseId: query.courseId,
+      groupId: query.groupId,
+      courseIds,
+    },
     meta: {
       period: { from: period.fromLabel, to: period.toLabel },
       courseId: query.courseId ?? null,
       groupId: query.groupId ?? null,
       timezone: DASHBOARD_TIMEZONE,
       generatedAt: vnNow(now),
+      scope: courseIds ? 'own' : 'all',
     },
   };
 };

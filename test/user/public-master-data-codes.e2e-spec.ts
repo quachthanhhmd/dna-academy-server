@@ -1,66 +1,44 @@
-import { describe, expect, it, beforeAll } from '@jest/globals';
+import { describe, expect, it, beforeAll, afterAll } from '@jest/globals';
 import request from 'supertest';
 import { APP_URL } from '../utils/constants';
+import { loginSeededSuperAdmin } from '../utils/admin';
+import { deactivateMasterDataCodes } from '../utils/cleanup';
 
 describe('Public GET /master-data/codes', () => {
   const app = APP_URL;
   const runId = Date.now();
-  const groupKey = `public_codes_test_${runId}`;
+  // A seeded group: master data groups have no create route, and fixture
+  // codes go in through the admin route like real ones do.
+  const groupKey = 'course_level';
 
+  let adminToken: string;
   let activeCodeId: string;
   let inactiveCodeId: string;
 
+  const createCode = async (name: string, isActive: boolean) => {
+    const { body } = await request(app)
+      .post(`/api/v1/admin/master-data/groups/${groupKey}/codes`)
+      .auth(adminToken, { type: 'bearer' })
+      .send({
+        displayOrder: 1,
+        isActive,
+        name: `${name} ${runId}`,
+        code: `${name.toLowerCase().replace(/\s+/g, '_')}_${runId}`,
+      })
+      .expect(201);
+
+    return body.id as string;
+  };
+
   beforeAll(async () => {
-    // Any authenticated user can manage master data (see epic-1) — use a
-    // throwaway account purely to seed fixtures for this public-read test.
-    const email = `public-codes.setup.${runId}@example.com`;
-    await request(app)
-      .post('/api/v1/auth/email/register')
-      .send({ email, password: 'secret', firstName: 'Setup', lastName: 'X' })
-      .expect(204);
-    const { body: login } = await request(app)
-      .post('/api/v1/auth/email/login')
-      .send({ email, password: 'secret' })
-      .expect(200);
-    const token = login.token as string;
-
-    const { body: group } = await request(app)
-      .post('/api/v1/master-data-groups')
-      .auth(token, { type: 'bearer' })
-      .send({
-        displayOrder: 1,
-        isActive: true,
-        name: `Public codes test ${runId}`,
-        groupKey,
-      })
-      .expect(201);
-
-    const { body: active } = await request(app)
-      .post('/api/v1/master-data-codes')
-      .auth(token, { type: 'bearer' })
-      .send({
-        displayOrder: 1,
-        isActive: true,
-        name: 'Active Code',
-        code: 'active_code',
-        group: { id: group.id },
-      })
-      .expect(201);
-    activeCodeId = active.id;
-
-    const { body: inactive } = await request(app)
-      .post('/api/v1/master-data-codes')
-      .auth(token, { type: 'bearer' })
-      .send({
-        displayOrder: 2,
-        isActive: false,
-        name: 'Inactive Code',
-        code: 'inactive_code',
-        group: { id: group.id },
-      })
-      .expect(201);
-    inactiveCodeId = inactive.id;
+    adminToken = await loginSeededSuperAdmin(app);
+    activeCodeId = await createCode('Active Code', true);
+    inactiveCodeId = await createCode('Inactive Code', false);
   });
+
+  afterAll(() =>
+    deactivateMasterDataCodes(app, adminToken, groupKey, [activeCodeId]),
+  );
 
   it('should require no authentication', async () => {
     await request(app)

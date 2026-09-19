@@ -1,7 +1,13 @@
 import {
+  RateLimit,
+  RateLimitGuard,
+} from '../utils/rate-limit/rate-limit.guard';
+import { HOUR } from '../utils/rate-limit/rate-limit.constants';
+import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -18,6 +24,7 @@ import {
   ApiBearerAuth,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -30,6 +37,7 @@ import { InstructorsAdminService } from './instructors-admin.service';
 import { InstructorStatsService } from './instructor-stats.service';
 import { PermissionGuard } from '../authorization/permission.guard';
 import { RequirePermission } from '../authorization/require-permission.decorator';
+import { AuthorizationService } from '../authorization/authorization.service';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
 import { UpdateInstructorDto } from './dto/update-instructor.dto';
 import { UpdateInstructorStatusDto } from './dto/update-instructor-status.dto';
@@ -37,6 +45,7 @@ import { LinkInstructorUserDto } from './dto/link-instructor-user.dto';
 import { FindAllInstructorsDto } from './dto/find-all-instructors.dto';
 import {
   InstructorCourseDto,
+  InstructorCreatedDto,
   InstructorDetailDto,
   InstructorFullStatsDto,
 } from './dto/instructor-response.dto';
@@ -52,6 +61,7 @@ export class InstructorsAdminController {
   constructor(
     private readonly instructorsAdminService: InstructorsAdminService,
     private readonly instructorStatsService: InstructorStatsService,
+    private readonly authorizationService: AuthorizationService,
   ) {}
 
   @ApiOperation({
@@ -111,17 +121,57 @@ export class InstructorsAdminController {
   })
   @RequirePermission('instructors', 'create')
   @Post()
-  @ApiCreatedResponse({ type: InstructorDetailDto })
+  @ApiCreatedResponse({ type: InstructorCreatedDto })
   @ApiConflictResponse({ description: 'user_already_linked' })
+  @ApiForbiddenResponse({
+    description: 'createAccount without instructors:create_account',
+  })
   @ApiUnprocessableEntityResponse({
     description:
-      'Unknown/inactive expertiseCodeIds, unknown userId, or taken slug',
+      'Unknown/inactive expertiseCodeIds, unknown userId, taken slug; with ' +
+      'createAccount: accountEmail required / emailAlreadyExists, userId ' +
+      'conflictsWithCreateAccount',
   })
-  create(
+  async create(
     @Body() dto: CreateInstructorDto,
     @Request() request,
-  ): Promise<InstructorDetailDto> {
+  ): Promise<InstructorCreatedDto> {
+    if (
+      dto.createAccount &&
+      !(await this.authorizationService.hasPermission(
+        request.user.id,
+        'instructors',
+        'create_account',
+      ))
+    ) {
+      throw new ForbiddenException({
+        code: 'PERMISSION_DENIED',
+        required: { module: 'instructors', action: 'create_account' },
+      });
+    }
+
     return this.instructorsAdminService.create(dto, request.user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Resend the set-password invite',
+    description:
+      '409 no_linked_account when the profile has no login account; 409 ' +
+      'already_activated once a password has been set.',
+  })
+  @RequirePermission('instructors', 'create_account')
+  // Each call emails someone: 3 an hour to one instructor, 20 an hour from
+  // one admin.
+  @UseGuards(RateLimitGuard)
+  @RateLimit(3, HOUR, { param: 'id' })
+  @RateLimit(20, HOUR)
+  @Post(':id/invite')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse()
+  @ApiConflictResponse()
+  invite(@Param('id') id: string): Promise<void> {
+    return this.instructorsAdminService.resendInvite(id);
   }
 
   @ApiOperation({

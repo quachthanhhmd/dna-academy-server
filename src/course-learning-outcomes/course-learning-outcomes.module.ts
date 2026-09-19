@@ -4,7 +4,6 @@ import {
   Module,
 } from '@nestjs/common';
 import { CourseLearningOutcomesService } from './course-learning-outcomes.service';
-import { CourseLearningOutcomesController } from './course-learning-outcomes.controller';
 import { RelationalCourseLearningOutcomePersistenceModule } from './infrastructure/persistence/relational/relational-persistence.module';
 
 @Module({
@@ -14,7 +13,6 @@ import { RelationalCourseLearningOutcomePersistenceModule } from './infrastructu
     // do not remove this comment
     RelationalCourseLearningOutcomePersistenceModule,
   ],
-  controllers: [CourseLearningOutcomesController],
   providers: [CourseLearningOutcomesService],
   exports: [
     CourseLearningOutcomesService,

@@ -1,6 +1,15 @@
-import { describe, expect, it, beforeEach, jest } from '@jest/globals';
+import {
+  describe,
+  expect,
+  it,
+  afterEach,
+  beforeEach,
+  jest,
+} from '@jest/globals';
+import bcrypt from 'bcryptjs';
 import {
   ConflictException,
+  ForbiddenException,
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -33,6 +42,7 @@ describe('AuthService', () => {
     userSignUp: jest.Mock<any>;
     forgotPassword: jest.Mock<any>;
     confirmNewEmail: jest.Mock<any>;
+    instructorInvite: jest.Mock<any>;
   };
   let configService: { getOrThrow: jest.Mock<any> };
   let oauthAccountsService: {
@@ -50,7 +60,10 @@ describe('AuthService', () => {
     remove: jest.Mock<any>;
   };
   let masterDataCodesService: { findById: jest.Mock<any> };
-  let userRolesService: { findByUserId: jest.Mock<any> };
+  let userRolesService: {
+    findByUserId: jest.Mock<any>;
+    setRole: jest.Mock<any>;
+  };
   let rolePermissionsService: { findByRoleId: jest.Mock<any> };
 
   const educationStageCode = {
@@ -116,6 +129,9 @@ describe('AuthService', () => {
       userSignUp: (jest.fn() as jest.Mock<any>).mockResolvedValue(undefined),
       forgotPassword: jest.fn(),
       confirmNewEmail: jest.fn(),
+      instructorInvite: (jest.fn() as jest.Mock<any>).mockResolvedValue(
+        undefined,
+      ),
     };
 
     configService = {
@@ -149,6 +165,7 @@ describe('AuthService', () => {
     // By default nobody holds an admin-panel permission.
     userRolesService = {
       findByUserId: (jest.fn() as jest.Mock<any>).mockResolvedValue([]),
+      setRole: (jest.fn() as jest.Mock<any>).mockResolvedValue(undefined),
     };
     rolePermissionsService = {
       findByRoleId: (jest.fn() as jest.Mock<any>).mockResolvedValue([]),
@@ -198,107 +215,6 @@ describe('AuthService', () => {
       ),
     );
   }
-
-  describe('validateFacebookLogin', () => {
-    it('should log in via the existing oauth_accounts link without overwriting the user', async () => {
-      const linkedUser = { ...baseUser, onboardingDone: true };
-      oauthAccountsService.findByProviderAndProviderUid.mockResolvedValue({
-        id: 'oauth-1',
-        provider: AuthProvidersEnum.facebook,
-        providerUid: 'fb-123',
-        user: linkedUser,
-      });
-
-      const result = await service.validateFacebookLogin({
-        id: 'fb-123',
-        email: 'student@example.com',
-        firstName: 'Jane',
-        lastName: 'Student',
-      });
-
-      expect(
-        oauthAccountsService.findByProviderAndProviderUid,
-      ).toHaveBeenCalledWith(AuthProvidersEnum.facebook, 'fb-123');
-      expect(usersService.create).not.toHaveBeenCalled();
-      expect(usersService.update).not.toHaveBeenCalled();
-      expect(oauthAccountsService.create).not.toHaveBeenCalled();
-      expect(result.user).toBe(linkedUser);
-      expect(result.requiresOnboarding).toBe(false);
-    });
-
-    it('should link a new oauth_accounts row to an existing user found by email', async () => {
-      oauthAccountsService.findByProviderAndProviderUid.mockResolvedValue(null);
-      usersService.findByEmail.mockResolvedValue(baseUser);
-
-      const result = await service.validateFacebookLogin({
-        id: 'fb-456',
-        email: 'Student@example.com',
-        firstName: 'Jane',
-        lastName: 'Student',
-      });
-
-      expect(usersService.create).not.toHaveBeenCalled();
-      expect(oauthAccountsService.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          provider: AuthProvidersEnum.facebook,
-          providerUid: 'fb-456',
-          user: baseUser,
-        }),
-      );
-      expect(result.user).toBe(baseUser);
-      expect(result.requiresOnboarding).toBe(true);
-    });
-
-    it('should create a new user + oauth_accounts link on first-time Facebook login', async () => {
-      oauthAccountsService.findByProviderAndProviderUid.mockResolvedValue(null);
-      usersService.findByEmail.mockResolvedValue(null);
-      const createdUser = { ...baseUser, id: 2 };
-      usersService.create.mockResolvedValue(createdUser);
-
-      const result = await service.validateFacebookLogin({
-        id: 'fb-789',
-        email: 'new.student@example.com',
-        firstName: 'New',
-        lastName: 'Student',
-        picture: 'https://example.com/pic.jpg',
-      });
-
-      expect(usersService.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          email: 'new.student@example.com',
-          fullName: 'New Student',
-          profilePictureUrl: 'https://example.com/pic.jpg',
-          emailVerified: true,
-          onboardingDone: false,
-          provider: AuthProvidersEnum.facebook,
-        }),
-      );
-      expect(oauthAccountsService.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          provider: AuthProvidersEnum.facebook,
-          providerUid: 'fb-789',
-          user: createdUser,
-        }),
-      );
-      expect(result.user).toBe(createdUser);
-      expect(result.requiresOnboarding).toBe(true);
-    });
-
-    // A missing uid reaching the lookup would be dropped from `where` by
-    // TypeORM, matching whichever Facebook-linked account comes first.
-    it('should reject a profile without a provider id before looking anything up', async () => {
-      await expect(
-        service.validateFacebookLogin({ id: '', email: 'student@example.com' }),
-      ).rejects.toBeInstanceOf(UnprocessableEntityException);
-
-      expect(
-        oauthAccountsService.findByProviderAndProviderUid,
-      ).not.toHaveBeenCalled();
-      expect(usersService.findByEmail).not.toHaveBeenCalled();
-      expect(usersService.create).not.toHaveBeenCalled();
-      expect(sessionService.create).not.toHaveBeenCalled();
-    });
-  });
 
   describe('completeOnboarding', () => {
     const onboardingDto = {
@@ -522,6 +438,41 @@ describe('AuthService', () => {
       );
     });
 
+    // §1.5 — following a link sent to the address proves the address.
+    it('should mark the email verified and activate an unconfirmed account', async () => {
+      const hash = await issueResetHash();
+      usersService.findById.mockResolvedValue({
+        ...account,
+        emailVerified: false,
+        status: { id: StatusEnum.inactive },
+      });
+
+      await service.resetPassword(hash, 'new-secret');
+
+      expect(usersService.update).toHaveBeenCalledWith(account.id, {
+        password: 'new-secret',
+        emailVerified: true,
+        status: { id: StatusEnum.active },
+      });
+    });
+
+    // D9 — a password reset must not undo a deactivation.
+    it('should leave a deactivated account deactivated', async () => {
+      const hash = await issueResetHash();
+      usersService.findById.mockResolvedValue({
+        ...account,
+        status: { id: StatusEnum.deactivated },
+      });
+
+      await service.resetPassword(hash, 'new-secret');
+
+      const [, payload] = usersService.update.mock.calls[0] as [
+        number,
+        Record<string, unknown>,
+      ];
+      expect(payload.status).toBeUndefined();
+    });
+
     // A reset link sits in an inbox, browser history and possibly a proxy log.
     // Once the password has changed — through this link or any other way —
     // the link must stop working, not keep working until it expires.
@@ -571,7 +522,6 @@ describe('AuthService', () => {
       await service.update(
         {
           id: account.id,
-          role: account.role,
           sessionId: 'session-1',
           iat: 0,
           exp: 0,
@@ -632,6 +582,270 @@ describe('AuthService', () => {
       expect(usersService.update).not.toHaveBeenCalled();
     });
   });
+  // §1.7 / §2.9 — an instructor account starts with no password; the invite
+  // is a reset link with a longer life (O1: 72 hours).
+  describe('sendPasswordInvite', () => {
+    const invitee = {
+      ...baseUser,
+      id: 60,
+      email: 'teacher@example.com',
+      password: null,
+    };
+
+    beforeEach(() => {
+      service = makeService(new JwtService({}));
+    });
+
+    it('should mail a link to the account email', async () => {
+      await service.sendPasswordInvite(invitee);
+
+      const [call] = mailService.instructorInvite.mock.calls[0] as [
+        { to: string },
+      ];
+      expect(call.to).toBe('teacher@example.com');
+    });
+
+    it('should let the invitee set a password with it, once', async () => {
+      await service.sendPasswordInvite(invitee);
+      const hash = sentHash(mailService.instructorInvite);
+      usersService.findById.mockResolvedValue({ ...invitee });
+
+      await service.resetPassword(hash, 'chosen-secret');
+
+      expect(usersService.update).toHaveBeenCalledWith(
+        60,
+        expect.objectContaining({ password: 'chosen-secret' }),
+      );
+
+      usersService.findById.mockResolvedValue({
+        ...invitee,
+        password: '$2a$10$nowSetHash',
+      });
+      await expect(
+        service.resetPassword(hash, 'second-use'),
+      ).rejects.toMatchObject({
+        response: { errors: { hash: 'invalidHash' } },
+      });
+    });
+
+    it('should expire after 72 hours', async () => {
+      await service.sendPasswordInvite(invitee);
+      const hash = sentHash(mailService.instructorInvite);
+      const payload = JSON.parse(
+        Buffer.from(hash.split('.')[1], 'base64url').toString(),
+      );
+
+      expect(payload.exp - payload.iat).toBe(72 * 3600);
+    });
+  });
+
+  // Password guessing against one account, from however many addresses:
+  // 10 failed attempts per 15 minutes. Failures only — someone who signs in
+  // often is never locked out, and a success wipes the slate.
+  describe('failed login limit', () => {
+    let account: Record<string, unknown>;
+    let now: number;
+
+    beforeEach(() => {
+      now = 9_000_000;
+      jest.spyOn(Date, 'now').mockImplementation(() => now);
+      account = {
+        ...baseUser,
+        id: 70,
+        email: 'guessed@example.com',
+        provider: AuthProvidersEnum.email,
+        // bcrypt('right-password')
+        password: bcrypt.hashSync('right-password', 4),
+      };
+      usersService.findByEmail.mockImplementation((email: unknown) =>
+        Promise.resolve(email === account.email ? account : null),
+      );
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    const tryLogin = (password: string, email = 'guessed@example.com') =>
+      service.validateLogin({ email, password }).then(
+        () => 'ok',
+        (error) => error.getStatus?.() ?? error,
+      );
+
+    it('should refuse the 11th attempt after 10 failures, even with the right password', async () => {
+      for (let i = 0; i < 10; i += 1) {
+        expect(await tryLogin('wrong')).toBe(422);
+      }
+
+      expect(await tryLogin('right-password')).toBe(429);
+    });
+
+    it('should count failures for an address with no account too', async () => {
+      for (let i = 0; i < 10; i += 1) {
+        expect(await tryLogin('x', 'nobody@example.com')).toBe(422);
+      }
+
+      expect(await tryLogin('x', 'nobody@example.com')).toBe(429);
+    });
+
+    it('should treat an email case-insensitively', async () => {
+      for (let i = 0; i < 10; i += 1) {
+        await tryLogin('wrong', 'Guessed@Example.com');
+      }
+
+      expect(await tryLogin('right-password')).toBe(429);
+    });
+
+    it('should clear the count on a successful login', async () => {
+      for (let i = 0; i < 9; i += 1) {
+        await tryLogin('wrong');
+      }
+      expect(await tryLogin('right-password')).toBe('ok');
+
+      for (let i = 0; i < 9; i += 1) {
+        expect(await tryLogin('wrong')).toBe(422);
+      }
+      expect(await tryLogin('right-password')).toBe('ok');
+    });
+
+    it('should let the account try again once the window has passed', async () => {
+      for (let i = 0; i < 10; i += 1) {
+        await tryLogin('wrong');
+      }
+      now += 15 * 60_000 + 1;
+
+      expect(await tryLogin('right-password')).toBe('ok');
+    });
+
+    it('should not limit other emails', async () => {
+      for (let i = 0; i < 10; i += 1) {
+        await tryLogin('wrong');
+      }
+
+      expect(await tryLogin('x', 'someone-else@example.com')).toBe(422);
+    });
+  });
+
+  describe('register', () => {
+    beforeEach(() => {
+      usersService.create.mockResolvedValue({ ...baseUser, id: 88 });
+    });
+
+    const register = () =>
+      service.register({
+        email: 'new@example.com',
+        password: 'secret-123',
+        firstName: 'New',
+        lastName: 'Learner',
+      });
+
+    // Without a user_role row PermissionGuard sees no role at all (AC-6).
+    it('should give the new account the User role', async () => {
+      await register();
+
+      expect(userRolesService.setRole).toHaveBeenCalledWith(
+        88,
+        RoleEnum.user,
+        null,
+      );
+    });
+
+    // The role is written only by setRole, never alongside the user row.
+    it('should not pass a role to the user row', async () => {
+      await register();
+
+      const [payload] = usersService.create.mock.calls[0] as [
+        Record<string, unknown>,
+      ];
+      expect(payload.role).toBeUndefined();
+    });
+  });
+
+  // D9 — an admin can deactivate any account; deactivation must mean it
+  // cannot get a session back.
+  describe('a deactivated account', () => {
+    const deactivated = {
+      ...baseUser,
+      id: 90,
+      provider: AuthProvidersEnum.email,
+      // bcrypt('right-password'): deactivation is only revealed to someone
+      // who already knows the password.
+      password: '$2b$04$8m6hXRdZqO.45qF9MPuRx.4OTG5nf.Zp9GDjgrZ00oOVNY3XjZ/RG',
+      status: { id: StatusEnum.deactivated },
+    };
+
+    it('should not sign in with email and password', async () => {
+      usersService.findByEmail.mockResolvedValue(deactivated);
+
+      const error = await service
+        .validateLogin({ email: deactivated.email, password: 'right-password' })
+        .catch((e) => e);
+
+      expect(error).toBeInstanceOf(ForbiddenException);
+      expect(error.getResponse()).toEqual({
+        status: 403,
+        code: 'ACCOUNT_DEACTIVATED',
+      });
+      expect(sessionService.create).not.toHaveBeenCalled();
+    });
+
+    // Guard: a wrong password gets the ordinary answer, so the account's
+    // state is not disclosed to someone guessing.
+    it('should answer a wrong password as for any account', async () => {
+      usersService.findByEmail.mockResolvedValue(deactivated);
+
+      await expect(
+        service.validateLogin({ email: deactivated.email, password: 'wrong' }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+    });
+
+    it('should not refresh its tokens', async () => {
+      sessionService.updateByHash.mockResolvedValue({
+        id: 'session-9',
+        user: { id: 90 },
+      });
+      usersService.findById.mockResolvedValue(deactivated);
+
+      await expect(
+        service.refreshToken({ sessionId: 'session-9', hash: 'h' }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+  });
+
+  // BE-8 — roles are read from user_role on every request. A role baked into
+  // a token outlived a demotion by the token's lifetime (AC-12).
+  describe('access token payload', () => {
+    const accessPayload = () =>
+      (jwtService.signAsync.mock.calls[0] as [Record<string, unknown>])[0];
+
+    it('should carry only the user and session on login', async () => {
+      oauthAccountsService.findByProviderAndProviderUid.mockResolvedValue({
+        id: 'oauth-1',
+        provider: AuthProvidersEnum.google,
+        providerUid: 'g-1',
+        user: { ...baseUser, id: 5 },
+      });
+
+      await service.validateSocialLogin(AuthProvidersEnum.google, {
+        id: 'g-1',
+      });
+
+      expect(accessPayload()).toEqual({ id: 5, sessionId: 'session-1' });
+    });
+
+    it('should carry only the user and session on refresh', async () => {
+      sessionService.updateByHash.mockResolvedValue({
+        id: 'session-3',
+        user: { id: 5 },
+      });
+      usersService.findById.mockResolvedValue({ ...baseUser, id: 5 });
+
+      await service.refreshToken({ sessionId: 'session-3', hash: 'h' });
+
+      expect(accessPayload()).toEqual({ id: 5, sessionId: 'session-3' });
+    });
+  });
+
   describe('refreshToken', () => {
     const presented = { sessionId: 'session-7', hash: 'rotated-away-hash' };
 
@@ -678,144 +892,293 @@ describe('AuthService', () => {
       expect(sessionService.deleteById).not.toHaveBeenCalled();
     });
   });
-  describe('validateSocialLogin (Google)', () => {
-    const google = AuthProvidersEnum.google;
-
-    // A returning user is identified by their Google id, not their email. The
-    // email Google reports can change — and once it may be an address the user
-    // does not control, overwriting the account's email with it would route
-    // "forgot password" to someone else.
-    it('should not overwrite a returning user’s email with the one Google reports', async () => {
-      const returning = { ...baseUser, email: 'kept@example.com' };
-      usersService.findBySocialIdAndProvider.mockResolvedValue(returning);
-      usersService.findByEmail.mockResolvedValue(null);
-
-      await service.validateSocialLogin(google, {
-        id: 'google-1',
-        email: 'reported@example.com',
+  /**
+   * Permission model §2.8 — one algorithm for Facebook and Google.
+   *
+   * 1. A linked identity signs in as its account, untouched.
+   * 2. Otherwise an email the provider vouches for may link to an existing
+   *    account — never a privileged one (G3); an unverified one is taken back
+   *    from whoever registered it first (G1).
+   * 3. Otherwise a new User account is created and linked.
+   */
+  describe.each([[AuthProvidersEnum.facebook], [AuthProvidersEnum.google]])(
+    'social login via %s',
+    (provider) => {
+      const identity = (overrides: Record<string, unknown> = {}) => ({
+        id: `${provider}-uid-1`,
+        email: 'student@example.com',
+        firstName: 'Jane',
+        lastName: 'Student',
+        ...overrides,
       });
 
-      expect(usersService.update).not.toHaveBeenCalledWith(
-        returning.id,
-        expect.objectContaining({ email: 'reported@example.com' }),
-      );
-    });
-  });
-  describe('linking a social identity to an existing account by email', () => {
-    type Login = (email: string) => Promise<unknown>;
-
-    const viaFacebook: Login = (email) => {
-      oauthAccountsService.findByProviderAndProviderUid.mockResolvedValue(null);
-      return service.validateFacebookLogin({ id: 'fb-link', email });
-    };
-
-    const viaGoogle: Login = (email) => {
-      usersService.findBySocialIdAndProvider.mockResolvedValue(null);
-      return service.validateSocialLogin(AuthProvidersEnum.google, {
-        id: 'google-link',
-        email,
-      });
-    };
-
-    describe.each([
-      ['Facebook', viaFacebook],
-      ['Google', viaGoogle],
-    ])('via %s', (_provider, login) => {
-      // Pre-account hijacking: someone registers the victim's address with a
-      // password and never verifies it — login does not require verification,
-      // so they can use the account at once. When the real owner later signs
-      // in with a provider that vouches for the address, they are linked into
-      // that account while the squatter still knows its password.
-      it('should strip the password and sessions of an unverified account before linking', async () => {
-        const squatted = {
-          ...baseUser,
-          id: 41,
-          emailVerified: false,
-          status: { id: StatusEnum.inactive },
-        };
-        usersService.findByEmail.mockResolvedValue(squatted);
-
-        await login(squatted.email);
-
-        expect(usersService.clearPassword).toHaveBeenCalledWith(squatted.id);
-        expect(sessionService.deleteByUserId).toHaveBeenCalledWith({
-          userId: squatted.id,
+      const linkTo = (user: unknown) =>
+        oauthAccountsService.findByProviderAndProviderUid.mockResolvedValue({
+          id: 'oauth-1',
+          provider,
+          providerUid: `${provider}-uid-1`,
+          user,
         });
-        expect(usersService.update).toHaveBeenCalledWith(
-          squatted.id,
-          expect.objectContaining({
-            emailVerified: true,
-            status: { id: StatusEnum.active },
-          }),
+
+      const login = (overrides: Record<string, unknown> = {}) =>
+        service.validateSocialLogin(provider, identity(overrides));
+
+      describe('an identity linked before', () => {
+        it('should sign in as the linked account', async () => {
+          const linked = { ...baseUser, id: 9, onboardingDone: true };
+          linkTo(linked);
+
+          const result = await login();
+
+          expect(result.user).toBe(linked);
+          expect(result.requiresOnboarding).toBe(false);
+        });
+
+        it('should look the identity up by this provider and uid', async () => {
+          linkTo({ ...baseUser, id: 9 });
+
+          await login();
+
+          expect(
+            oauthAccountsService.findByProviderAndProviderUid,
+          ).toHaveBeenCalledWith(provider, `${provider}-uid-1`);
+        });
+
+        // G4 (AC-32): the address a provider reports can drift to one the
+        // user does not control; copying it would route "forgot password"
+        // there.
+        it('should not create, relink or update anything', async () => {
+          linkTo({ ...baseUser, id: 9, email: 'kept@example.com' });
+
+          await login({ email: 'reported@example.com' });
+
+          expect(usersService.create).not.toHaveBeenCalled();
+          expect(usersService.update).not.toHaveBeenCalled();
+          expect(oauthAccountsService.create).not.toHaveBeenCalled();
+          expect(userRolesService.setRole).not.toHaveBeenCalled();
+        });
+
+        // The admin rule is about creating a link, not using one: staff who
+        // linked a provider from their profile keep signing in with it.
+        it('should sign in an admin through an existing link', async () => {
+          const admin = { ...baseUser, id: 44 };
+          grantAdminPermission(admin.id);
+          linkTo(admin);
+
+          const result = await login();
+
+          expect(result.user).toBe(admin);
+        });
+
+        it('should refuse a deactivated account', async () => {
+          linkTo({
+            ...baseUser,
+            id: 9,
+            status: { id: StatusEnum.deactivated },
+          });
+
+          const error = await login().catch((e) => e);
+
+          expect(error).toBeInstanceOf(ForbiddenException);
+          expect(error.getResponse()).toEqual({
+            status: 403,
+            code: 'ACCOUNT_DEACTIVATED',
+          });
+          expect(sessionService.create).not.toHaveBeenCalled();
+        });
+
+        // A link whose account was deleted must not resurrect it.
+        it('should refuse a link whose account no longer exists', async () => {
+          linkTo(null);
+
+          await expect(login()).rejects.toBeInstanceOf(
+            UnprocessableEntityException,
+          );
+          expect(sessionService.create).not.toHaveBeenCalled();
+        });
+      });
+
+      describe('an unlinked identity whose email matches an account', () => {
+        beforeEach(() => {
+          oauthAccountsService.findByProviderAndProviderUid.mockResolvedValue(
+            null,
+          );
+        });
+
+        // AC-27
+        it('should sign in as the existing account and save the link', async () => {
+          const existing = { ...baseUser, id: 42 };
+          usersService.findByEmail.mockResolvedValue(existing);
+
+          const result = await login({ email: 'Student@Example.com' });
+
+          expect(usersService.findByEmail).toHaveBeenCalledWith(
+            'student@example.com',
+          );
+          expect(oauthAccountsService.create).toHaveBeenCalledWith({
+            provider,
+            providerUid: `${provider}-uid-1`,
+            user: existing,
+          });
+          expect(result.user).toBe(existing);
+          expect(usersService.create).not.toHaveBeenCalled();
+        });
+
+        it('should keep the existing account’s role', async () => {
+          usersService.findByEmail.mockResolvedValue({ ...baseUser, id: 42 });
+
+          await login();
+
+          expect(userRolesService.setRole).not.toHaveBeenCalled();
+        });
+
+        // G1 (AC-28) — pre-account hijacking: someone registers the victim's
+        // address with a password and never verifies it. When the real owner
+        // signs in with a provider that vouches for the address, the
+        // squatter's password and sessions must not survive the link.
+        it('should strip the password and sessions of an unverified account before linking', async () => {
+          const squatted = {
+            ...baseUser,
+            id: 41,
+            emailVerified: false,
+            status: { id: StatusEnum.inactive },
+          };
+          usersService.findByEmail.mockResolvedValue(squatted);
+
+          await login();
+
+          expect(usersService.clearPassword).toHaveBeenCalledWith(41);
+          expect(sessionService.deleteByUserId).toHaveBeenCalledWith({
+            userId: 41,
+          });
+          expect(usersService.update).toHaveBeenCalledWith(
+            41,
+            expect.objectContaining({
+              emailVerified: true,
+              status: { id: StatusEnum.active },
+            }),
+          );
+          expect(
+            sessionService.deleteByUserId.mock.invocationCallOrder[0],
+          ).toBeLessThan(sessionService.create.mock.invocationCallOrder[0]);
+        });
+
+        it('should leave a verified account’s password and sessions alone', async () => {
+          usersService.findByEmail.mockResolvedValue({ ...baseUser, id: 42 });
+
+          await login();
+
+          expect(usersService.clearPassword).not.toHaveBeenCalled();
+          expect(sessionService.deleteByUserId).not.toHaveBeenCalled();
+        });
+
+        // G3 (AC-30) — an admin session is the most valuable thing a
+        // look-alike or compromised social account could become.
+        it('should refuse to auto-link an account holding any admin-panel permission', async () => {
+          const admin = { ...baseUser, id: 43 };
+          usersService.findByEmail.mockResolvedValue(admin);
+          grantAdminPermission(admin.id);
+
+          const error = await login().catch((e) => e);
+
+          expect(error).toBeInstanceOf(ConflictException);
+          expect(error.getResponse()).toEqual({
+            status: 409,
+            error: 'social_link_requires_password',
+          });
+          expect(oauthAccountsService.create).not.toHaveBeenCalled();
+          expect(sessionService.create).not.toHaveBeenCalled();
+          expect(usersService.clearPassword).not.toHaveBeenCalled();
+        });
+
+        it('should refuse to link a deactivated account', async () => {
+          usersService.findByEmail.mockResolvedValue({
+            ...baseUser,
+            id: 46,
+            status: { id: StatusEnum.deactivated },
+          });
+
+          await expect(login()).rejects.toBeInstanceOf(ForbiddenException);
+          expect(oauthAccountsService.create).not.toHaveBeenCalled();
+        });
+      });
+
+      describe('an identity matching nothing', () => {
+        beforeEach(() => {
+          oauthAccountsService.findByProviderAndProviderUid.mockResolvedValue(
+            null,
+          );
+          usersService.findByEmail.mockResolvedValue(null);
+          usersService.create.mockResolvedValue({ ...baseUser, id: 77 });
+        });
+
+        // AC-26
+        it('should create an account and link the identity to it', async () => {
+          const result = await login();
+
+          expect(usersService.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+              email: 'student@example.com',
+              fullName: 'Jane Student',
+              emailVerified: true,
+              onboardingDone: false,
+              provider,
+              status: { id: StatusEnum.active },
+            }),
+          );
+          expect(oauthAccountsService.create).toHaveBeenCalledWith({
+            provider,
+            providerUid: `${provider}-uid-1`,
+            user: expect.objectContaining({ id: 77 }),
+          });
+          expect(result.requiresOnboarding).toBe(true);
+        });
+
+        it('should give the new account the User role', async () => {
+          await login();
+
+          expect(userRolesService.setRole).toHaveBeenCalledWith(
+            77,
+            RoleEnum.user,
+            null,
+          );
+        });
+
+        // Social identity lives in oauth_account now; user.social_id is no
+        // longer written or read.
+        it('should not write the legacy social id column', async () => {
+          await login();
+
+          const [payload] = usersService.create.mock.calls[0] as [
+            Record<string, unknown>,
+          ];
+          expect(payload.socialId).toBeUndefined();
+        });
+
+        // G2 — with no address, nothing can be matched or vouched for.
+        it('should create an unverified, email-less account when the provider gives no email', async () => {
+          await login({ email: undefined });
+
+          expect(usersService.findByEmail).not.toHaveBeenCalled();
+          expect(usersService.create).toHaveBeenCalledWith(
+            expect.objectContaining({ email: null, emailVerified: false }),
+          );
+        });
+      });
+
+      // TypeORM drops an undefined property from `where`, so a missing uid
+      // would match whichever linked account comes first.
+      it('should reject an identity without a provider uid before any lookup', async () => {
+        await expect(login({ id: '' })).rejects.toBeInstanceOf(
+          UnprocessableEntityException,
         );
-        // The squatter's sessions are gone before the owner's is created.
+
         expect(
-          sessionService.deleteByUserId.mock.invocationCallOrder[0],
-        ).toBeLessThan(sessionService.create.mock.invocationCallOrder[0]);
-      });
-
-      // Guard: an account whose owner already proved the address keeps its
-      // password and its other sessions.
-      it('should leave a verified account’s password and sessions alone', async () => {
-        usersService.findByEmail.mockResolvedValue({ ...baseUser, id: 42 });
-
-        await login(baseUser.email);
-
-        expect(usersService.clearPassword).not.toHaveBeenCalled();
-        expect(sessionService.deleteByUserId).not.toHaveBeenCalled();
-      });
-
-      // An admin session is the most valuable thing a look-alike or compromised
-      // social account could be turned into. Staff link a provider from their
-      // profile, after signing in with their password.
-      it('should refuse to auto-link an account that holds an admin-panel permission', async () => {
-        const admin = { ...baseUser, id: 43 };
-        usersService.findByEmail.mockResolvedValue(admin);
-        grantAdminPermission(admin.id);
-
-        const attempt = login(admin.email);
-
-        await expect(attempt).rejects.toBeInstanceOf(ConflictException);
-        await expect(attempt).rejects.toMatchObject({
-          response: { error: 'social_link_requires_password' },
-        });
-        expect(oauthAccountsService.create).not.toHaveBeenCalled();
+          oauthAccountsService.findByProviderAndProviderUid,
+        ).not.toHaveBeenCalled();
+        expect(usersService.findByEmail).not.toHaveBeenCalled();
         expect(sessionService.create).not.toHaveBeenCalled();
-        expect(usersService.clearPassword).not.toHaveBeenCalled();
       });
-    });
-
-    // Guard: the admin rule is about creating a link, not using one. Staff who
-    // already linked a provider keep signing in with it.
-    it('should still sign in an admin through a link that already exists (Facebook)', async () => {
-      const admin = { ...baseUser, id: 44 };
-      grantAdminPermission(admin.id);
-      oauthAccountsService.findByProviderAndProviderUid.mockResolvedValue({
-        id: 'oauth-admin',
-        provider: AuthProvidersEnum.facebook,
-        providerUid: 'fb-admin',
-        user: admin,
-      });
-
-      const result = (await service.validateFacebookLogin({
-        id: 'fb-admin',
-        email: admin.email,
-      })) as { user: unknown };
-
-      expect(result.user).toBe(admin);
-    });
-
-    it('should still sign in an admin through a link that already exists (Google)', async () => {
-      const admin = { ...baseUser, id: 45 };
-      grantAdminPermission(admin.id);
-      usersService.findBySocialIdAndProvider.mockResolvedValue(admin);
-
-      const result = (await service.validateSocialLogin(
-        AuthProvidersEnum.google,
-        { id: 'google-admin', email: admin.email },
-      )) as { user: unknown };
-
-      expect(result.user).toBe(admin);
-    });
-  });
+    },
+  );
 });

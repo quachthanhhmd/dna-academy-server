@@ -9,6 +9,8 @@ import { RolesAdminController } from './roles-admin.controller';
 import { RolesAdminService } from './roles-admin.service';
 import { UserRolesAdminController } from './user-roles-admin.controller';
 import { UserRolesAdminService } from './user-roles-admin.service';
+import { UserRoleChangeService } from './user-role-change.service';
+import { UserRoleChangeRepository } from './user-role-change.repository';
 
 @Module({
   imports: [
@@ -20,6 +22,11 @@ import { UserRolesAdminService } from './user-roles-admin.service';
     AuthorizationModule,
   ],
   controllers: [RolesAdminController, UserRolesAdminController],
-  providers: [RolesAdminService, UserRolesAdminService],
+  providers: [
+    RolesAdminService,
+    UserRolesAdminService,
+    UserRoleChangeService,
+    UserRoleChangeRepository,
+  ],
 })
 export class RolesAdminModule {}

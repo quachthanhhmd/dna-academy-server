@@ -1,4 +1,9 @@
 import {
+  RateLimit,
+  RateLimitGuard,
+} from '../utils/rate-limit/rate-limit.guard';
+import { HOUR, MINUTE } from '../utils/rate-limit/rate-limit.constants';
+import {
   Body,
   Controller,
   Get,
@@ -51,6 +56,10 @@ export class AuthController {
   @SerializeOptions({
     groups: ['me'],
   })
+  // Per IP: spraying many accounts from one address. Per email: failed
+  // attempts are counted in AuthService (10 / 15 min), which sees the result.
+  @UseGuards(RateLimitGuard)
+  @RateLimit(100, 15 * MINUTE, 'ip')
   @Post('email/login')
   @ApiOkResponse({
     type: LoginResponseDto,
@@ -68,6 +77,8 @@ export class AuthController {
     description:
       'Creates the user (inactive) and a linked student_profiles row, then sends a verification email. Confirm via POST /auth/email/confirm.',
   })
+  @UseGuards(RateLimitGuard)
+  @RateLimit(60, HOUR, 'ip')
   @Post('email/register')
   @HttpCode(HttpStatus.NO_CONTENT)
   async register(@Body() createUserDto: AuthRegisterLoginDto): Promise<void> {
@@ -98,6 +109,9 @@ export class AuthController {
     description:
       'For accounts stuck unverified (e.g. the original email from /auth/email/register never arrived). Issues a new confirmation token and re-sends the same email as register. Returns 422 if the account is already confirmed.',
   })
+  @UseGuards(RateLimitGuard)
+  @RateLimit(3, HOUR, { body: 'email' })
+  @RateLimit(20, HOUR, 'ip')
   @Post('email/confirm/resend')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiUnprocessableEntityResponse({
@@ -111,6 +125,9 @@ export class AuthController {
     );
   }
 
+  @UseGuards(RateLimitGuard)
+  @RateLimit(3, HOUR, { body: 'email' })
+  @RateLimit(20, HOUR, 'ip')
   @Post('forgot/password')
   @HttpCode(HttpStatus.NO_CONTENT)
   async forgotPassword(
@@ -119,6 +136,8 @@ export class AuthController {
     return this.service.forgotPassword(forgotPasswordDto.email);
   }
 
+  @UseGuards(RateLimitGuard)
+  @RateLimit(20, 15 * MINUTE, 'ip')
   @Post('reset/password')
   @HttpCode(HttpStatus.NO_CONTENT)
   resetPassword(@Body() resetPasswordDto: AuthResetPasswordDto): Promise<void> {
@@ -174,7 +193,10 @@ export class AuthController {
     groups: ['me'],
   })
   @Patch('me')
-  @UseGuards(AuthGuard('jwt'))
+  // Changing the password checks the old one: bound the guesses a stolen
+  // access token can make.
+  @UseGuards(AuthGuard('jwt'), RateLimitGuard)
+  @RateLimit(20, 15 * MINUTE)
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({
     type: User,

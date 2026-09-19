@@ -54,24 +54,7 @@ export class RoleSeedService {
           id: RoleEnum.instructor,
           name: 'Instructor',
           description:
-            'A teaching account. Excluded from student metrics; grants no admin access.',
-          isActive: true,
-        }),
-      );
-    }
-
-    const countSuperAdmin = await this.repository.count({
-      where: {
-        id: RoleEnum.superAdmin,
-      },
-    });
-
-    if (!countSuperAdmin) {
-      await this.repository.save(
-        this.repository.create({
-          id: RoleEnum.superAdmin,
-          name: 'Super Admin',
-          description: 'Full access to all admin panel modules and actions.',
+            'A teaching account. Edits the courses it is primary on and sees their dashboard.',
           isActive: true,
         }),
       );
