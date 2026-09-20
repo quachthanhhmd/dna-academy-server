@@ -260,7 +260,9 @@ export class AuthController {
   @ApiOperation({
     summary: 'Complete student onboarding',
     description:
-      'Sets education stage, age/date of birth, and career interests (with optional custom interest for "Other"). Marks users.onboarding_done = true.',
+      'Atomically sets education stage, age/date of birth, current status, ' +
+      'and career interests. currentStatusCode is the learning_goal code, ' +
+      'not its UUID. Marks users.onboarding_done only after every write succeeds.',
   })
   @ApiBearerAuth()
   @SerializeOptions({
@@ -273,7 +275,8 @@ export class AuthController {
   })
   @ApiUnprocessableEntityResponse({
     description:
-      'Invalid educationStageCodeId/careerInterestIds, or neither age nor dateOfBirth provided/known',
+      'Invalid educationStageCodeId, currentStatusCode, careerInterestIds, ' +
+      'missing Other labels, or neither age nor dateOfBirth provided/known',
   })
   @HttpCode(HttpStatus.OK)
   public completeOnboarding(

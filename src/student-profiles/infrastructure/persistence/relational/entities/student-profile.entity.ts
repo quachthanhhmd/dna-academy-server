@@ -3,6 +3,7 @@ import { MasterDataCodeEntity } from '../../../../../master-data-codes/infrastru
 import { UserEntity } from '../../../../../users/infrastructure/persistence/relational/entities/user.entity';
 
 import {
+  Column,
   CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
@@ -17,6 +18,18 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
   name: 'student_profile',
 })
 export class StudentProfileEntity extends EntityRelationalHelper {
+  @ManyToOne(() => MasterDataCodeEntity, { eager: false, nullable: true })
+  @JoinColumn({ name: 'current_status_code_id' })
+  currentStatusCode?: MasterDataCodeEntity | null;
+
+  @Column({
+    name: 'custom_status',
+    nullable: true,
+    type: String,
+    length: 200,
+  })
+  customStatus?: string | null;
+
   @ManyToOne(() => MasterDataCodeEntity, { eager: false, nullable: true })
   @JoinColumn({ name: 'education_stage_code_id' })
   educationStageCode?: MasterDataCodeEntity | null;

@@ -110,6 +110,61 @@ export class LectureRelationalRepository implements LectureRepository {
     return byCourse;
   }
 
+  /**
+   * One query per course rather than one per lecture: the curriculum screen
+   * asks this for every row at once, and a published course can hold dozens.
+   *
+   * A lecture "has content" only for its *current* type — a lecture switched
+   * from article to quiz has no quiz content yet, and the editor must say so
+   * even though an orphaned article row may still exist.
+   */
+  async findIdsWithContentByCourseId(courseId: string): Promise<Set<string>> {
+    const rows: { id: string }[] = await this.lectureRepository.manager.query(
+      `SELECT l."id"
+         FROM "lecture" l
+         JOIN "section" s ON s."id" = l."section_id"
+        WHERE s."course_id" = $1
+          AND (
+            (l."lecture_type" = 'video' AND EXISTS (
+               SELECT 1 FROM "lecture_content_video" c WHERE c."lecture_id" = l."id"))
+         OR (l."lecture_type" = 'article' AND EXISTS (
+               SELECT 1 FROM "lecture_content_article" c WHERE c."lecture_id" = l."id"))
+         OR (l."lecture_type" = 'pdf_document' AND EXISTS (
+               SELECT 1 FROM "lecture_content_document" c WHERE c."lecture_id" = l."id"))
+         OR (l."lecture_type" = 'quiz' AND EXISTS (
+               SELECT 1 FROM "lecture_content_quiz" c WHERE c."lecture_id" = l."id"))
+         OR (l."lecture_type" = 'reflection' AND EXISTS (
+               SELECT 1 FROM "lecture_content_reflection" c WHERE c."lecture_id" = l."id"))
+          )`,
+      [courseId],
+    );
+
+    return new Set(rows.map((row) => row.id));
+  }
+
+  /**
+   * Asked before deleting a lecture. One query across every table that holds
+   * something a student produced; `quiz_attempt_answer` and
+   * `reflection_response` hang off the attempt and the question, so those two
+   * cover them.
+   */
+  async hasLearnerData(lectureId: string): Promise<boolean> {
+    const [row]: { exists: boolean }[] =
+      await this.lectureRepository.manager.query(
+        `SELECT (
+            EXISTS (SELECT 1 FROM "lecture_progress" WHERE "lecture_id" = $1)
+         OR EXISTS (SELECT 1 FROM "quiz_attempt"    WHERE "lecture_id" = $1)
+         OR EXISTS (SELECT 1 FROM "quiz_save"       WHERE "lecture_id" = $1)
+         OR EXISTS (SELECT 1 FROM "reflection_response" r
+                      JOIN "reflection_question" q ON q."id" = r."question_id"
+                     WHERE q."lecture_id" = $1)
+         ) AS exists`,
+        [lectureId],
+      );
+
+    return row?.exists ?? false;
+  }
+
   async countBySectionId(sectionId: string): Promise<number> {
     return this.lectureRepository.count({
       where: { section: { id: sectionId } },

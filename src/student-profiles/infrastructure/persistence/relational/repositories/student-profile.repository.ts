@@ -60,7 +60,7 @@ export class StudentProfileRelationalRepository implements StudentProfileReposit
   ): Promise<NullableType<StudentProfile>> {
     const entity = await this.studentProfileRepository.findOne({
       where: { user: { id: userId } },
-      relations: ['educationStageCode'],
+      relations: ['educationStageCode', 'currentStatusCode'],
     });
 
     return entity ? StudentProfileMapper.toDomain(entity) : null;

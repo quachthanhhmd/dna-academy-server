@@ -57,8 +57,13 @@ const MASTER_DATA_GROUPS: ReadonlyArray<{
     },
   },
   {
-    groupKey: 'expertise_area',
+    groupKey: 'learning_goal',
     displayOrder: 8,
+    nameTranslations: { vi: 'Mục tiêu học tập', en: 'Learning Goal' },
+  },
+  {
+    groupKey: 'expertise_area',
+    displayOrder: 9,
     nameTranslations: {
       vi: 'Lĩnh vực chuyên môn',
       en: 'Instructor Expertise Area',

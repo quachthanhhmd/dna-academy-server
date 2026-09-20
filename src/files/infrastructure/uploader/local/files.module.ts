@@ -12,6 +12,7 @@ import { randomStringGenerator } from '@nestjs/common/utils/random-string-genera
 
 import { FilesLocalService } from './files.service';
 import { FileUploaderService } from '../file-uploader.service';
+import { isAllowedUpload } from '../../../file-upload-rules';
 
 import { RelationalFilePersistenceModule } from '../../persistence/relational/relational-persistence.module';
 import { AllConfigType } from '../../../../config/config.type';
@@ -34,7 +35,7 @@ import { AllConfigType } from '../../../../config/config.type';
 
         return {
           fileFilter: (request, file, callback) => {
-            if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
+            if (!isAllowedUpload(file.originalname, file.mimetype)) {
               return callback(
                 new UnprocessableEntityException({
                   status: HttpStatus.UNPROCESSABLE_ENTITY,

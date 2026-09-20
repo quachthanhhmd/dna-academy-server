@@ -26,10 +26,9 @@ export const createR2Client = (config: FileConfig): S3Client =>
 
 /**
  * Course thumbnails and instructor avatars (images) plus lecture documents
- * (`pdf_document` lecture content).
+ * (`pdf_document` lecture content). Shared with every other driver.
  */
-export const ALLOWED_FILE_EXTENSIONS =
-  /\.(jpg|jpeg|png|gif|webp|avif|svg|pdf)$/i;
+export { ALLOWED_FILE_EXTENSIONS } from '../../../file-upload-rules';
 
 export const buildObjectKey = (originalName: string): string => {
   const extension = originalName.split('.').pop()?.toLowerCase();

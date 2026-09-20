@@ -97,6 +97,14 @@ export class LecturesService {
     return this.lectureRepository.countBySectionId(sectionId);
   }
 
+  findIdsWithContentByCourseId(courseId: string) {
+    return this.lectureRepository.findIdsWithContentByCourseId(courseId);
+  }
+
+  hasLearnerData(id: Lecture['id']) {
+    return this.lectureRepository.hasLearnerData(id);
+  }
+
   removeBySectionId(sectionId: string) {
     return this.lectureRepository.removeBySectionId(sectionId);
   }

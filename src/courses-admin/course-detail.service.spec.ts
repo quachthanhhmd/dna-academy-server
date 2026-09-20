@@ -7,7 +7,10 @@ describe('CourseDetailService', () => {
 
   let coursesService: { findById: jest.Mock<any> };
   let sectionsService: { findByCourseId: jest.Mock<any> };
-  let lecturesService: { findBySectionId: jest.Mock<any> };
+  let lecturesService: {
+    findBySectionId: jest.Mock<any>;
+    findIdsWithContentByCourseId: jest.Mock<any>;
+  };
   let courseLearningOutcomesService: { findByCourseId: jest.Mock<any> };
   let courseRequirementsService: { findByCourseId: jest.Mock<any> };
   let courseTargetLearnersService: { findByCourseId: jest.Mock<any> };
@@ -17,7 +20,12 @@ describe('CourseDetailService', () => {
   beforeEach(() => {
     coursesService = { findById: jest.fn() };
     sectionsService = { findByCourseId: jest.fn() };
-    lecturesService = { findBySectionId: jest.fn() };
+    lecturesService = {
+      findBySectionId: jest.fn(),
+      findIdsWithContentByCourseId: (
+        jest.fn() as jest.Mock<any>
+      ).mockResolvedValue(new Set<string>()),
+    };
     courseLearningOutcomesService = { findByCourseId: jest.fn() };
     courseRequirementsService = { findByCourseId: jest.fn() };
     courseTargetLearnersService = { findByCourseId: jest.fn() };
@@ -114,10 +122,60 @@ describe('CourseDetailService', () => {
         id: 'section-1',
         title: 'Section 1',
         displayOrder: 1,
-        lectures: [{ id: 'lecture-1', title: 'Lecture 1' }],
+        lectures: [{ id: 'lecture-1', title: 'Lecture 1', hasContent: false }],
       },
       { id: 'section-2', title: 'Section 2', displayOrder: 2, lectures: [] },
     ]);
+  });
+
+  /*
+    The curriculum screen labels each lecture "has content / no content". It
+    used to know only about lectures saved in the current session, so every
+    row read as empty after a reload.
+  */
+  it('should mark which lectures already have content saved', async () => {
+    coursesService.findById.mockResolvedValue({ id: 'course-1' });
+    sectionsService.findByCourseId.mockResolvedValue([
+      { id: 'section-1', title: 'Section 1', displayOrder: 1 },
+    ]);
+    lecturesService.findBySectionId.mockResolvedValue([
+      { id: 'lecture-1', title: 'Filled in' },
+      { id: 'lecture-2', title: 'Still empty' },
+    ]);
+    lecturesService.findIdsWithContentByCourseId.mockResolvedValue(
+      new Set(['lecture-1']),
+    );
+    courseLearningOutcomesService.findByCourseId.mockResolvedValue([]);
+    courseRequirementsService.findByCourseId.mockResolvedValue([]);
+    courseTargetLearnersService.findByCourseId.mockResolvedValue([]);
+    courseGroupAssignmentsService.findByCourseId.mockResolvedValue([]);
+
+    const result = await service.findDetail('course-1');
+
+    expect(result.sections[0].lectures).toEqual([
+      { id: 'lecture-1', title: 'Filled in', hasContent: true },
+      { id: 'lecture-2', title: 'Still empty', hasContent: false },
+    ]);
+  });
+
+  it('should ask for the content flags once for the whole course', async () => {
+    coursesService.findById.mockResolvedValue({ id: 'course-1' });
+    sectionsService.findByCourseId.mockResolvedValue([
+      { id: 'section-1', title: 'S1', displayOrder: 1 },
+      { id: 'section-2', title: 'S2', displayOrder: 2 },
+      { id: 'section-3', title: 'S3', displayOrder: 3 },
+    ]);
+    lecturesService.findBySectionId.mockResolvedValue([{ id: 'l1' }]);
+    courseLearningOutcomesService.findByCourseId.mockResolvedValue([]);
+    courseRequirementsService.findByCourseId.mockResolvedValue([]);
+    courseTargetLearnersService.findByCourseId.mockResolvedValue([]);
+    courseGroupAssignmentsService.findByCourseId.mockResolvedValue([]);
+
+    await service.findDetail('course-1');
+
+    expect(lecturesService.findIdsWithContentByCourseId).toHaveBeenCalledTimes(
+      1,
+    );
   });
 
   it('should include outcomes, requirements, targetLearners, and groupIds', async () => {

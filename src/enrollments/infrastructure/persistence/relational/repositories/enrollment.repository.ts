@@ -138,6 +138,13 @@ export class EnrollmentRelationalRepository implements EnrollmentRepository {
     return EnrollmentMapper.toDomain(updatedEntity);
   }
 
+  async clearLastLecture(lectureId: string): Promise<void> {
+    await this.enrollmentRepository.update(
+      { lastLecture: { id: lectureId } },
+      { lastLecture: null },
+    );
+  }
+
   async remove(id: Enrollment['id']): Promise<void> {
     await this.enrollmentRepository.delete(id);
   }

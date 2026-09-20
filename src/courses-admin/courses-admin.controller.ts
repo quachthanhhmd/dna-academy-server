@@ -128,6 +128,10 @@ export class CoursesAdminController {
 
   @ApiOperation({
     summary: 'Get full course detail, including nested sections/lectures',
+    description:
+      'Each lecture in sections[].lectures[] carries `hasContent`: true when ' +
+      'content has been saved for its current lectureType. Computed in one ' +
+      'query for the course.',
   })
   @RequirePermission('courses', 'view')
   @CourseAccess({ mode: 'view', from: { course: 'id' } })

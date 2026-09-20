@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   HttpStatus,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
   UnprocessableEntityException,
@@ -33,9 +34,8 @@ import { User } from '../users/domain/user';
 import { OauthAccountsService } from '../oauth-accounts/oauth-accounts.service';
 import { StudentProfilesService } from '../student-profiles/student-profiles.service';
 import { StudentCareerInterestsService } from '../student-career-interests/student-career-interests.service';
-import { MasterDataCodesService } from '../master-data-codes/master-data-codes.service';
-import { MasterDataCode } from '../master-data-codes/domain/master-data-code';
 import { AuthOnboardingDto } from './dto/auth-onboarding.dto';
+import { OnboardingService } from './onboarding.service';
 import { ProfileResponseDto } from './dto/profile-response.dto';
 import { UserRolesService } from '../user-roles/user-roles.service';
 import { RolePermissionsService } from '../role-permissions/role-permissions.service';
@@ -46,6 +46,7 @@ export const INVITE_EXPIRES_IN = '72h';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly loginFailures = new LoginFailureLimiter();
 
   constructor(
@@ -57,9 +58,9 @@ export class AuthService {
     private readonly oauthAccountsService: OauthAccountsService,
     private readonly studentProfilesService: StudentProfilesService,
     private readonly studentCareerInterestsService: StudentCareerInterestsService,
-    private readonly masterDataCodesService: MasterDataCodesService,
     private readonly userRolesService: UserRolesService,
     private readonly rolePermissionsService: RolePermissionsService,
+    private readonly onboardingService: OnboardingService,
   ) {}
 
   async validateLogin(loginDto: AuthEmailLoginDto): Promise<LoginResponseDto> {
@@ -214,7 +215,9 @@ export class AuthService {
         });
       }
 
-      return this.buildLoginResponse(link.user);
+      return this.buildLoginResponse(
+        await this.backfillFromSocial(link.user, socialData),
+      );
     }
 
     const socialEmail = socialData.email?.toLowerCase();
@@ -781,98 +784,7 @@ export class AuthService {
     userId: User['id'],
     dto: AuthOnboardingDto,
   ): Promise<ProfileResponseDto> {
-    const user = await this.usersService.findById(userId);
-
-    if (!user) {
-      throw new NotFoundException({
-        status: HttpStatus.NOT_FOUND,
-        error: `notFound`,
-      });
-    }
-
-    const educationStageCode = await this.masterDataCodesService.findById(
-      dto.educationStageCodeId,
-    );
-
-    if (
-      !educationStageCode ||
-      !educationStageCode.isActive ||
-      educationStageCode.group.groupKey !== 'education_stage'
-    ) {
-      throw new UnprocessableEntityException({
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        errors: {
-          educationStageCodeId: 'notExists',
-        },
-      });
-    }
-
-    const careerInterestCodes: MasterDataCode[] = [];
-
-    for (const careerInterestId of dto.careerInterestIds) {
-      const code = await this.masterDataCodesService.findById(careerInterestId);
-
-      if (
-        !code ||
-        !code.isActive ||
-        code.group.groupKey !== 'career_interest'
-      ) {
-        throw new UnprocessableEntityException({
-          status: HttpStatus.UNPROCESSABLE_ENTITY,
-          errors: {
-            careerInterestIds: `notExists:${careerInterestId}`,
-          },
-        });
-      }
-
-      careerInterestCodes.push(code);
-    }
-
-    if (!dto.age && !dto.dateOfBirth && !user.age && !user.dateOfBirth) {
-      throw new UnprocessableEntityException({
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        errors: {
-          age: 'ageOrDateOfBirthRequired',
-        },
-      });
-    }
-
-    const existingProfile =
-      await this.studentProfilesService.findByUserId(userId);
-
-    if (existingProfile) {
-      await this.studentProfilesService.update(existingProfile.id, {
-        educationStageCode,
-      });
-    } else {
-      await this.studentProfilesService.create({
-        user: { id: userId },
-        educationStageCode,
-      });
-    }
-
-    const existingInterests =
-      await this.studentCareerInterestsService.findByUserId(userId);
-
-    for (const interest of existingInterests) {
-      await this.studentCareerInterestsService.remove(interest.id);
-    }
-
-    for (const code of careerInterestCodes) {
-      const isOther = code.code?.toLowerCase() === 'other';
-
-      await this.studentCareerInterestsService.create({
-        user: { id: userId },
-        careerInterest: code,
-        customInterest: isOther ? (dto.customInterest ?? null) : null,
-      });
-    }
-
-    await this.usersService.update(userId, {
-      age: dto.age ?? user.age,
-      dateOfBirth: dto.dateOfBirth ?? user.dateOfBirth,
-      onboardingDone: true,
-    });
+    await this.onboardingService.complete(userId, dto);
 
     return this.getProfile(userId);
   }
@@ -894,6 +806,68 @@ export class AuthService {
    *   arrives through a provider that vouches for the address, the squatter's
    *   way in has to go.
    */
+  /**
+   * Fills in the email a linked account never received.
+   *
+   * A Facebook token without the `email` permission produced an account with
+   * `email: null`, and this branch returned the linked user untouched — so
+   * once the client started asking for the permission, the address still
+   * never arrived and onboarding kept showing an empty email field.
+   *
+   * **Blanks only.** An address already on the account is never overwritten
+   * and never cleared: the provider is a source for what is missing, not an
+   * authority over what the account already says. Names and the avatar are
+   * deliberately left alone — the learner may have edited them, and a
+   * sign-in is not the moment to reconsider that.
+   */
+  private async backfillFromSocial(
+    user: User,
+    socialData: SocialInterface,
+  ): Promise<User> {
+    const email = socialData.email?.trim().toLowerCase();
+
+    if (!email || user.email) {
+      return user;
+    }
+
+    if (!(await this.canClaimEmail(user, email))) {
+      return user;
+    }
+
+    // Verified because the provider vouched for it — the same rule account
+    // creation uses.
+    const patch = { email, emailVerified: true };
+
+    await this.usersService.update(user.id, patch);
+
+    // Merged into the returned user rather than re-read, so the login
+    // response and /auth/me carry the address on this very request.
+    return { ...user, ...patch };
+  }
+
+  /**
+   * Whether this account may take the address the provider reported.
+   *
+   * If another account already owns it, the two are left exactly as they
+   * are: signing in must not quietly move an address between accounts, and
+   * merging them is a deliberate decision with its own rules — not a side
+   * effect of somebody pressing "Continue with Facebook".
+   */
+  private async canClaimEmail(user: User, email: string): Promise<boolean> {
+    const owner = await this.usersService.findByEmail(email);
+
+    if (!owner || owner.id === user.id) {
+      return true;
+    }
+
+    this.logger.warn(
+      `Social sign-in for user ${user.id} reported ${email}, which already ` +
+        `belongs to user ${owner.id}; leaving both accounts unchanged.`,
+    );
+
+    return false;
+  }
+
   private async prepareLinkByEmail(user: User): Promise<User> {
     if (await this.holdsAnyPermission(user.id)) {
       throw new ConflictException({

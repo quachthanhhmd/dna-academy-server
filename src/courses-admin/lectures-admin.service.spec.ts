@@ -16,8 +16,11 @@ describe('LecturesAdminService', () => {
     findBySectionId: jest.Mock<any>;
     update: jest.Mock<any>;
     remove: jest.Mock<any>;
+    hasLearnerData: jest.Mock<any>;
   };
   let courseAggregatesService: { recalculate: jest.Mock<any> };
+  let lectureContentAdminService: { clearAllContent: jest.Mock<any> };
+  let enrollmentsService: { clearLastLecture: jest.Mock<any> };
 
   const course = { id: 'course-1' };
   const section = { id: 'section-1', course: { id: 'course-1' } };
@@ -31,14 +34,19 @@ describe('LecturesAdminService', () => {
       findBySectionId: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
+      hasLearnerData: (jest.fn() as jest.Mock<any>).mockResolvedValue(false),
     };
     courseAggregatesService = { recalculate: jest.fn() };
+    lectureContentAdminService = { clearAllContent: jest.fn() };
+    enrollmentsService = { clearLastLecture: jest.fn() };
 
     service = new LecturesAdminService(
       coursesService as any,
       sectionsService as any,
       lecturesService as any,
       courseAggregatesService as any,
+      lectureContentAdminService as any,
+      enrollmentsService as any,
     );
   });
 
@@ -349,6 +357,102 @@ describe('LecturesAdminService', () => {
           title: 'Renamed',
         } as never),
       ).resolves.toBeDefined();
+    });
+  });
+
+  /*
+    Every content table references `lecture`, so deleting the row first was a
+    foreign-key violation that reached the client as a 500 — no quiz or
+    article lecture could be removed at all.
+  */
+  describe('remove', () => {
+    const lecture = { id: 'lec-1', section: { id: 'section-1' } };
+
+    beforeEach(() => {
+      coursesService.findById.mockResolvedValue(course);
+      sectionsService.findById.mockResolvedValue(section);
+      lecturesService.findById.mockResolvedValue(lecture);
+    });
+
+    it('should clear the content before deleting the lecture', async () => {
+      const order: string[] = [];
+      lectureContentAdminService.clearAllContent.mockImplementation(() => {
+        order.push('content');
+        return Promise.resolve();
+      });
+      lecturesService.remove.mockImplementation(() => {
+        order.push('lecture');
+        return Promise.resolve();
+      });
+
+      await service.remove('course-1', 'section-1', 'lec-1');
+
+      expect(order).toEqual(['content', 'lecture']);
+      expect(lectureContentAdminService.clearAllContent).toHaveBeenCalledWith(
+        'lec-1',
+      );
+    });
+
+    it('should release the Continue Learning pointer, which also references it', async () => {
+      await service.remove('course-1', 'section-1', 'lec-1');
+
+      expect(enrollmentsService.clearLastLecture).toHaveBeenCalledWith('lec-1');
+    });
+
+    it('should recalculate the course totals afterwards', async () => {
+      await service.remove('course-1', 'section-1', 'lec-1');
+
+      expect(courseAggregatesService.recalculate).toHaveBeenCalledWith(
+        'course-1',
+      );
+    });
+
+    it('should refuse a lecture students have worked on, with 409', async () => {
+      lecturesService.hasLearnerData.mockResolvedValue(true);
+
+      await expect(
+        service.remove('course-1', 'section-1', 'lec-1'),
+      ).rejects.toMatchObject({
+        response: { status: 409, code: 'lectureHasLearnerData' },
+      });
+    });
+
+    it('should leave everything alone when it refuses', async () => {
+      lecturesService.hasLearnerData.mockResolvedValue(true);
+
+      await service
+        .remove('course-1', 'section-1', 'lec-1')
+        .catch(() => undefined);
+
+      expect(lectureContentAdminService.clearAllContent).not.toHaveBeenCalled();
+      expect(lecturesService.remove).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteLecturesOfSection', () => {
+    it('should delete every lecture of the section through the same path', async () => {
+      lecturesService.findBySectionId.mockResolvedValue([
+        { id: 'lec-1' },
+        { id: 'lec-2' },
+      ]);
+
+      await service.deleteLecturesOfSection('section-1');
+
+      expect(lectureContentAdminService.clearAllContent).toHaveBeenCalledTimes(
+        2,
+      );
+      expect(lecturesService.remove).toHaveBeenCalledTimes(2);
+    });
+
+    it('should refuse the whole section when one lecture has learner data', async () => {
+      lecturesService.findBySectionId.mockResolvedValue([{ id: 'lec-1' }]);
+      lecturesService.hasLearnerData.mockResolvedValue(true);
+
+      await expect(
+        service.deleteLecturesOfSection('section-1'),
+      ).rejects.toMatchObject({
+        response: { code: 'lectureHasLearnerData' },
+      });
     });
   });
 });

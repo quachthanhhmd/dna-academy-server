@@ -8,6 +8,7 @@ import { InstructorsAdminModule } from '../instructors-admin/instructors-admin.m
 import { YoutubeModule } from '../youtube/youtube.module';
 import { SectionsModule } from '../sections/sections.module';
 import { LecturesModule } from '../lectures/lectures.module';
+import { EnrollmentsModule } from '../enrollments/enrollments.module';
 import { CourseLearningOutcomesModule } from '../course-learning-outcomes/course-learning-outcomes.module';
 import { CourseRequirementsModule } from '../course-requirements/course-requirements.module';
 import { CourseTargetLearnersModule } from '../course-target-learners/course-target-learners.module';
@@ -47,6 +48,9 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
     YoutubeModule,
     SectionsModule,
     LecturesModule,
+    // The lecture delete path releases the Continue Learning pointer, which
+    // also references the lecture.
+    EnrollmentsModule,
     CourseLearningOutcomesModule,
     CourseRequirementsModule,
     CourseTargetLearnersModule,

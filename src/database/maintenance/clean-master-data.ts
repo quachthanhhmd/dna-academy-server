@@ -29,6 +29,7 @@ const REFERENCES: { table: string; column: string }[] = [
   { table: 'course_group_assignment', column: 'group_id' },
   { table: 'instructor_expertise', column: 'expertise_code_id' },
   { table: 'student_profile', column: 'education_stage_code_id' },
+  { table: 'student_profile', column: 'current_status_code_id' },
   { table: 'student_career_interest', column: 'career_interest_id' },
 ];
 

@@ -7,6 +7,7 @@ import { SectionsAdminService } from './sections-admin.service';
 
 describe('SectionsAdminService', () => {
   let service: SectionsAdminService;
+  let lecturesAdminService: { deleteLecturesOfSection: jest.Mock<any> };
 
   let coursesService: { findById: jest.Mock<any> };
   let sectionsService: {
@@ -23,6 +24,7 @@ describe('SectionsAdminService', () => {
   let courseAggregatesService: { recalculate: jest.Mock<any> };
 
   beforeEach(() => {
+    lecturesAdminService = { deleteLecturesOfSection: jest.fn() };
     coursesService = { findById: jest.fn() };
     sectionsService = {
       create: jest.fn(),
@@ -42,6 +44,7 @@ describe('SectionsAdminService', () => {
       sectionsService as any,
       lecturesService as any,
       courseAggregatesService as any,
+      lecturesAdminService as any,
     );
   });
 
@@ -147,7 +150,9 @@ describe('SectionsAdminService', () => {
 
       await service.remove('course-1', 'section-1', true);
 
-      expect(lecturesService.removeBySectionId).toHaveBeenCalledWith(
+      // Through the lecture delete path, so content rows go with them —
+      // a bulk delete of the lectures alone is a foreign-key violation.
+      expect(lecturesAdminService.deleteLecturesOfSection).toHaveBeenCalledWith(
         'section-1',
       );
       expect(sectionsService.remove).toHaveBeenCalledWith('section-1');

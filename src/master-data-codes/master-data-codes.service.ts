@@ -128,6 +128,10 @@ export class MasterDataCodesService {
     return this.masterDataCodeRepository.findByGroupIdAndName(groupId, name);
   }
 
+  findByGroupKeyAndCode(groupKey: string, code: string) {
+    return this.masterDataCodeRepository.findByGroupKeyAndCode(groupKey, code);
+  }
+
   async update(
     id: MasterDataCode['id'],
 

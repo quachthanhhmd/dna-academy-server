@@ -80,6 +80,17 @@ export class MasterDataCodeRelationalRepository implements MasterDataCodeReposit
     return entity ? MasterDataCodeMapper.toDomain(entity) : null;
   }
 
+  async findByGroupKeyAndCode(
+    groupKey: string,
+    code: string,
+  ): Promise<NullableType<MasterDataCode>> {
+    const entity = await this.masterDataCodeRepository.findOne({
+      where: { code, group: { groupKey } },
+    });
+
+    return entity ? MasterDataCodeMapper.toDomain(entity) : null;
+  }
+
   async update(
     id: MasterDataCode['id'],
     payload: Partial<MasterDataCode>,
