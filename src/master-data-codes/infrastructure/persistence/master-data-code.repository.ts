@@ -27,6 +27,11 @@ export abstract class MasterDataCodeRepository {
     name: string,
   ): Promise<NullableType<MasterDataCode>>;
 
+  abstract findByGroupKeyAndCode(
+    groupKey: string,
+    code: string,
+  ): Promise<NullableType<MasterDataCode>>;
+
   abstract update(
     id: MasterDataCode['id'],
     payload: DeepPartial<MasterDataCode>,

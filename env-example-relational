@@ -29,6 +29,7 @@ DATABASE_SYNCHRONIZE=false
 # pool alone could take every server slot, starving migrations, psql and any
 # second client; at 20 excess queries queue in the pool instead of failing.
 DATABASE_MAX_CONNECTIONS=20
+MAX_CAREER_INTERESTS=5
 DATABASE_SSL_ENABLED=false
 DATABASE_REJECT_UNAUTHORIZED=false
 DATABASE_CA=

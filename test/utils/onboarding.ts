@@ -20,12 +20,13 @@ export const completeOnboarding = async (
       );
     }
 
-    return body as { id: string }[];
+    return body as { id: string; code: string }[];
   };
 
-  const [stages, interests] = await Promise.all([
+  const [stages, interests, goals] = await Promise.all([
     codesFor('education_stage'),
     codesFor('career_interest'),
+    codesFor('learning_goal'),
   ]);
 
   await request(app)
@@ -36,6 +37,7 @@ export const completeOnboarding = async (
       // One of age / dateOfBirth is required.
       age: 20,
       careerInterestIds: [interests[0].id],
+      currentStatusCode: goals[0].code,
     })
     .expect(200);
 };

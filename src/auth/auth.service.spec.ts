@@ -59,33 +59,12 @@ describe('AuthService', () => {
     create: jest.Mock<any>;
     remove: jest.Mock<any>;
   };
-  let masterDataCodesService: { findById: jest.Mock<any> };
   let userRolesService: {
     findByUserId: jest.Mock<any>;
     setRole: jest.Mock<any>;
   };
   let rolePermissionsService: { findByRoleId: jest.Mock<any> };
-
-  const educationStageCode = {
-    id: 'edu-1',
-    code: 'high_school',
-    isActive: true,
-    group: { groupKey: 'education_stage' },
-  };
-
-  const careerInterestCode = {
-    id: 'career-1',
-    code: 'engineering',
-    isActive: true,
-    group: { groupKey: 'career_interest' },
-  };
-
-  const otherCareerInterestCode = {
-    id: 'career-other',
-    code: 'Other',
-    isActive: true,
-    group: { groupKey: 'career_interest' },
-  };
+  let onboardingService: { complete: jest.Mock<any> };
 
   const baseUser = {
     id: 1,
@@ -160,8 +139,6 @@ describe('AuthService', () => {
       remove: jest.fn(),
     };
 
-    masterDataCodesService = { findById: jest.fn() };
-
     // By default nobody holds an admin-panel permission.
     userRolesService = {
       findByUserId: (jest.fn() as jest.Mock<any>).mockResolvedValue([]),
@@ -169,6 +146,9 @@ describe('AuthService', () => {
     };
     rolePermissionsService = {
       findByRoleId: (jest.fn() as jest.Mock<any>).mockResolvedValue([]),
+    };
+    onboardingService = {
+      complete: (jest.fn() as jest.Mock<any>).mockResolvedValue(undefined),
     };
 
     service = makeService();
@@ -196,9 +176,9 @@ describe('AuthService', () => {
       oauthAccountsService as any,
       studentProfilesService as any,
       studentCareerInterestsService as any,
-      masterDataCodesService as any,
       userRolesService as any,
       rolePermissionsService as any,
+      onboardingService as any,
     );
   }
 
@@ -221,146 +201,49 @@ describe('AuthService', () => {
       educationStageCodeId: 'edu-1',
       careerInterestIds: ['career-1'],
       age: 16,
+      currentStatusCode: 'core_skills',
     };
 
     beforeEach(() => {
       usersService.findById.mockResolvedValue({ ...baseUser });
-      masterDataCodesService.findById.mockImplementation((id: string) => {
-        if (id === 'edu-1') return Promise.resolve(educationStageCode);
-        if (id === 'career-1') return Promise.resolve(careerInterestCode);
-        if (id === 'career-other')
-          return Promise.resolve(otherCareerInterestCode);
-        return Promise.resolve(null);
-      });
       studentProfilesService.findByUserId.mockResolvedValue(null);
     });
 
-    it('should reject an educationStageCodeId that does not belong to the education_stage group', async () => {
-      masterDataCodesService.findById.mockImplementation((id: string) =>
-        id === 'edu-1'
-          ? Promise.resolve({
-              ...educationStageCode,
-              group: { groupKey: 'career_interest' },
-            })
-          : Promise.resolve(careerInterestCode),
-      );
-
-      await expect(
-        service.completeOnboarding(1, onboardingDto as any),
-      ).rejects.toBeInstanceOf(UnprocessableEntityException);
-    });
-
-    it('should reject an inactive educationStageCodeId', async () => {
-      masterDataCodesService.findById.mockImplementation((id: string) =>
-        id === 'edu-1'
-          ? Promise.resolve({ ...educationStageCode, isActive: false })
-          : Promise.resolve(careerInterestCode),
-      );
-
-      await expect(
-        service.completeOnboarding(1, onboardingDto as any),
-      ).rejects.toBeInstanceOf(UnprocessableEntityException);
-    });
-
-    it('should reject a careerInterestIds entry that does not exist', async () => {
-      masterDataCodesService.findById.mockImplementation((id: string) =>
-        id === 'edu-1'
-          ? Promise.resolve(educationStageCode)
-          : Promise.resolve(null),
-      );
-
-      await expect(
-        service.completeOnboarding(1, onboardingDto as any),
-      ).rejects.toBeInstanceOf(UnprocessableEntityException);
-    });
-
-    it('should reject when neither age nor dateOfBirth is provided or already on file', async () => {
-      await expect(
-        service.completeOnboarding(1, {
-          educationStageCodeId: 'edu-1',
-          careerInterestIds: ['career-1'],
-        } as any),
-      ).rejects.toBeInstanceOf(UnprocessableEntityException);
-    });
-
-    it('should allow omitting age/dateOfBirth when the user already has one on file', async () => {
-      usersService.findById.mockResolvedValue({ ...baseUser, age: 17 });
-
-      await expect(
-        service.completeOnboarding(1, {
-          educationStageCodeId: 'edu-1',
-          careerInterestIds: ['career-1'],
-        } as any),
-      ).resolves.toBeDefined();
-    });
-
-    it('should create a new student profile, replace career interests, and mark onboarding done', async () => {
-      const existingInterest = { id: 'existing-interest' };
-      studentCareerInterestsService.findByUserId.mockResolvedValue([
-        existingInterest,
-      ]);
-
+    it('should persist all onboarding fields before rebuilding the profile response', async () => {
       await service.completeOnboarding(1, onboardingDto as any);
 
-      expect(studentProfilesService.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user: { id: 1 },
-          educationStageCode,
-        }),
-      );
-      expect(studentProfilesService.update).not.toHaveBeenCalled();
-
-      expect(studentCareerInterestsService.remove).toHaveBeenCalledWith(
-        'existing-interest',
-      );
-      expect(studentCareerInterestsService.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user: { id: 1 },
-          careerInterest: careerInterestCode,
-          customInterest: null,
-        }),
-      );
-
-      expect(usersService.update).toHaveBeenCalledWith(
-        1,
-        expect.objectContaining({ age: 16, onboardingDone: true }),
-      );
+      expect(onboardingService.complete).toHaveBeenCalledWith(1, onboardingDto);
+      expect(usersService.findById).toHaveBeenCalledWith(1);
     });
 
-    it('should update an existing student profile instead of creating a duplicate', async () => {
+    it('should not build a success response when the transaction fails', async () => {
+      onboardingService.complete.mockRejectedValue(new Error('rolled back'));
+
+      await expect(
+        service.completeOnboarding(1, onboardingDto as any),
+      ).rejects.toThrow('rolled back');
+      expect(usersService.findById).not.toHaveBeenCalled();
+      expect(studentProfilesService.findByUserId).not.toHaveBeenCalled();
+      expect(studentCareerInterestsService.findByUserId).not.toHaveBeenCalled();
+    });
+
+    it('should return the localized current status supplied by the profile mapper', async () => {
       studentProfilesService.findByUserId.mockResolvedValue({
         id: 'profile-1',
+        currentStatus: {
+          code: 'core_skills',
+          name: 'Build core skills and projects that help me get a job',
+          customLabel: null,
+        },
       });
 
-      await service.completeOnboarding(1, onboardingDto as any);
+      const result = await service.completeOnboarding(1, onboardingDto as any);
 
-      expect(studentProfilesService.update).toHaveBeenCalledWith(
-        'profile-1',
-        expect.objectContaining({ educationStageCode }),
-      );
-      expect(studentProfilesService.create).not.toHaveBeenCalled();
-    });
-
-    it('should store customInterest only for the "Other" career interest code', async () => {
-      await service.completeOnboarding(1, {
-        educationStageCodeId: 'edu-1',
-        careerInterestIds: ['career-1', 'career-other'],
-        age: 16,
-        customInterest: 'Robotics',
-      } as any);
-
-      expect(studentCareerInterestsService.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          careerInterest: careerInterestCode,
-          customInterest: null,
-        }),
-      );
-      expect(studentCareerInterestsService.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          careerInterest: otherCareerInterestCode,
-          customInterest: 'Robotics',
-        }),
-      );
+      expect(result.studentProfile?.currentStatus).toEqual({
+        code: 'core_skills',
+        name: 'Build core skills and projects that help me get a job',
+        customLabel: null,
+      });
     });
   });
 
@@ -956,6 +839,87 @@ describe('AuthService', () => {
           expect(usersService.update).not.toHaveBeenCalled();
           expect(oauthAccountsService.create).not.toHaveBeenCalled();
           expect(userRolesService.setRole).not.toHaveBeenCalled();
+        });
+
+        /*
+          A Facebook token without the `email` permission created the account
+          with no address at all, and this branch returned the linked user
+          untouched — so once the client started asking for the permission,
+          onboarding still showed an empty "Địa chỉ email".
+
+          This fills blanks only. The rule above it (G4/AC-32) still stands:
+          an address already on the account is never replaced by the one the
+          provider reports, because that can drift to a mailbox the learner
+          does not control and would then receive password resets.
+        */
+        it('should backfill the email of a linked account that has none', async () => {
+          linkTo({ ...baseUser, id: 9, email: null, emailVerified: false });
+          usersService.findByEmail.mockResolvedValue(null);
+
+          const result = await login({ email: 'Reported@Example.com' });
+
+          expect(usersService.update).toHaveBeenCalledWith(
+            9,
+            expect.objectContaining({ email: 'reported@example.com' }),
+          );
+          // Carried on this very request, not only on the next sign-in.
+          expect(result.user.email).toBe('reported@example.com');
+        });
+
+        it('should mark a backfilled email as verified', async () => {
+          linkTo({ ...baseUser, id: 9, email: null, emailVerified: false });
+          usersService.findByEmail.mockResolvedValue(null);
+
+          const result = await login({ email: 'reported@example.com' });
+
+          expect(usersService.update).toHaveBeenCalledWith(
+            9,
+            expect.objectContaining({ emailVerified: true }),
+          );
+          expect(result.user.emailVerified).toBe(true);
+        });
+
+        it('should not overwrite an email the account already has', async () => {
+          linkTo({ ...baseUser, id: 9, email: 'kept@example.com' });
+
+          const result = await login({ email: 'reported@example.com' });
+
+          expect(usersService.update).not.toHaveBeenCalled();
+          expect(result.user.email).toBe('kept@example.com');
+        });
+
+        /*
+          Signing in must not move an address between accounts. Merging two
+          accounts is a deliberate decision with its own rules, not something
+          that happens because somebody pressed "Continue with Facebook".
+        */
+        it('should not take an email that belongs to another account', async () => {
+          linkTo({ ...baseUser, id: 9, email: null, emailVerified: false });
+          usersService.findByEmail.mockResolvedValue({ id: 77 });
+
+          const result = await login({ email: 'taken@example.com' });
+
+          expect(usersService.update).not.toHaveBeenCalled();
+          expect(result.user.email).toBeNull();
+        });
+
+        it('should sign in normally when Facebook still returns no email', async () => {
+          linkTo({ ...baseUser, id: 9, email: null, emailVerified: false });
+
+          const result = await login({ email: undefined });
+
+          expect(usersService.update).not.toHaveBeenCalled();
+          expect(usersService.findByEmail).not.toHaveBeenCalled();
+          expect(result.user.id).toBe(9);
+        });
+
+        it('should keep the address it already has when the provider sends none', async () => {
+          linkTo({ ...baseUser, id: 9, email: 'kept@example.com' });
+
+          const result = await login({ email: undefined });
+
+          expect(result.user.email).toBe('kept@example.com');
+          expect(usersService.update).not.toHaveBeenCalled();
         });
 
         // The admin rule is about creating a link, not using one: staff who

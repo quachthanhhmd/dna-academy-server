@@ -293,6 +293,55 @@ const MASTER_DATA_CODES: ReadonlyArray<{
         displayOrder: 8,
         nameTranslations: { vi: 'Kỹ thuật', en: 'Engineering' },
       },
+      {
+        code: 'other',
+        displayOrder: 9,
+        nameTranslations: { vi: 'Khác', en: 'Other' },
+      },
+    ],
+  },
+  {
+    // GoalsStep current-status options. The API localizes `name` from these
+    // translations through MasterDataCodeMapper and X-Locale.
+    groupKey: 'learning_goal',
+    codes: [
+      {
+        code: 'university_career',
+        displayOrder: 1,
+        nameTranslations: {
+          vi: 'Tìm ngành nghề phù hợp khi đang học đại học',
+          en: 'Find the right career while at university',
+        },
+      },
+      {
+        code: 'job_transition',
+        displayOrder: 2,
+        nameTranslations: {
+          vi: 'Tìm ngành nghề phù hợp để chuyển đổi công việc',
+          en: 'Find the right career to transition jobs',
+        },
+      },
+      {
+        code: 'deeper_understanding',
+        displayOrder: 3,
+        nameTranslations: {
+          vi: 'Hiểu sâu hơn về một ngành nghề cụ thể',
+          en: 'Deepen my understanding of a specific career',
+        },
+      },
+      {
+        code: 'core_skills',
+        displayOrder: 4,
+        nameTranslations: {
+          vi: 'Xây dựng kỹ năng và dự án để tìm việc',
+          en: 'Build core skills and projects that help me get a job',
+        },
+      },
+      {
+        code: 'other',
+        displayOrder: 5,
+        nameTranslations: { vi: 'Khác', en: 'Other' },
+      },
     ],
   },
 ];
@@ -354,7 +403,9 @@ export class MasterDataCodeSeedService {
 
     if (
       JSON.stringify(nameTranslations) ===
-      JSON.stringify(existing.nameTranslations ?? {})
+        JSON.stringify(existing.nameTranslations ?? {}) &&
+      existing.displayOrder === code.displayOrder &&
+      existing.isActive
     ) {
       return;
     }
@@ -363,6 +414,8 @@ export class MasterDataCodeSeedService {
     // it, is preserved.
     existing.nameTranslations = nameTranslations;
     existing.name = nameTranslations[DEFAULT_LOCALE] ?? existing.name;
+    existing.displayOrder = code.displayOrder;
+    existing.isActive = true;
     await this.repository.save(existing);
   }
 }

@@ -16,6 +16,7 @@ import { MasterDataCodesModule } from '../master-data-codes/master-data-codes.mo
 import { OnboardingGuard } from './guards/onboarding.guard';
 import { UserRolesModule } from '../user-roles/user-roles.module';
 import { RolePermissionsModule } from '../role-permissions/role-permissions.module';
+import { OnboardingService } from './onboarding.service';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { RolePermissionsModule } from '../role-permissions/role-permissions.modu
     JwtRefreshStrategy,
     AnonymousStrategy,
     OnboardingGuard,
+    OnboardingService,
   ],
   // Re-export UsersModule so any module that only imports AuthModule to use
   // OnboardingGuard still has the guard's own dependency visible to Nest's DI

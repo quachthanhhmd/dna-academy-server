@@ -157,6 +157,7 @@ describe('Student Onboarding (Epic 1)', () => {
         .send({
           educationStageCodeId: '00000000-0000-0000-0000-000000000000',
           careerInterestIds: [careerInterestCodeId],
+          currentStatusCode: 'core_skills',
           age: 16,
         })
         .expect(422)
@@ -173,6 +174,7 @@ describe('Student Onboarding (Epic 1)', () => {
           // this id belongs to career_interest, not education_stage
           educationStageCodeId: careerInterestCodeId,
           careerInterestIds: [careerInterestCodeId],
+          currentStatusCode: 'core_skills',
           age: 16,
         })
         .expect(422)
@@ -188,6 +190,7 @@ describe('Student Onboarding (Epic 1)', () => {
         .send({
           educationStageCodeId,
           careerInterestIds: ['00000000-0000-0000-0000-000000000000'],
+          currentStatusCode: 'core_skills',
           age: 16,
         })
         .expect(422)
@@ -203,6 +206,7 @@ describe('Student Onboarding (Epic 1)', () => {
         .send({
           educationStageCodeId,
           careerInterestIds: [careerInterestCodeId],
+          currentStatusCode: 'core_skills',
         })
         .expect(422)
         .expect(({ body }) => {
@@ -217,6 +221,7 @@ describe('Student Onboarding (Epic 1)', () => {
         .send({
           educationStageCodeId,
           careerInterestIds: [careerInterestCodeId, otherCareerInterestCodeId],
+          currentStatusCode: 'core_skills',
           age: 16,
           customInterest: 'Robotics',
         })
@@ -265,6 +270,7 @@ describe('Student Onboarding (Epic 1)', () => {
         .send({
           educationStageCodeId: otherEducationStageCodeId,
           careerInterestIds: [careerInterestCodeId],
+          currentStatusCode: 'core_skills',
           age: 17,
         })
         .expect(200)
