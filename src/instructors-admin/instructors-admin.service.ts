@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   HttpStatus,
   Injectable,
   NotFoundException,
@@ -15,6 +16,7 @@ import { MasterDataCode } from '../master-data-codes/domain/master-data-code';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/domain/user';
 import { Instructor } from '../instructors/domain/instructor';
+import { AuthorizationService } from '../authorization/authorization.service';
 import { InstructorStatsService } from './instructor-stats.service';
 import { InstructorAccountsService } from './instructor-accounts.service';
 import { CreateInstructorDto } from './dto/create-instructor.dto';
@@ -45,6 +47,7 @@ export class InstructorsAdminService {
     private readonly instructorStatsService: InstructorStatsService,
     private readonly instructorProfilesService: InstructorProfilesService,
     private readonly instructorAccounts: InstructorAccountsService,
+    private readonly authorizationService: AuthorizationService,
   ) {}
 
   async create(
@@ -90,6 +93,7 @@ export class InstructorsAdminService {
           profile,
           accountEmail,
           createdByUserId,
+          dto.password,
         )
       : {
           instructorId: (await this.instructorsService.create(profile)).id,
@@ -100,9 +104,11 @@ export class InstructorsAdminService {
     await this.replaceSocialLinks(instructorId, dto.socialLinks);
 
     // After the commit: an email for a rolled-back account would be worse
-    // than a missing one, which can be resent (§2.9).
+    // than a missing one, which can be resent (§2.9). An admin-set password
+    // leaves nothing to invite — `resendInvite` would answer 409 — so the
+    // mail is suppressed rather than sent to someone who can already log in.
     const inviteSent =
-      account && dto.sendInvite !== false
+      account && !dto.password && dto.sendInvite !== false
         ? await this.instructorAccounts.sendInvite(account)
         : false;
 
@@ -132,8 +138,31 @@ export class InstructorsAdminService {
     });
   }
 
+  /**
+   * Creating an account is a separate capability from editing a profile
+   * (`instructors:create_account`), whether the account is created with the
+   * profile or given to one later.
+   */
+  private async assertCanCreateAccount(userId: User['id']): Promise<void> {
+    if (
+      !(await this.authorizationService.hasPermission(
+        userId,
+        'instructors',
+        'create_account',
+      ))
+    ) {
+      throw new ForbiddenException({
+        code: 'PERMISSION_DENIED',
+        required: { module: 'instructors', action: 'create_account' },
+      });
+    }
+  }
+
   private async assertAccountEmailAvailable(
-    dto: CreateInstructorDto,
+    // Both DTOs carry these two, and this only reads them: on create the
+    // account is part of the same call, on update it is being added to an
+    // existing profile.
+    dto: Pick<CreateInstructorDto, 'accountEmail' | 'userId'>,
   ): Promise<string> {
     if (!dto.accountEmail) {
       throw new UnprocessableEntityException({
@@ -216,6 +245,9 @@ export class InstructorsAdminService {
       totalStudents: stats.totalStudents,
       avgRating: stats.avgRating,
       userId: instructor.user?.id ?? null,
+      // Read-only here, but the edit form shows it instead of an empty
+      // disabled box: "you cannot change this" needs the address it refers to.
+      accountEmail: instructor.user?.email ?? null,
       bio: instructor.bio ?? null,
       emailPublic: instructor.emailPublic ?? null,
       yearsOfExperience: instructor.yearsOfExperience ?? null,
@@ -234,8 +266,23 @@ export class InstructorsAdminService {
   async update(
     id: Instructor['id'],
     dto: UpdateInstructorDto,
+    /** The acting admin: recorded as the role granter, and permission-checked. */
+    updatedByUserId: User['id'],
   ): Promise<InstructorDetailDto> {
     const instructor = await this.findOrThrow(id);
+
+    /*
+      A password on an instructor with no account creates one: the edit form
+      offers the login address for exactly this case, so the admin can give an
+      existing profile a login without recreating it. Creating an account is
+      the same capability as create-with-account, so it is gated the same way;
+      with an account already there, a new password is ordinary editing.
+    */
+    let accountEmail: string | null = null;
+    if (dto.password && !instructor.user) {
+      await this.assertCanCreateAccount(updatedByUserId);
+      accountEmail = await this.assertAccountEmailAvailable(dto);
+    }
 
     const expertiseCodes =
       dto.expertiseCodeIds !== undefined
@@ -283,6 +330,22 @@ export class InstructorsAdminService {
 
     if (dto.socialLinks !== undefined) {
       await this.replaceSocialLinks(id, dto.socialLinks);
+    }
+
+    // `usersService.update` hashes a supplied password, the same way account
+    // creation does, so both paths store the same shape.
+    if (accountEmail && dto.password) {
+      await this.instructorAccounts.attachAccount(
+        id,
+        instructor.fullName,
+        accountEmail,
+        updatedByUserId,
+        dto.password,
+      );
+    } else if (dto.password && instructor.user) {
+      await this.usersService.update(instructor.user.id, {
+        password: dto.password,
+      });
     }
 
     return this.findOne(id);

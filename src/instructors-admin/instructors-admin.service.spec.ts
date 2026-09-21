@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, jest } from '@jest/globals';
 import {
   ConflictException,
+  ForbiddenException,
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -31,7 +32,13 @@ describe('InstructorsAdminService', () => {
     countByInstructorId: jest.Mock<any>;
   };
   let masterDataCodesService: { findById: jest.Mock<any> };
-  let usersService: { findById: jest.Mock<any> };
+  let usersService: {
+    findById: jest.Mock<any>;
+    findByEmail: jest.Mock<any>;
+    update: jest.Mock<any>;
+  };
+  let authorizationService: { hasPermission: jest.Mock<any> };
+  let instructorAccounts: { attachAccount: jest.Mock<any> };
   let instructorStatsService: { recompute: jest.Mock<any> };
   let instructorProfilesService: {
     findExpertise: jest.Mock<any>;
@@ -82,14 +89,23 @@ describe('InstructorsAdminService', () => {
       countByInstructorId: jest.fn(),
     };
     masterDataCodesService = { findById: jest.fn() };
-    usersService = { findById: jest.fn() };
+    usersService = {
+      findById: jest.fn(),
+      findByEmail: jest.fn(),
+      update: jest.fn(),
+    };
+    authorizationService = { hasPermission: jest.fn() };
+    instructorAccounts = { attachAccount: jest.fn() };
     instructorStatsService = { recompute: jest.fn() };
     instructorProfilesService = {
       findExpertise: jest.fn(),
       findSocialLinks: jest.fn(),
     };
 
-    // Defaults: nothing exists, nothing is linked, no assignments.
+    // Defaults: nothing exists, nothing is linked, no assignments, and the
+    // actor may create accounts.
+    authorizationService.hasPermission.mockResolvedValue(true);
+    usersService.findByEmail.mockResolvedValue(null);
     instructorsService.findBySlug.mockResolvedValue(null);
     instructorsService.findByUserId.mockResolvedValue(null);
     instructorsService.create.mockResolvedValue(savedInstructor);
@@ -114,8 +130,8 @@ describe('InstructorsAdminService', () => {
       usersService as any,
       instructorStatsService as any,
       instructorProfilesService as any,
-      // Account creation is covered by test/admin/instructor-accounts.e2e-spec.ts.
-      {} as any,
+      instructorAccounts as any,
+      authorizationService as any,
     );
   });
 
@@ -270,6 +286,31 @@ describe('InstructorsAdminService', () => {
             { platform: 'linkedin', url: 'https://x', displayOrder: 0 },
           ],
           stats: { totalCourses: 3, totalStudents: 412, avgRating: 4.75 },
+          userId: null,
+          accountEmail: null,
+        }),
+      );
+    });
+
+    it('should expose the linked account address, so the edit form can show it', async () => {
+      instructorsService.findById.mockResolvedValue({
+        ...savedInstructor,
+        user: { id: 42, email: 'an@example.com' },
+      });
+      instructorProfilesService.findExpertise.mockResolvedValue([]);
+      instructorProfilesService.findSocialLinks.mockResolvedValue([]);
+      instructorStatsService.recompute.mockResolvedValue({
+        totalCourses: 0,
+        totalStudents: 0,
+        avgRating: null,
+      });
+
+      const result = await service.findOne('ins-1');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          userId: 42,
+          accountEmail: 'an@example.com',
         }),
       );
     });
@@ -287,7 +328,7 @@ describe('InstructorsAdminService', () => {
     it('should replace the expertise set only when the key is present', async () => {
       masterDataCodesService.findById.mockResolvedValue(expertiseCode);
 
-      await service.update('ins-1', { expertiseCodeIds: ['code-1'] } as any);
+      await service.update('ins-1', { expertiseCodeIds: ['code-1'] } as any, 7);
 
       expect(
         instructorExpertisesService.removeByInstructorId,
@@ -295,8 +336,78 @@ describe('InstructorsAdminService', () => {
       expect(instructorExpertisesService.create).toHaveBeenCalledTimes(1);
     });
 
+    it('should give a profile without an account one when a password is set', async () => {
+      instructorsService.findById.mockResolvedValue({
+        ...savedInstructor,
+        user: null,
+      });
+      instructorAccounts.attachAccount.mockResolvedValue({
+        id: 42,
+        email: 'an@example.com',
+      });
+
+      await service.update(
+        'ins-1',
+        { password: 'secret123', accountEmail: 'an@example.com' } as any,
+        7,
+      );
+
+      expect(instructorAccounts.attachAccount).toHaveBeenCalledWith(
+        'ins-1',
+        savedInstructor.fullName,
+        'an@example.com',
+        7,
+        'secret123',
+      );
+    });
+
+    it('should require the create_account capability to add an account on update', async () => {
+      instructorsService.findById.mockResolvedValue({
+        ...savedInstructor,
+        user: null,
+      });
+      authorizationService.hasPermission.mockResolvedValue(false);
+
+      await expect(
+        service.update(
+          'ins-1',
+          { password: 'secret123', accountEmail: 'an@example.com' } as any,
+          7,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(instructorAccounts.attachAccount).not.toHaveBeenCalled();
+    });
+
+    it('should 422 when a password would create an account but no address is given', async () => {
+      instructorsService.findById.mockResolvedValue({
+        ...savedInstructor,
+        user: null,
+      });
+
+      await expect(
+        service.update('ins-1', { password: 'secret123' } as any, 7),
+      ).rejects.toThrow(UnprocessableEntityException);
+
+      expect(instructorAccounts.attachAccount).not.toHaveBeenCalled();
+    });
+
+    it('should change an existing account password as an ordinary edit', async () => {
+      instructorsService.findById.mockResolvedValue({
+        ...savedInstructor,
+        user: { id: 42, email: 'an@example.com' },
+      });
+
+      await service.update('ins-1', { password: 'secret123' } as any, 7);
+
+      expect(usersService.update).toHaveBeenCalledWith(42, {
+        password: 'secret123',
+      });
+      expect(authorizationService.hasPermission).not.toHaveBeenCalled();
+    });
+
     it('should leave expertise untouched when the key is omitted', async () => {
-      await service.update('ins-1', { headline: 'New headline' } as any);
+      await service.update('ins-1', { headline: 'New headline' } as any, 7);
 
       expect(
         instructorExpertisesService.removeByInstructorId,
@@ -304,7 +415,7 @@ describe('InstructorsAdminService', () => {
     });
 
     it('should clear the expertise set when an empty array is sent', async () => {
-      await service.update('ins-1', { expertiseCodeIds: [] } as any);
+      await service.update('ins-1', { expertiseCodeIds: [] } as any, 7);
 
       expect(
         instructorExpertisesService.removeByInstructorId,
@@ -318,7 +429,7 @@ describe('InstructorsAdminService', () => {
       ]);
 
       await expect(
-        service.update('ins-1', { slug: 'new-slug' } as any),
+        service.update('ins-1', { slug: 'new-slug' } as any, 7),
       ).rejects.toThrow(ConflictException);
       expect(instructorsService.update).not.toHaveBeenCalled();
     });
@@ -328,7 +439,7 @@ describe('InstructorsAdminService', () => {
         { course: { id: 'c1', status: 'draft' } },
       ]);
 
-      await service.update('ins-1', { slug: 'new-slug' } as any);
+      await service.update('ins-1', { slug: 'new-slug' } as any, 7);
 
       expect(instructorsService.update).toHaveBeenCalledWith(
         'ins-1',
@@ -342,7 +453,7 @@ describe('InstructorsAdminService', () => {
       ]);
 
       await expect(
-        service.update('ins-1', { slug: 'nguyen-van-a' } as any),
+        service.update('ins-1', { slug: 'nguyen-van-a' } as any, 7),
       ).resolves.toBeDefined();
     });
 
@@ -350,7 +461,7 @@ describe('InstructorsAdminService', () => {
       instructorsService.findBySlug.mockResolvedValue({ id: 'ins-other' });
 
       await expect(
-        service.update('ins-1', { slug: 'taken' } as any),
+        service.update('ins-1', { slug: 'taken' } as any, 7),
       ).rejects.toThrow(UnprocessableEntityException);
     });
   });

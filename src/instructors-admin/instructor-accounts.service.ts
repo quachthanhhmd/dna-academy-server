@@ -5,7 +5,8 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { DataSource, QueryFailedError } from 'typeorm';
+import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
+import bcrypt from 'bcryptjs';
 import { AuthService } from '../auth/auth.service';
 import { AuthProvidersEnum } from '../auth/auth-providers.enum';
 import { Instructor } from '../instructors/domain/instructor';
@@ -24,8 +25,15 @@ type InviteTarget = Pick<User, 'id' | 'email' | 'password'>;
  *
  * The account, its role and the profile are written in one transaction:
  * either an instructor who can be invited exists afterwards, or nothing
- * does. The account has no password — login already refuses one — until the
- * invitee sets it through the single-use invite.
+ * does. Without an admin-set password the account is stored without one —
+ * login already refuses that — until the invitee sets it through the
+ * single-use invite. With one, the account is usable immediately and no
+ * invite is sent, which the caller decides.
+ *
+ * `attachAccount` is the same operation for a profile that already exists —
+ * an edit giving a login to an instructor who had none — where the account
+ * and its role are still created in one transaction, with the profile linked
+ * rather than inserted.
  */
 @Injectable()
 export class InstructorAccountsService {
@@ -41,62 +49,137 @@ export class InstructorAccountsService {
     profile: Omit<Instructor, 'id' | 'createdAt' | 'updatedAt'>,
     email: string,
     createdById: number,
+    /** Plaintext from the admin form; hashed here and never stored as-is. */
+    password?: string,
   ): Promise<{ instructorId: string; account: InviteTarget }> {
     try {
       return await this.dataSource.transaction(async (em) => {
-        const users = em.getRepository(UserEntity);
-        const user = await users.save(
-          users.create({
-            email,
-            fullName: profile.fullName,
-            password: null,
-            provider: AuthProvidersEnum.email,
-            emailVerified: false,
-            // Onboarding is the learner questionnaire; a teaching account
-            // has nothing to answer there.
-            onboardingDone: true,
-            status: { id: StatusEnum.active },
-          }),
-        );
-
-        await this.userRolesService.setRole(
-          user.id,
-          RoleEnum.instructor,
+        const account = await this.createAccountUser(em, {
+          email,
+          fullName: profile.fullName,
           createdById,
-          em,
-        );
+          password,
+        });
 
         const instructors = em.getRepository(InstructorEntity);
         const instructor = await instructors.save(
           instructors.create(
             InstructorMapper.toPersistence({
               ...profile,
-              user: { id: user.id } as User,
+              user: { id: account.id } as User,
             } as Instructor),
           ),
         );
 
         this.logger.log(
-          `Instructor account created by user ${createdById}: user ${user.id}, instructor ${instructor.id}`,
+          `Instructor account created by user ${createdById}: user ${account.id}, instructor ${instructor.id}`,
         );
 
-        return {
-          instructorId: instructor.id,
-          account: { id: user.id, email, password: null },
-        };
+        return { instructorId: instructor.id, account };
       });
     } catch (error) {
-      // Someone registered the address between the check and the insert.
-      if (
-        error instanceof QueryFailedError &&
-        (error as QueryFailedError & { code?: string }).code === '23505'
-      ) {
-        throw new UnprocessableEntityException({
-          status: HttpStatus.UNPROCESSABLE_ENTITY,
-          errors: { accountEmail: 'emailAlreadyExists' },
-        });
-      }
+      this.throwIfEmailTaken(error);
       throw error;
+    }
+  }
+
+  /**
+   * Gives an existing instructor a login account — the mirror of
+   * `createWithAccount` for a profile that already exists: same user shape,
+   * same hashing, same role, but the profile is linked instead of inserted.
+   *
+   * A password is required because that is the only reason this is called:
+   * the edit form's admin is setting one. Without a password the account
+   * would be unusable until an invite, and inviting from an edit is not a
+   * path this service offers.
+   */
+  async attachAccount(
+    instructorId: Instructor['id'],
+    fullName: string,
+    email: string,
+    createdById: number,
+    password: string,
+  ): Promise<InviteTarget> {
+    try {
+      return await this.dataSource.transaction(async (em) => {
+        const account = await this.createAccountUser(em, {
+          email,
+          fullName,
+          createdById,
+          password,
+        });
+
+        await em
+          .getRepository(InstructorEntity)
+          .update(instructorId, { user: { id: account.id } as User });
+
+        this.logger.log(
+          `Instructor ${instructorId} given an account by user ${createdById}: user ${account.id}`,
+        );
+
+        return account;
+      });
+    } catch (error) {
+      this.throwIfEmailTaken(error);
+      throw error;
+    }
+  }
+
+  /**
+   * The account row and its role, shared by both paths so a profile created
+   * with a login and one given a login later cannot drift apart.
+   */
+  private async createAccountUser(
+    em: EntityManager,
+    fields: {
+      email: string;
+      fullName: string;
+      createdById: number;
+      password?: string;
+    },
+  ): Promise<InviteTarget> {
+    // Same hashing as users.service: an admin-set password must be
+    // indistinguishable from one the invitee would have chosen.
+    const hashedPassword = fields.password
+      ? await bcrypt.hash(fields.password, await bcrypt.genSalt())
+      : null;
+
+    const users = em.getRepository(UserEntity);
+    const user = await users.save(
+      users.create({
+        email: fields.email,
+        fullName: fields.fullName,
+        password: hashedPassword,
+        provider: AuthProvidersEnum.email,
+        // An admin setting a password does not prove the address is real.
+        emailVerified: false,
+        // Onboarding is the learner questionnaire; a teaching account
+        // has nothing to answer there.
+        onboardingDone: true,
+        status: { id: StatusEnum.active },
+      }),
+    );
+
+    await this.userRolesService.setRole(
+      user.id,
+      RoleEnum.instructor,
+      fields.createdById,
+      em,
+    );
+
+    return { id: user.id, email: fields.email, password: hashedPassword };
+  }
+
+  /** Someone registered the address between the check and the insert. */
+  private throwIfEmailTaken(error: unknown): void {
+    if (
+      error instanceof QueryFailedError &&
+      (error as QueryFailedError & { code?: string }).code === '23505'
+    ) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { accountEmail: 'emailAlreadyExists' },
+      });
     }
   }
 
