@@ -109,9 +109,27 @@ export class InstructorAccountsService {
           password,
         });
 
-        await em
+        // Conditional on the row still being unattached inside this
+        // transaction. Two admins racing on the same instructor both pass
+        // the caller's pre-check, and only one of them may win: without the
+        // `user_id IS NULL` guard the second UPDATE would overwrite the
+        // first attachment and orphan its user + role rows. When the guard
+        // rejects us we throw so the transaction rolls back — cleaning up
+        // the account this branch just inserted along with it.
+        const result = await em
           .getRepository(InstructorEntity)
-          .update(instructorId, { user: { id: account.id } as User });
+          .createQueryBuilder()
+          .update(InstructorEntity)
+          .set({ user: { id: account.id } as User })
+          .where('id = :id AND user_id IS NULL', { id: instructorId })
+          .execute();
+
+        if (!result.affected) {
+          throw new UnprocessableEntityException({
+            status: HttpStatus.UNPROCESSABLE_ENTITY,
+            errors: { email: 'instructorAlreadyHasAccount' },
+          });
+        }
 
         this.logger.log(
           `Instructor ${instructorId} given an account by user ${createdById}: user ${account.id}`,
