@@ -7,7 +7,7 @@ import { OnboardingService } from './onboarding.service';
 
 describe('OnboardingService', () => {
   let service: OnboardingService;
-  let usersService: { findById: jest.Mock<any> };
+  let usersService: { findById: jest.Mock<any>; findByEmail: jest.Mock<any> };
   let masterDataCodesService: {
     findById: jest.Mock<any>;
     findByIds: jest.Mock<any>;
@@ -44,7 +44,11 @@ describe('OnboardingService', () => {
         id: 1,
         age: null,
         dateOfBirth: null,
+        email: null,
       }),
+      // Nothing takes the address by default — a specific test overrides
+      // this to model the duplicate case.
+      findByEmail: (jest.fn() as jest.Mock<any>).mockResolvedValue(null),
     };
     masterDataCodesService = {
       findById: (jest.fn() as jest.Mock<any>).mockResolvedValue(education),
@@ -272,5 +276,75 @@ describe('OnboardingService', () => {
 
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     expect(userRepository.update).not.toHaveBeenCalled();
+  });
+
+  describe('onboarding email persistence', () => {
+    // The FB-signup with no email scope is the whole reason `dto.email` is
+    // accepted here — verify every branch of `resolveEmailToPersist`, since
+    // it touches account identity.
+
+    it('should persist a new email with emailVerified: false when the account has none', async () => {
+      await service.complete(1, { ...dto, email: '  New@Example.COM ' } as any);
+
+      // Trimmed and lowercased before both the duplicate check and the
+      // update, so what lands on the user row is the normalized form.
+      expect(usersService.findByEmail).toHaveBeenCalledWith('new@example.com');
+      const updateArg = userRepository.update.mock.calls[0][1];
+      expect(updateArg).toEqual(
+        expect.objectContaining({
+          email: 'new@example.com',
+          emailVerified: false,
+          onboardingDone: true,
+        }),
+      );
+    });
+
+    it('should reject an email already used by another account', async () => {
+      usersService.findByEmail.mockResolvedValue({
+        id: 999,
+        email: 'taken@example.com',
+      });
+
+      const response = await errorsOf(
+        service.complete(1, { ...dto, email: 'taken@example.com' } as any),
+      );
+
+      expect(response.errors.email).toBe('emailAlreadyExists');
+      // The transaction ran (validation succeeded up to this point) but the
+      // user update must never have been called — the exception aborts it.
+      expect(userRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should ignore a supplied email when the account already has one', async () => {
+      usersService.findById.mockResolvedValue({
+        id: 1,
+        age: null,
+        dateOfBirth: null,
+        email: 'existing@example.com',
+      });
+
+      await service.complete(1, {
+        ...dto,
+        email: 'attempted-change@example.com',
+      } as any);
+
+      // No duplicate check because the branch returns early; no email or
+      // emailVerified in the update payload either.
+      expect(usersService.findByEmail).not.toHaveBeenCalled();
+      const updateArg = userRepository.update.mock.calls[0][1];
+      expect(updateArg).not.toHaveProperty('email');
+      expect(updateArg).not.toHaveProperty('emailVerified');
+    });
+
+    it('should skip the email path entirely when the payload has none', async () => {
+      // Same guard as above from the other direction — a payload without
+      // `email` must not trigger any lookup or write of email fields.
+      await service.complete(1, dto as any);
+
+      expect(usersService.findByEmail).not.toHaveBeenCalled();
+      const updateArg = userRepository.update.mock.calls[0][1];
+      expect(updateArg).not.toHaveProperty('email');
+      expect(updateArg).not.toHaveProperty('emailVerified');
+    });
   });
 });

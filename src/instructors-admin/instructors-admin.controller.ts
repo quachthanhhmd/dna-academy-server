@@ -178,7 +178,10 @@ export class InstructorsAdminController {
     summary: 'Update an instructor profile, expertise set and social links',
     description:
       'expertiseCodeIds and socialLinks replace the whole set when present ' +
-      'and are left untouched when omitted; an empty array clears them.',
+      'and are left untouched when omitted; an empty array clears them. ' +
+      'A password sets the login password, and creates the account first ' +
+      'when the profile has none — which needs accountEmail and the ' +
+      'instructors:create_account permission.',
   })
   @RequirePermission('instructors', 'edit')
   @Put(':id')
@@ -186,11 +189,21 @@ export class InstructorsAdminController {
   @ApiOkResponse({ type: InstructorDetailDto })
   @ApiNotFoundResponse()
   @ApiConflictResponse({ description: 'slug_locked or user_already_linked' })
+  @ApiForbiddenResponse({
+    description:
+      'password for a profile with no account without instructors:create_account',
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'with a password and no account: accountEmail required / ' +
+      'emailAlreadyExists, userId conflictsWithCreateAccount',
+  })
   update(
     @Param('id') id: string,
     @Body() dto: UpdateInstructorDto,
+    @Request() request,
   ): Promise<InstructorDetailDto> {
-    return this.instructorsAdminService.update(id, dto);
+    return this.instructorsAdminService.update(id, dto, request.user.id);
   }
 
   @ApiOperation({

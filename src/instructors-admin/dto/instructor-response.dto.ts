@@ -47,6 +47,15 @@ export class InstructorDetailDto extends InstructorListItemDto {
   @ApiProperty({ type: Number, nullable: true })
   userId: number | null;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      "The linked account's login address, null when there is no account. " +
+      'Read-only on this screen: the address is changed on the Users screen.',
+  })
+  accountEmail: string | null;
+
   @ApiProperty({ type: String, nullable: true })
   bio: string | null;
 

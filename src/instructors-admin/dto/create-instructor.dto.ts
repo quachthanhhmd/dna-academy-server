@@ -13,6 +13,7 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import { InstructorSocialLinkInputDto } from './instructor-social-link.dto';
@@ -111,8 +112,9 @@ export class CreateInstructorDto {
   @ApiPropertyOptional({
     type: Boolean,
     description:
-      'Permission model §1.7 — also create a login account (role Instructor, ' +
-      'no password) and invite it. Needs instructors:create_account.',
+      'Permission model §1.7 — also create a login account (role Instructor) ' +
+      'and invite it, unless `password` is supplied. Needs ' +
+      'instructors:create_account.',
   })
   @IsOptional()
   @IsBoolean()
@@ -128,6 +130,20 @@ export class CreateInstructorDto {
   @Transform(lowerCaseTransformer)
   @IsEmail()
   accountEmail?: string;
+
+  @ApiPropertyOptional({
+    example: 's3cret-pass',
+    minLength: 6,
+    description:
+      'Sets the login password directly and suppresses the invite email, ' +
+      'because there is nothing left for the instructor to set. Leave it out ' +
+      'to keep the invite flow. On update, supplying it replaces the current ' +
+      'password; the account must already be linked.',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  password?: string;
 
   @ApiPropertyOptional({ type: Boolean, default: true })
   @IsOptional()

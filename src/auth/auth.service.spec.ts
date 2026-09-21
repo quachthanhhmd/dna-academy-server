@@ -284,7 +284,7 @@ describe('AuthService', () => {
       );
       expect(mailService.userSignUp).toHaveBeenCalledWith({
         to: 'student@example.com',
-        data: { hash: 'signed-token' },
+        data: { hash: 'signed-token', firstName: undefined },
       });
     });
   });
