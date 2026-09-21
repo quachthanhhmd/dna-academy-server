@@ -4,6 +4,7 @@ import {
   ArrayUnique,
   IsArray,
   IsDate,
+  IsEmail,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -61,4 +62,12 @@ export class AuthOnboardingDto {
   @IsOptional()
   @IsString()
   customStatus?: string;
+
+  // A Facebook sign-in can arrive without an email — the student types theirs
+  // on the profile step, and the server only accepts it when the account has
+  // no email yet.
+  @ApiPropertyOptional({ type: String, example: 'you@example.com' })
+  @IsOptional()
+  @IsEmail({}, { message: 'Please enter a valid email address' })
+  email?: string;
 }

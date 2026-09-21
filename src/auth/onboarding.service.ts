@@ -71,6 +71,12 @@ export class OnboardingService {
       this.fail('age', 'ageOrDateOfBirthRequired');
     }
 
+    // Email is only accepted when the account has none — a Facebook sign-in
+    // that skipped the email scope is the whole reason the field is editable
+    // on the profile step. Silently ignore an incoming email once the account
+    // already has one, so a stale payload cannot overwrite it here.
+    const emailToPersist = await this.resolveEmailToPersist(user, dto.email);
+
     const customStatus = this.customValueForOther(
       currentStatusCode,
       dto.customStatus,
@@ -130,9 +136,33 @@ export class OnboardingService {
       await userRepository.update(userId, {
         age: dto.age ?? user.age,
         dateOfBirth: dto.dateOfBirth ?? user.dateOfBirth,
+        // Defense in depth: an email typed here has not been confirmed, so
+        // it must not inherit whatever verified state the row had before.
+        // In practice `resolveEmailToPersist` only returns a value when the
+        // account had no email (and therefore emailVerified: false) yet, so
+        // this is redundant today, but a future refactor that clears an
+        // email without clearing the flag would silently promote an
+        // unverified address here — this line stops that.
+        ...(emailToPersist
+          ? { email: emailToPersist, emailVerified: false }
+          : {}),
         onboardingDone: true,
       });
     });
+  }
+
+  private async resolveEmailToPersist(
+    user: { email?: string | null },
+    incoming: string | undefined,
+  ): Promise<string | null> {
+    if (user.email || !incoming) return null;
+
+    const email = incoming.trim().toLowerCase();
+    const existing = await this.usersService.findByEmail(email);
+    if (existing) {
+      this.fail('email', 'emailAlreadyExists');
+    }
+    return email;
   }
 
   private assertCareerInterestShape(ids: string[], max: number): void {

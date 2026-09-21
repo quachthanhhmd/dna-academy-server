@@ -281,7 +281,7 @@ export class AuthService {
       educationStageCode: null,
     });
 
-    await this.sendSignUpConfirmationEmail(user.id, dto.email);
+    await this.sendSignUpConfirmationEmail(user.id, dto.email, dto.firstName);
   }
 
   async resendVerificationEmail(email: string): Promise<void> {
@@ -305,12 +305,13 @@ export class AuthService {
       });
     }
 
-    await this.sendSignUpConfirmationEmail(user.id, email);
+    await this.sendSignUpConfirmationEmail(user.id, email, user.firstName);
   }
 
   private async sendSignUpConfirmationEmail(
     userId: User['id'],
     email: string,
+    firstName?: string | null,
   ): Promise<void> {
     const hash = await this.jwtService.signAsync(
       {
@@ -330,6 +331,11 @@ export class AuthService {
       to: email,
       data: {
         hash,
+        // The template greets the learner by first name and falls back to
+        // "bạn" when the account (e.g. social sign-in without a full name)
+        // doesn't have one; we normalize null to undefined here rather than
+        // leak it into the template context.
+        firstName: firstName ?? undefined,
       },
     });
   }
@@ -477,6 +483,9 @@ export class AuthService {
       data: {
         hash,
         tokenExpires,
+        // Greets the account by first name and falls back to "bạn" when
+        // absent (social sign-up accounts have no separate first/last).
+        firstName: user.firstName ?? undefined,
       },
     });
   }

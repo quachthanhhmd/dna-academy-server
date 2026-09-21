@@ -15,20 +15,14 @@ export class MailService {
     private readonly configService: ConfigService<AllConfigType>,
   ) {}
 
-  async userSignUp(mailData: MailData<{ hash: string }>): Promise<void> {
+  async userSignUp(
+    mailData: MailData<{ hash: string; firstName?: string }>,
+  ): Promise<void> {
     const i18n = I18nContext.current();
     let emailConfirmTitle: MaybeType<string>;
-    let text1: MaybeType<string>;
-    let text2: MaybeType<string>;
-    let text3: MaybeType<string>;
 
     if (i18n) {
-      [emailConfirmTitle, text1, text2, text3] = await Promise.all([
-        i18n.t('common.confirmEmail'),
-        i18n.t('confirm-email.text1'),
-        i18n.t('confirm-email.text2'),
-        i18n.t('confirm-email.text3'),
-      ]);
+      emailConfirmTitle = await i18n.t('common.confirmEmail');
     }
 
     const url = new URL(
@@ -51,36 +45,32 @@ export class MailService {
         'mail-templates',
         'activation.hbs',
       ),
+      // The template runs Handlebars in strict mode, so every variable it
+      // references must be present here. firstName falls back to the empty
+      // string, which the template turns into the generic "Chào bạn".
       context: {
         title: emailConfirmTitle,
         url: url.toString(),
         actionTitle: emailConfirmTitle,
         app_name: this.configService.get('app.name', { infer: true }),
-        text1,
-        text2,
-        text3,
+        email: mailData.to,
+        firstName: mailData.data.firstName ?? '',
       },
     });
   }
 
   async forgotPassword(
-    mailData: MailData<{ hash: string; tokenExpires: number }>,
+    mailData: MailData<{
+      hash: string;
+      tokenExpires: number;
+      firstName?: string;
+    }>,
   ): Promise<void> {
     const i18n = I18nContext.current();
     let resetPasswordTitle: MaybeType<string>;
-    let text1: MaybeType<string>;
-    let text2: MaybeType<string>;
-    let text3: MaybeType<string>;
-    let text4: MaybeType<string>;
 
     if (i18n) {
-      [resetPasswordTitle, text1, text2, text3, text4] = await Promise.all([
-        i18n.t('common.resetPassword'),
-        i18n.t('reset-password.text1'),
-        i18n.t('reset-password.text2'),
-        i18n.t('reset-password.text3'),
-        i18n.t('reset-password.text4'),
-      ]);
+      resetPasswordTitle = await i18n.t('common.resetPassword');
     }
 
     const url = new URL(
@@ -90,6 +80,20 @@ export class MailService {
     );
     url.searchParams.set('hash', mailData.data.hash);
     url.searchParams.set('expires', mailData.data.tokenExpires.toString());
+
+    // Human-readable "when this was asked for" for the request-context box.
+    // The api container runs on Asia/Ho_Chi_Minh (see docker-compose.yaml),
+    // so Node's local formatting is Vietnam time without threading a zone
+    // argument through here; the trailing tag makes that explicit.
+    const requestedAt =
+      new Date().toLocaleString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }) + ' (GMT+7)';
 
     await this.mailerService.sendMail({
       to: mailData.to,
@@ -104,6 +108,7 @@ export class MailService {
         'mail-templates',
         'reset-password.hbs',
       ),
+      // Handlebars is in strict mode, so every var below must be here.
       context: {
         title: resetPasswordTitle,
         url: url.toString(),
@@ -111,10 +116,9 @@ export class MailService {
         app_name: this.configService.get('app.name', {
           infer: true,
         }),
-        text1,
-        text2,
-        text3,
-        text4,
+        email: mailData.to,
+        firstName: mailData.data.firstName ?? '',
+        requestedAt,
       },
     });
   }

@@ -1,33 +1,199 @@
-<!DOCTYPE html>
-<html lang="en">
+{{!--
+  Confirmation email for a new sign-up.
 
+  Kept as bulletproof HTML — inline styles, table layout, MSO conditionals —
+  because Gmail, Outlook and Apple Mail all render it themselves and none of
+  them run <style> reliably. The @media rule at the top is only for the two
+  clients that do (Apple Mail and iOS): everything else falls back to the
+  desktop widths, which is fine.
+
+  The mailer service runs Handlebars in strict mode, so every {{var}} below
+  must be present in `context` — see MailService.userSignUp.
+--}}
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=">
-    <title>{{title}}</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no">
+<meta name="color-scheme" content="dark light">
+<meta name="supported-color-schemes" content="dark light">
+<title>{{title}} — {{app_name}}</title>
+<!--[if mso]>
+<style type="text/css">
+  table, td, a, p, h1, span { font-family: 'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif !important; }
+  .mso-pad { padding-left: 40px !important; padding-right: 40px !important; }
+</style>
+<![endif]-->
+<style type="text/css">
+  :root { color-scheme: dark light; supported-color-schemes: dark light; }
+  html, body { margin:0 !important; padding:0 !important; width:100% !important; background-color:#0c1512; }
+  body { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+  table { border-collapse:collapse !important; mso-table-lspace:0pt; mso-table-rspace:0pt; }
+  img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; display:block; }
+  a { text-decoration:none; }
+  a[x-apple-data-detectors] { color:inherit !important; text-decoration:none !important; }
+  .btn:hover { background-image:linear-gradient(180deg,#8fefc4 0%,#5cdca6 100%) !important; }
+  .lnk:hover { color:#8fefc4 !important; }
+  u + #body a { color:inherit; text-decoration:none; font-size:inherit; font-family:inherit; font-weight:inherit; line-height:inherit; }
+
+  @media only screen and (max-width:620px) {
+    .wrap     { width:100% !important; }
+    .px       { padding-left:24px !important; padding-right:24px !important; }
+    .h1       { font-size:23px !important; line-height:31px !important; letter-spacing:-0.4px !important; }
+    .lead     { font-size:14px !important; line-height:23px !important; }
+    .brand    { font-size:16px !important; }
+  }
+  @media (prefers-color-scheme: dark) {
+    .force-bg { background-color:#0c1512 !important; }
+  }
+  [data-ogsc] .force-bg, [data-ogsb] .force-bg { background-color:#0c1512 !important; }
+</style>
 </head>
 
-<body style="margin:0;font-family:arial">
-    <table style="border:0;width:100%">
-        <tr style="background:#eeeeee">
-            <td style="padding:20px;color:#808080;text-align:center;font-size:40px;font-weight:600">
-                {{app_name}}
-            </td>
-        </tr>
-        <tr>
-            <td style="padding:20px;color:#808080;font-size:16px;font-weight:100">
-                {{text1}}<br>
-                {{text2}} {{app_name}}.<br>
-                {{text3}}
-            </td>
-        </tr>
-        <tr>
-            <td style="text-align:center">
-                <a href="{{url}}"
-                    style="display:inline-block;padding:20px;background:#00838f;text-decoration:none;color:#ffffff">{{actionTitle}}</a>
-            </td>
-        </tr>
-    </table>
-</body>
+<body id="body" class="force-bg" style="margin:0;padding:0;background-color:#0c1512;">
 
+<div style="display:none;font-size:1px;color:#0c1512;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">
+  Nhấn để kích hoạt tài khoản {{app_name}} — liên kết có hiệu lực 24 giờ.&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0c1512" style="background-color:#0c1512;">
+<tr>
+<td align="center" style="background-color:#0c1512;padding:40px 12px 48px 12px;">
+
+  <table role="presentation" class="wrap" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
+
+    <tr>
+      <td style="padding:0 4px 18px 4px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td width="38" valign="middle" style="width:38px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td width="38" height="38" align="center" valign="middle" bgcolor="#68dba9" style="width:38px;height:38px;background-color:#68dba9;background-image:linear-gradient(135deg,#7fe6b8 0%,#25a475 100%);border-radius:11px;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:19px;font-weight:800;color:#06231a;line-height:38px;letter-spacing:-1px;">D</td>
+                </tr>
+              </table>
+            </td>
+            <td valign="middle" style="padding-left:11px;">
+              <span class="brand" style="font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:17px;font-weight:800;letter-spacing:-0.3px;color:#dae5df;">{{app_name}}</span>
+              <span style="display:block;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:9px;font-weight:500;letter-spacing:1.6px;color:#87948b;text-transform:uppercase;padding-top:2px;">Nền tảng học tập hướng nghiệp</span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <tr>
+      <td bgcolor="#141d1a" style="background-color:#141d1a;border:1px solid #2d3733;border-radius:18px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+
+          <tr>
+            <td height="3" bgcolor="#68dba9" style="height:3px;line-height:3px;font-size:0;background-color:#68dba9;border-radius:18px 18px 0 0;">&nbsp;</td>
+          </tr>
+
+          <tr>
+            <td class="px mso-pad" style="padding:36px 40px 40px 40px;">
+
+              <p style="margin:0 0 14px 0;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:2.2px;color:#68dba9;text-transform:uppercase;">Xác thực email</p>
+
+              <h1 class="h1" style="margin:0 0 14px 0;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:26px;line-height:34px;font-weight:800;letter-spacing:-0.6px;color:#dae5df;">
+                Xác thực địa chỉ email của bạn
+              </h1>
+
+              <p class="lead" style="margin:0 0 20px 0;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#bccac0;">
+                Chào <strong style="color:#dae5df;font-weight:600;">{{#if firstName}}{{firstName}}{{else}}bạn{{/if}}</strong>, bạn chỉ còn một bước nữa để bắt đầu hành trình hướng nghiệp cùng {{app_name}}. Nhấn nút bên dưới để kích hoạt tài khoản.
+              </p>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px 0;">
+                <tr>
+                  <td bgcolor="#16281f" style="background-color:#16281f;border:1px solid #2f4c3d;border-radius:999px;padding:8px 15px;">
+                    <span style="font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;font-weight:500;color:#68dba9;letter-spacing:0.2px;">{{email}}</span>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;">
+                <tr>
+                  <td align="center" bgcolor="#5cd6a1" class="btn" style="background-color:#5cd6a1;background-image:linear-gradient(180deg,#7fe6b8 0%,#4ccf9a 100%);border-radius:12px;">
+                    <!--[if mso]>
+                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{url}}" style="height:52px;v-text-anchor:middle;width:230px;" arcsize="24%" strokecolor="#5cd6a1" fillcolor="#5cd6a1">
+                      <w:anchorlock/>
+                      <center style="color:#06231a;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;">{{actionTitle}}</center>
+                    </v:roundrect>
+                    <![endif]-->
+                    <!--[if !mso]><!-- -->
+                    <a href="{{url}}"
+                       style="display:inline-block;padding:16px 42px;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;letter-spacing:0.1px;color:#06231a;text-decoration:none;border-radius:12px;">
+                      {{actionTitle}}
+                    </a>
+                    <!--<![endif]-->
+                  </td>
+                </tr>
+              </table>
+
+              <p align="center" style="margin:18px 0 0 0;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:#87948b;">
+                Liên kết có hiệu lực trong 24 giờ.
+              </p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0 0;">
+                <tr>
+                  <td bgcolor="#0a120f" style="background-color:#0a120f;border:1px solid #222c28;border-radius:12px;padding:16px 18px;">
+                    <p style="margin:0 0 8px 0;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:#87948b;">
+                      Nút không hoạt động? Dán liên kết này vào trình duyệt:
+                    </p>
+                    <p style="margin:0;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;line-height:18px;color:#4cd7f6;word-break:break-all;">
+                      <a class="lnk" href="{{url}}" style="color:#4cd7f6;text-decoration:none;word-break:break-all;">{{url}}</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+
+    <tr>
+      <td class="px" style="padding:26px 8px 0 8px;">
+        <p style="margin:0 0 10px 0;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:#87948b;">
+          Bạn nhận được email này vì địa chỉ <span style="color:#bccac0;">{{email}}</span> được dùng để đăng ký tài khoản {{app_name}}.
+        </p>
+        <p style="margin:0 0 18px 0;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:#87948b;">
+          Nếu không phải bạn, hãy bỏ qua email này — tài khoản sẽ không được kích hoạt.
+        </p>
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr><td height="1" bgcolor="#222c28" style="height:1px;line-height:1px;font-size:0;background-color:#222c28;">&nbsp;</td></tr>
+        </table>
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px;">
+          <tr>
+            <td valign="top" style="font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:#87948b;">
+              <span style="font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:800;color:#bccac0;letter-spacing:-0.2px;">{{app_name}}</span><br>
+              Nền tảng học tập hướng nghiệp<br>
+              Hỗ trợ: <a class="lnk" href="mailto:support@dna-academy.vn" style="color:#68dba9;text-decoration:none;">support@dna-academy.vn</a>
+            </td>
+            <td valign="top" align="right" style="font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:11px;line-height:19px;color:#5f6b63;">
+              DNA Academy<br>
+              Hà Nội<br>
+              Việt Nam
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin:18px 0 0 0;font-family:'Be Vietnam Pro','Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:10px;letter-spacing:0.6px;color:#5f6b63;">
+          © 2026 {{app_name}}. Bảo lưu mọi quyền.
+        </p>
+      </td>
+    </tr>
+
+  </table>
+
+</td>
+</tr>
+</table>
+
+</body>
 </html>
