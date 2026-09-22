@@ -1,30 +1,38 @@
 import { registerAs } from '@nestjs/config';
 
-import { IsString } from 'class-validator';
+import { IsString, Validate } from 'class-validator';
 import validateConfig from '../../utils/validate-config';
 import { AuthConfig } from './auth-config.type';
+import { IsStrongSecret } from './is-strong-secret.validator';
 import ms from 'ms';
 
 class EnvironmentVariablesValidator {
+  // Every JWT secret is checked, not just the access-token one: a weak
+  // AUTH_FORGOT_SECRET forges password-reset links, and a weak
+  // AUTH_CONFIRM_EMAIL_SECRET confirms an address the caller doesn't own.
   @IsString()
+  @Validate(IsStrongSecret)
   AUTH_JWT_SECRET: string;
 
   @IsString()
   AUTH_JWT_TOKEN_EXPIRES_IN: string;
 
   @IsString()
+  @Validate(IsStrongSecret)
   AUTH_REFRESH_SECRET: string;
 
   @IsString()
   AUTH_REFRESH_TOKEN_EXPIRES_IN: string;
 
   @IsString()
+  @Validate(IsStrongSecret)
   AUTH_FORGOT_SECRET: string;
 
   @IsString()
   AUTH_FORGOT_TOKEN_EXPIRES_IN: string;
 
   @IsString()
+  @Validate(IsStrongSecret)
   AUTH_CONFIRM_EMAIL_SECRET: string;
 
   @IsString()
