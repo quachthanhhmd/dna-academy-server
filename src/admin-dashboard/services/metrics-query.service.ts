@@ -19,11 +19,24 @@ export type DashboardFilters = {
 };
 
 /**
- * D1 — a student is a user whose role is User. Read from `user_role`, not
- * the legacy `user.role_id` (permission model §2.5).
+ * Who counts as a learner on this dashboard.
+ *
+ * D1 defined it as "role is User", read from `user_role` rather than the
+ * legacy `user.role_id` (permission model §2.5). That definition undercounted
+ * once instructors were allowed to learn (O2, decided yes): their enrolments
+ * existed in `enrollment` but every KPI skipped them, so the student counts
+ * disagreed with the enrolment counts on the same screen.
+ *
+ * A learner is therefore either:
+ *   - a User — they registered to learn, enrolled yet or not; or
+ *   - any account holding a live enrolment, whatever its role.
+ *
+ * An Admin or Instructor who never enrolled is still not a learner, so the
+ * unscoped "registered students" figure does not swell with staff accounts.
  */
 export const isStudent = (userIdColumn: string): string =>
-  `EXISTS (SELECT 1 FROM "user_role" "sr" WHERE "sr"."user_id" = ${userIdColumn} AND "sr"."role_id" = 2)`;
+  `(EXISTS (SELECT 1 FROM "user_role" "sr" WHERE "sr"."user_id" = ${userIdColumn} AND "sr"."role_id" = 2)
+    OR EXISTS (SELECT 1 FROM "enrollment" "le" WHERE "le"."student_id" = ${userIdColumn} AND "le"."status" <> 'cancelled'))`;
 
 /**
  * Epic 7 BE-1 — the shared SQL every dashboard endpoint composes from.

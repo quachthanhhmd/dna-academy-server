@@ -62,10 +62,15 @@ MAIL_DEFAULT_NAME=Api
 MAIL_CLIENT_HOST=localhost
 MAIL_CLIENT_PORT=1080
 
+# Signing keys. The values below are PLACEHOLDERS and are rejected at boot in
+# any environment that is not development/test — see
+# src/auth/config/is-strong-secret.validator.ts. Generate a distinct value for
+# each of the four with:
+#   openssl rand -base64 48
 AUTH_JWT_SECRET=secret
 AUTH_JWT_TOKEN_EXPIRES_IN=15m
 AUTH_REFRESH_SECRET=secret_for_refresh
-AUTH_REFRESH_TOKEN_EXPIRES_IN=3650d
+AUTH_REFRESH_TOKEN_EXPIRES_IN=30d
 AUTH_FORGOT_SECRET=secret_for_forgot
 AUTH_FORGOT_TOKEN_EXPIRES_IN=30m
 AUTH_CONFIRM_EMAIL_SECRET=secret_for_confirm_email

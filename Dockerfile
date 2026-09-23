@@ -29,6 +29,12 @@ COPY ./wait-for-it.sh /opt/wait-for-it.sh
 RUN chmod +x /opt/wait-for-it.sh
 COPY ./startup.relational.dev.sh /opt/startup.relational.dev.sh
 RUN chmod +x /opt/startup.relational.dev.sh
+
+# Production entrypoint, shipped alongside the dev one. Override the CMD at
+# the bottom of this file (or in your orchestrator) to use it when deploying.
+COPY ./startup.relational.prod.sh /opt/startup.relational.prod.sh
+RUN chmod +x /opt/startup.relational.prod.sh
+RUN sed -i 's/\r//g' /opt/startup.relational.prod.sh
 RUN sed -i 's/\r//g' /opt/wait-for-it.sh
 RUN sed -i 's/\r//g' /opt/startup.relational.dev.sh
 

@@ -49,3 +49,5 @@ lerna-debug.log*
 
 
 DNA-academy.sql
+# Quy trình xử lý sự cố bảo mật của môi trường production — chỉ giữ ở máy local
+readme_prod.md
