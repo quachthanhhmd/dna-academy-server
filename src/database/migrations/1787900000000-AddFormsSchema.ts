@@ -79,6 +79,8 @@ export class AddFormsSchema1787900000000 implements MigrationInterface {
         "question_id" uuid NOT NULL,
         "option_code" character varying(64) NOT NULL,
         "display_order" integer NOT NULL DEFAULT 0,
+        "created_at" timestamptz NOT NULL DEFAULT now(),
+        "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "UQ_form_question_option" UNIQUE ("question_id", "option_code"),
         CONSTRAINT "PK_form_question_option" PRIMARY KEY ("id")
       )`,
@@ -154,6 +156,7 @@ export class AddFormsSchema1787900000000 implements MigrationInterface {
         "text_value" text,
         "number_value" numeric(10,2),
         "created_at" timestamptz NOT NULL DEFAULT now(),
+        "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "UQ_form_answer_submission_question" UNIQUE ("submission_id", "question_id"),
         CONSTRAINT "PK_form_answer" PRIMARY KEY ("id")
       )`,
@@ -174,6 +177,8 @@ export class AddFormsSchema1787900000000 implements MigrationInterface {
         "submission_id" uuid NOT NULL,
         "option_code" character varying(64) NOT NULL,
         "option_group_key" character varying(64),
+        "created_at" timestamptz NOT NULL DEFAULT now(),
+        "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "UQ_form_answer_option" UNIQUE ("answer_id", "option_code"),
         CONSTRAINT "PK_form_answer_option" PRIMARY KEY ("id")
       )`,
@@ -196,6 +201,8 @@ export class AddFormsSchema1787900000000 implements MigrationInterface {
         "consent_code" character varying(64) NOT NULL,
         "version" character varying(16) NOT NULL,
         "accepted_at" timestamptz NOT NULL DEFAULT now(),
+        "created_at" timestamptz NOT NULL DEFAULT now(),
+        "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "UQ_form_submission_consent" UNIQUE ("submission_id", "consent_code"),
         CONSTRAINT "PK_form_submission_consent" PRIMARY KEY ("id")
       )`,
@@ -214,6 +221,7 @@ export class AddFormsSchema1787900000000 implements MigrationInterface {
         "actor_user_id" integer,
         "payload" jsonb,
         "created_at" timestamptz NOT NULL DEFAULT now(),
+        "updated_at" timestamptz NOT NULL DEFAULT now(),
         CONSTRAINT "PK_form_submission_event" PRIMARY KEY ("id")
       )`,
     );

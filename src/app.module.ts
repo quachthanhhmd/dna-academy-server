@@ -23,6 +23,7 @@ import { HeaderResolver, I18nModule } from 'nestjs-i18n';
 import { TypeOrmConfigService } from './database/typeorm-config.service';
 import { MailModule } from './mail/mail.module';
 import { HomeModule } from './home/home.module';
+import { FormsModule } from './forms/forms.module';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { AllConfigType } from './config/config.type';
 import { SessionModule } from './session/session.module';
@@ -245,6 +246,7 @@ import { UserLocaleInterceptor } from './utils/i18n/user-locale.interceptor';
     MailModule,
     MailerModule,
     HomeModule,
+    FormsModule,
   ],
   providers: [
     // Epic 6: completes the locale resolution chain with users.locale and

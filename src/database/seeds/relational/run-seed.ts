@@ -10,6 +10,7 @@ import { MasterDataGroupSeedService } from './master-data-group/master-data-grou
 import { MasterDataCodeSeedService } from './master-data-code/master-data-code-seed.service';
 import { AdminBootstrapSeedService } from './admin-bootstrap/admin-bootstrap-seed.service';
 import { InstructorSeedService } from './instructor/instructor-seed.service';
+import { FormDefinitionSeedService } from './form-definition/form-definition-seed.service';
 
 const runSeed = async () => {
   const app = await NestFactory.create(SeedModule);
@@ -23,6 +24,8 @@ const runSeed = async () => {
   await app.get(RolePermissionSeedService).run();
   await app.get(MasterDataGroupSeedService).run();
   await app.get(MasterDataCodeSeedService).run();
+  // After master data: the questions point at groups and allowlists reference their codes.
+  await app.get(FormDefinitionSeedService).run();
   await app.get(InstructorSeedService).run();
   await app.get(AdminBootstrapSeedService).run();
 
