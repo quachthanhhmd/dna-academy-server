@@ -19,7 +19,18 @@ import {
  * conditional branch was actually unlocked. A DTO cannot know any of that.
  */
 
-export const SOURCES = ['landing', 'certificate', 'catalog', 'other'] as const;
+/**
+ * `landing_cta` is distinct from `landing` on purpose: the carousel slides post
+ * `landing`, the Ready CTA band posts `landing_cta`, so the two entry points on
+ * the home page can be told apart in the submissions list.
+ */
+export const SOURCES = [
+  'landing',
+  'landing_cta',
+  'certificate',
+  'catalog',
+  'other',
+] as const;
 export type SubmissionSource = (typeof SOURCES)[number];
 
 export class FormAnswerInputDto {

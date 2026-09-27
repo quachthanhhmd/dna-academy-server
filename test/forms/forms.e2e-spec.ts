@@ -114,6 +114,21 @@ describe('Forms API (EPIC-08)', () => {
       expect(body.status).toBe('new');
     });
 
+    it('should accept the landing_cta source the Ready CTA band posts', async () => {
+      const email = uniqueEmail(`forms.cta.${runId}`);
+      await submit('free_course_waitlist', {
+        ...validWaitlist(email),
+        context: { source: 'landing_cta', locale: 'vi' },
+      }).expect(201);
+    });
+
+    it('should reject a source outside the allowlist', async () => {
+      await submit('free_course_waitlist', {
+        ...validWaitlist(uniqueEmail(`forms.badsrc.${runId}`)),
+        context: { source: 'not-a-source' },
+      }).expect(422);
+    });
+
     it('should reject an option outside the question allowlist', async () => {
       const { body } = await submit('free_course_waitlist', {
         ...validWaitlist(uniqueEmail(`forms.badopt.${runId}`)),
