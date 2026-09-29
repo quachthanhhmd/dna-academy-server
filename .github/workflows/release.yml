@@ -1,0 +1,86 @@
+name: Release
+
+# master is the production branch. Every push to it builds an image and
+# publishes it to GHCR; the VPS then pulls by digest. Nothing deploys itself —
+# see the note at the bottom of this file.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  # A second push while the first is still building would race to tag
+  # :latest. Let the newer one win and cancel the older.
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit -p tsconfig.json
+      - run: npx jest --ci
+
+  image:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          # Provided by Actions; no PAT to create, rotate or leak.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # The image carries Chromium; without a cache every build pays for
+          # it again.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: How to deploy this image
+        run: |
+          echo "Pushed: ${{ steps.meta.outputs.tags }}"
+          echo
+          echo "On the VPS:"
+          echo "  docker compose -f docker-compose.prod.yaml pull api"
+          echo "  docker compose -f docker-compose.prod.yaml up -d api"
+          echo
+          echo "Migrations and seeds run from the container's own entrypoint"
+          echo "(startup.relational.prod.sh), so no separate release step."
+
+# Deliberately no auto-deploy step. Pushing to master would then run
+# migrations against production with nobody watching, and this project has
+# no staging environment to catch a bad one first. The pull above is one
+# command, run when you are there to read the output.
