@@ -69,6 +69,85 @@ const MASTER_DATA_GROUPS: ReadonlyArray<{
       en: 'Instructor Expertise Area',
     },
   },
+  /*
+    EPIC-08. Every group this epic adds is prefixed `form_`: `learning_goal`
+    already exists with live onboarding rows attached, and the forms ask
+    overlapping questions with different option sets, so they need their own
+    groups rather than a rename of someone else's.
+  */
+  {
+    groupKey: 'form_current_level',
+    displayOrder: 10,
+    nameTranslations: { vi: 'Trình độ hiện tại', en: 'Current Level' },
+  },
+  {
+    groupKey: 'form_learning_goal',
+    displayOrder: 11,
+    nameTranslations: { vi: 'Mục tiêu học tập', en: 'Learning Goal' },
+  },
+  {
+    groupKey: 'form_session_slot',
+    displayOrder: 12,
+    nameTranslations: {
+      vi: 'Buổi học mong muốn',
+      en: 'Preferred Session Slot',
+    },
+  },
+  {
+    groupKey: 'form_time_band',
+    displayOrder: 13,
+    nameTranslations: { vi: 'Khung giờ học', en: 'Time Band' },
+  },
+  {
+    groupKey: 'form_weekly_hours',
+    displayOrder: 14,
+    nameTranslations: {
+      vi: 'Thời lượng học mỗi tuần',
+      en: 'Weekly Study Hours',
+    },
+  },
+  {
+    groupKey: 'form_referral_source',
+    displayOrder: 15,
+    nameTranslations: { vi: 'Bạn biết đến từ đâu', en: 'Referral Source' },
+  },
+  {
+    groupKey: 'form_skill',
+    displayOrder: 16,
+    nameTranslations: { vi: 'Kỹ năng', en: 'Skill' },
+  },
+  {
+    groupKey: 'form_contribution_mode',
+    displayOrder: 17,
+    nameTranslations: {
+      vi: 'Hình thức đóng góp',
+      en: 'Contribution Mode',
+    },
+  },
+  {
+    groupKey: 'form_experience_years',
+    displayOrder: 18,
+    nameTranslations: {
+      vi: 'Số năm kinh nghiệm',
+      en: 'Years of Experience',
+    },
+  },
+  {
+    groupKey: 'form_monthly_capacity',
+    displayOrder: 19,
+    nameTranslations: {
+      vi: 'Số lớp có thể dạy mỗi tháng',
+      en: 'Monthly Teaching Capacity',
+    },
+  },
+  {
+    groupKey: 'form_teaching_experience',
+    displayOrder: 20,
+    nameTranslations: {
+      vi: 'Kinh nghiệm giảng dạy',
+      en: 'Teaching Experience',
+    },
+  },
 ];
 
 @Injectable()

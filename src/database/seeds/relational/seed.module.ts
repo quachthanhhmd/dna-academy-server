@@ -14,6 +14,7 @@ import { MasterDataGroupSeedModule } from './master-data-group/master-data-group
 import { MasterDataCodeSeedModule } from './master-data-code/master-data-code-seed.module';
 import { AdminBootstrapSeedModule } from './admin-bootstrap/admin-bootstrap-seed.module';
 import { InstructorSeedModule } from './instructor/instructor-seed.module';
+import { FormDefinitionSeedModule } from './form-definition/form-definition-seed.module';
 import databaseConfig from '../../config/database.config';
 import appConfig from '../../../config/app.config';
 import { envFilePaths } from '../../../config/env-files';
@@ -30,6 +31,7 @@ import { envFilePaths } from '../../../config/env-files';
     MasterDataCodeSeedModule,
     AdminBootstrapSeedModule,
     InstructorSeedModule,
+    FormDefinitionSeedModule,
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, appConfig],

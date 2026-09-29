@@ -76,13 +76,20 @@ AUTH_FORGOT_TOKEN_EXPIRES_IN=30m
 AUTH_CONFIRM_EMAIL_SECRET=secret_for_confirm_email
 AUTH_CONFIRM_EMAIL_TOKEN_EXPIRES_IN=1d
 
+# The account that AdminBootstrapSeedService grants Admin to when NOBODY holds
+# Admin yet. It only ever grants a role to an account that already exists — it
+# never creates one and never sets a password. On production the order is:
+# bring the stack up, register this email through the sign-up form, then re-run
+# `npm run seed:run:relational`. Leave unset outside production: it then falls
+# back to the development fixture admin@example.com, which production never
+# seeds. To promote an account later, use `npm run grant:admin -- <email>`.
+ADMIN_BOOTSTRAP_EMAIL=
+
 FACEBOOK_APP_ID=
 FACEBOOK_APP_SECRET=
 
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-
-WORKER_HOST=redis://redis:6379/1
 
 # Epic 4 v2.1 §2.4.1 — learning rules. Both are validated at boot: the
 # threshold must be an integer 0-100, the word count an integer >= 1.

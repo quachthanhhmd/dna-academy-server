@@ -193,6 +193,51 @@ const MASTER_DATA_CODES: ReadonlyArray<{
           en: 'Career Coaching',
         },
       },
+      // EPIC-08 D8: the forms reuse this group so instructor supply
+      // (instructor_expertise) and student demand join on the same codes.
+      {
+        code: 'business_analysis',
+        displayOrder: 9,
+        nameTranslations: {
+          vi: 'Phân tích nghiệp vụ',
+          en: 'Business Analysis',
+        },
+      },
+      {
+        code: 'software_testing_qa',
+        displayOrder: 10,
+        nameTranslations: {
+          vi: 'Kiểm thử phần mềm (QA)',
+          en: 'Software Testing & QA',
+        },
+      },
+      {
+        code: 'project_management',
+        displayOrder: 11,
+        nameTranslations: { vi: 'Quản lý dự án', en: 'Project Management' },
+      },
+      {
+        code: 'product_management',
+        displayOrder: 12,
+        nameTranslations: { vi: 'Quản lý sản phẩm', en: 'Product Management' },
+      },
+      {
+        code: 'ui_ux',
+        displayOrder: 13,
+        nameTranslations: { vi: 'Thiết kế UI/UX', en: 'UI/UX Design' },
+      },
+      {
+        code: 'other',
+        displayOrder: 14,
+        nameTranslations: { vi: 'Khác', en: 'Other' },
+      },
+      {
+        // Form B only: a real answer ("no field yet"), never demand — §6.2 and
+        // §6.5 exclude it from the ranking and the matrix.
+        code: 'undecided',
+        displayOrder: 15,
+        nameTranslations: { vi: 'Chưa xác định', en: 'Undecided' },
+      },
     ],
   },
   {
@@ -245,6 +290,19 @@ const MASTER_DATA_CODES: ReadonlyArray<{
         code: 'working',
         displayOrder: 5,
         nameTranslations: { vi: 'Đang đi làm', en: 'Working' },
+      },
+      {
+        code: 'career_switch',
+        displayOrder: 6,
+        nameTranslations: {
+          vi: 'Đang chuyển hướng nghề nghiệp',
+          en: 'Switching careers',
+        },
+      },
+      {
+        code: 'other',
+        displayOrder: 7,
+        nameTranslations: { vi: 'Khác', en: 'Other' },
       },
     ],
   },
@@ -341,6 +399,441 @@ const MASTER_DATA_CODES: ReadonlyArray<{
         code: 'other',
         displayOrder: 5,
         nameTranslations: { vi: 'Khác', en: 'Other' },
+      },
+    ],
+  },
+  {
+    // EPIC-08. Prefixed `form_` so it cannot collide with an existing group
+    // (the first draft's `learning_goal` already held onboarding rows).
+    groupKey: 'form_current_level',
+    codes: [
+      {
+        code: 'dna_intro_completed',
+        displayOrder: 1,
+        nameTranslations: {
+          vi: 'Đã học khoá nhập môn DNA',
+          en: 'Completed the DNA intro course',
+        },
+      },
+      {
+        code: 'has_basics',
+        displayOrder: 2,
+        nameTranslations: { vi: 'Có kiến thức cơ bản', en: 'Has the basics' },
+      },
+      {
+        code: 'self_taught',
+        displayOrder: 3,
+        nameTranslations: { vi: 'Tự học', en: 'Self-taught' },
+      },
+      {
+        code: 'project_experience',
+        displayOrder: 4,
+        nameTranslations: {
+          vi: 'Đã làm dự án thực tế',
+          en: 'Project experience',
+        },
+      },
+      {
+        code: 'working_in_field',
+        displayOrder: 5,
+        nameTranslations: {
+          vi: 'Đang làm trong ngành',
+          en: 'Working in the field',
+        },
+      },
+    ],
+  },
+  {
+    // EPIC-08. Prefixed `form_` so it cannot collide with an existing group
+    // (the first draft's `learning_goal` already held onboarding rows).
+    groupKey: 'form_learning_goal',
+    codes: [
+      {
+        code: 'upskill',
+        displayOrder: 1,
+        nameTranslations: { vi: 'Nâng cao kỹ năng hiện có', en: 'Upskill' },
+      },
+      {
+        code: 'apply_to_current_job',
+        displayOrder: 2,
+        nameTranslations: {
+          vi: 'Áp dụng vào công việc hiện tại',
+          en: 'Apply to the current job',
+        },
+      },
+      {
+        code: 'real_project',
+        displayOrder: 3,
+        nameTranslations: {
+          vi: 'Làm một dự án thật',
+          en: 'Build a real project',
+        },
+      },
+      {
+        code: 'portfolio',
+        displayOrder: 4,
+        nameTranslations: {
+          vi: 'Có sản phẩm để giới thiệu',
+          en: 'Build a portfolio',
+        },
+      },
+      {
+        code: 'internship_fresher',
+        displayOrder: 5,
+        nameTranslations: {
+          vi: 'Thực tập / vị trí fresher',
+          en: 'Internship or fresher role',
+        },
+      },
+      {
+        code: 'career_switch',
+        displayOrder: 8,
+        nameTranslations: {
+          vi: 'Chuyển hướng nghề nghiệp',
+          en: 'Switch careers',
+        },
+      },
+      {
+        code: 'promotion',
+        displayOrder: 6,
+        nameTranslations: { vi: 'Thăng tiến trong công việc', en: 'Promotion' },
+      },
+      {
+        code: 'other',
+        displayOrder: 7,
+        nameTranslations: { vi: 'Khác', en: 'Other' },
+      },
+    ],
+  },
+  {
+    // EPIC-08. Prefixed `form_` so it cannot collide with an existing group
+    // (the first draft's `learning_goal` already held onboarding rows).
+    groupKey: 'form_session_slot',
+    codes: [
+      {
+        code: 'weekday_evening',
+        displayOrder: 1,
+        nameTranslations: { vi: 'Buổi tối ngày thường', en: 'Weekday evening' },
+      },
+      {
+        code: 'sat_morning',
+        displayOrder: 2,
+        nameTranslations: { vi: 'Sáng thứ Bảy', en: 'Saturday morning' },
+      },
+      {
+        code: 'sat_afternoon',
+        displayOrder: 3,
+        nameTranslations: { vi: 'Chiều thứ Bảy', en: 'Saturday afternoon' },
+      },
+      {
+        code: 'sun_morning',
+        displayOrder: 4,
+        nameTranslations: { vi: 'Sáng Chủ nhật', en: 'Sunday morning' },
+      },
+      {
+        code: 'sun_afternoon',
+        displayOrder: 5,
+        nameTranslations: { vi: 'Chiều Chủ nhật', en: 'Sunday afternoon' },
+      },
+      {
+        code: 'other',
+        displayOrder: 6,
+        nameTranslations: { vi: 'Khác', en: 'Other' },
+      },
+    ],
+  },
+  {
+    // EPIC-08. Prefixed `form_` so it cannot collide with an existing group
+    // (the first draft's `learning_goal` already held onboarding rows).
+    groupKey: 'form_time_band',
+    codes: [
+      {
+        code: 'slot_18_20',
+        displayOrder: 1,
+        nameTranslations: { vi: '18:00 – 20:00', en: '18:00 – 20:00' },
+      },
+      {
+        code: 'slot_19_21',
+        displayOrder: 2,
+        nameTranslations: { vi: '19:00 – 21:00', en: '19:00 – 21:00' },
+      },
+      {
+        code: 'slot_20_22',
+        displayOrder: 3,
+        nameTranslations: { vi: '20:00 – 22:00', en: '20:00 – 22:00' },
+      },
+      {
+        code: 'flexible',
+        displayOrder: 4,
+        nameTranslations: { vi: 'Linh hoạt', en: 'Flexible' },
+      },
+    ],
+  },
+  {
+    // EPIC-08. Prefixed `form_` so it cannot collide with an existing group
+    // (the first draft's `learning_goal` already held onboarding rows).
+    groupKey: 'form_weekly_hours',
+    codes: [
+      {
+        code: 'lt_3',
+        displayOrder: 1,
+        nameTranslations: { vi: 'Dưới 3 giờ', en: 'Under 3 hours' },
+      },
+      {
+        code: '3_5',
+        displayOrder: 2,
+        nameTranslations: { vi: '3 – 5 giờ', en: '3 – 5 hours' },
+      },
+      {
+        code: '5_8',
+        displayOrder: 3,
+        nameTranslations: { vi: '5 – 8 giờ', en: '5 – 8 hours' },
+      },
+      {
+        code: 'gt_8',
+        displayOrder: 4,
+        nameTranslations: { vi: 'Trên 8 giờ', en: 'Over 8 hours' },
+      },
+    ],
+  },
+  {
+    // EPIC-08. Prefixed `form_` so it cannot collide with an existing group
+    // (the first draft's `learning_goal` already held onboarding rows).
+    groupKey: 'form_referral_source',
+    codes: [
+      {
+        code: 'facebook',
+        displayOrder: 1,
+        nameTranslations: { vi: 'Facebook', en: 'Facebook' },
+      },
+      {
+        code: 'tiktok',
+        displayOrder: 2,
+        nameTranslations: { vi: 'TikTok', en: 'TikTok' },
+      },
+      {
+        code: 'youtube',
+        displayOrder: 3,
+        nameTranslations: { vi: 'YouTube', en: 'YouTube' },
+      },
+      {
+        code: 'friend_referral',
+        displayOrder: 4,
+        nameTranslations: {
+          vi: 'Bạn bè giới thiệu',
+          en: 'Referred by a friend',
+        },
+      },
+      {
+        code: 'other',
+        displayOrder: 5,
+        nameTranslations: { vi: 'Khác', en: 'Other' },
+      },
+    ],
+  },
+  {
+    // EPIC-08. Prefixed `form_` so it cannot collide with an existing group
+    // (the first draft's `learning_goal` already held onboarding rows).
+    groupKey: 'form_skill',
+    codes: [
+      {
+        code: 'sql',
+        displayOrder: 1,
+        nameTranslations: { vi: 'SQL', en: 'SQL' },
+      },
+      {
+        code: 'jira_confluence',
+        displayOrder: 2,
+        nameTranslations: { vi: 'Jira / Confluence', en: 'Jira / Confluence' },
+      },
+      {
+        code: 'wireframing',
+        displayOrder: 3,
+        nameTranslations: { vi: 'Wireframing', en: 'Wireframing' },
+      },
+      {
+        code: 'requirements_gathering',
+        displayOrder: 4,
+        nameTranslations: {
+          vi: 'Thu thập yêu cầu',
+          en: 'Requirements gathering',
+        },
+      },
+      {
+        code: 'user_stories',
+        displayOrder: 5,
+        nameTranslations: { vi: 'Viết user story', en: 'User stories' },
+      },
+      {
+        code: 'process_modelling_bpmn',
+        displayOrder: 6,
+        nameTranslations: {
+          vi: 'Mô hình hoá quy trình (BPMN)',
+          en: 'Process modelling (BPMN)',
+        },
+      },
+      {
+        code: 'uml_modelling',
+        displayOrder: 7,
+        nameTranslations: { vi: 'Mô hình hoá UML', en: 'UML modelling' },
+      },
+      {
+        code: 'data_analysis_excel',
+        displayOrder: 8,
+        nameTranslations: {
+          vi: 'Phân tích dữ liệu với Excel',
+          en: 'Data analysis with Excel',
+        },
+      },
+      {
+        code: 'stakeholder_management',
+        displayOrder: 9,
+        nameTranslations: {
+          vi: 'Quản lý các bên liên quan',
+          en: 'Stakeholder management',
+        },
+      },
+      {
+        code: 'agile_scrum',
+        displayOrder: 10,
+        nameTranslations: { vi: 'Agile / Scrum', en: 'Agile / Scrum' },
+      },
+      {
+        code: 'other',
+        displayOrder: 11,
+        nameTranslations: { vi: 'Khác', en: 'Other' },
+      },
+    ],
+  },
+  {
+    // EPIC-08. Prefixed `form_` so it cannot collide with an existing group
+    // (the first draft's `learning_goal` already held onboarding rows).
+    groupKey: 'form_contribution_mode',
+    codes: [
+      {
+        code: 'teach',
+        displayOrder: 1,
+        nameTranslations: { vi: 'Giảng dạy trực tiếp', en: 'Teach live' },
+      },
+      {
+        code: 'build_content',
+        displayOrder: 2,
+        nameTranslations: {
+          vi: 'Xây dựng nội dung bài học',
+          en: 'Build lesson content',
+        },
+      },
+      {
+        code: 'design_exercise',
+        displayOrder: 3,
+        nameTranslations: { vi: 'Thiết kế bài tập', en: 'Design exercises' },
+      },
+      {
+        code: 'share_case_study',
+        displayOrder: 4,
+        nameTranslations: {
+          vi: 'Chia sẻ case study',
+          en: 'Share a case study',
+        },
+      },
+      {
+        code: 'review_content',
+        displayOrder: 5,
+        nameTranslations: { vi: 'Phản biện nội dung', en: 'Review content' },
+      },
+      {
+        code: 'mentor_career_talk',
+        displayOrder: 6,
+        nameTranslations: {
+          vi: 'Cố vấn / chia sẻ nghề nghiệp',
+          en: 'Mentor or career talk',
+        },
+      },
+      {
+        code: 'undecided',
+        displayOrder: 7,
+        nameTranslations: { vi: 'Chưa xác định', en: 'Undecided' },
+      },
+    ],
+  },
+  {
+    // EPIC-08. Prefixed `form_` so it cannot collide with an existing group
+    // (the first draft's `learning_goal` already held onboarding rows).
+    groupKey: 'form_experience_years',
+    codes: [
+      {
+        code: 'lt_1',
+        displayOrder: 1,
+        nameTranslations: { vi: 'Dưới 1 năm', en: 'Under 1 year' },
+      },
+      {
+        code: '1_3',
+        displayOrder: 2,
+        nameTranslations: { vi: '1 – 3 năm', en: '1 – 3 years' },
+      },
+      {
+        code: '3_5',
+        displayOrder: 3,
+        nameTranslations: { vi: '3 – 5 năm', en: '3 – 5 years' },
+      },
+      {
+        code: '5_10',
+        displayOrder: 4,
+        nameTranslations: { vi: '5 – 10 năm', en: '5 – 10 years' },
+      },
+      {
+        code: 'gt_10',
+        displayOrder: 5,
+        nameTranslations: { vi: 'Trên 10 năm', en: 'Over 10 years' },
+      },
+    ],
+  },
+  {
+    // EPIC-08. Prefixed `form_` so it cannot collide with an existing group
+    // (the first draft's `learning_goal` already held onboarding rows).
+    groupKey: 'form_monthly_capacity',
+    codes: [
+      {
+        code: 'lt_5',
+        displayOrder: 1,
+        nameTranslations: { vi: 'Dưới 5 buổi', en: 'Under 5 sessions' },
+      },
+      {
+        code: '5_10',
+        displayOrder: 2,
+        nameTranslations: { vi: '5 – 10 buổi', en: '5 – 10 sessions' },
+      },
+      {
+        code: '10_20',
+        displayOrder: 3,
+        nameTranslations: { vi: '10 – 20 buổi', en: '10 – 20 sessions' },
+      },
+      {
+        code: 'gt_20',
+        displayOrder: 4,
+        nameTranslations: { vi: 'Trên 20 buổi', en: 'Over 20 sessions' },
+      },
+      {
+        code: 'discuss',
+        displayOrder: 5,
+        nameTranslations: { vi: 'Cần trao đổi thêm', en: 'Needs discussion' },
+      },
+    ],
+  },
+  {
+    // EPIC-08. Form C's "have you taught before?" — a two-option group so the
+    // answer is a code, not free text, and stays chartable.
+    groupKey: 'form_teaching_experience',
+    codes: [
+      {
+        code: 'yes',
+        displayOrder: 1,
+        nameTranslations: { vi: 'Rồi', en: 'Yes' },
+      },
+      {
+        code: 'no',
+        displayOrder: 2,
+        nameTranslations: { vi: 'Chưa', en: 'No' },
       },
     ],
   },
