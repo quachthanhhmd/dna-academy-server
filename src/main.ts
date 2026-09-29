@@ -7,6 +7,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import compression from 'compression';
+import helmet from 'helmet';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { useContainer } from 'class-validator';
 import { AppModule } from './app.module';
@@ -15,9 +17,41 @@ import { AllConfigType } from './config/config.type';
 import { ResolvePromisesInterceptor } from './utils/serializer.interceptor';
 
 async function bootstrap() {
+  // An allowlist, not `cors: true`. `true` reflects whatever Origin the
+  // caller sends, so any site could call this API from a visitor's browser.
+  // Comma-separated, so a staging front end can be added without code.
+  const allowedOrigins = (process.env.FRONTEND_DOMAIN ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  if (process.env.NODE_ENV === 'production' && allowedOrigins.length === 0) {
+    throw new Error(
+      'FRONTEND_DOMAIN must list the front end origins in production; ' +
+        'without it CORS would have to be open to every site.',
+    );
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    cors: true,
+    // Outside production there is no deployed front end to name, and the e2e
+    // suite calls the API from several origins.
+    cors:
+      allowedOrigins.length > 0
+        ? { origin: allowedOrigins, credentials: true }
+        : true,
   });
+
+  app.use(
+    helmet({
+      // The API serves JSON and, with FILE_DRIVER=local, uploaded files. It
+      // renders no HTML of its own, so a CSP here would only govern Swagger —
+      // which production does not mount. The front end sets its own.
+      contentSecurityPolicy: false,
+      // Uploaded files are fetched by the Next.js app on another origin.
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+  app.use(compression());
 
   // Behind a load balancer `request.ip` is the balancer's address, so every
   // client would share one rate-limit budget. APP_TRUST_PROXY names the proxies
@@ -80,8 +114,17 @@ async function bootstrap() {
     })
     .build();
 
-  const document = SwaggerModule.createDocument(app, options);
-  SwaggerModule.setup('docs', app, document);
+  // Swagger describes every route, field and validation rule. That is a map
+  // for anyone probing the API, so production does not serve it unless
+  // somebody deliberately asks — and then it belongs behind the proxy's auth.
+  const swaggerEnabled =
+    process.env.NODE_ENV !== 'production' ||
+    process.env.SWAGGER_ENABLED === 'true';
+
+  if (swaggerEnabled) {
+    const document = SwaggerModule.createDocument(app, options);
+    SwaggerModule.setup('docs', app, document);
+  }
 
   await app.listen(configService.getOrThrow('app.port', { infer: true }));
 }
