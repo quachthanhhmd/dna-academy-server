@@ -1,0 +1,14 @@
+[Unit]
+Description=DNA Academy nightly backup to Google Drive
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/dna-academy/scripts/backup-to-drive.sh
+# The pg_dump and the upload must never overlap with the next night's run.
+# systemd enforces this for free: a oneshot service will not start while the
+# previous invocation is still running. (A plain crontab line would not.)
+TimeoutStartSec=3600
+StandardOutput=journal
+StandardError=journal

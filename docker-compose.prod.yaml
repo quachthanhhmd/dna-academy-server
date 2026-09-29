@@ -1,0 +1,140 @@
+# Production stack for the single VPS (4 vCPU / 4 GB / 45 GB).
+#
+# Not an extension of docker-compose.yaml: that one carries adminer on :8080
+# and maildev, neither of which belongs on a public host. This file is the
+# whole production topology and stands alone.
+#
+# ALWAYS pass --env-file: the postgres service interpolates ${DATABASE_*}
+# from it, and compose reads interpolation variables from --env-file (or a
+# `.env` beside this file), never from a service's `env_file:` key.
+#
+#   cd /opt/dna-academy
+#   docker compose --env-file /etc/dna-academy/api.env -f docker-compose.prod.yaml pull
+#   docker compose --env-file /etc/dna-academy/api.env -f docker-compose.prod.yaml up -d
+#
+# Simpler: `ln -s /etc/dna-academy/api.env /opt/dna-academy/.env`, after
+# which compose finds it on its own and --env-file can be dropped.
+#
+# Images come from GHCR, built by each repository's Release workflow on a
+# push to master. Nothing is built here: `next build` and `nest build` on a
+# 4 GB box that is also serving traffic is how a deploy becomes an outage.
+#
+# Every port binds to 127.0.0.1. nginx on the host is the only thing the
+# internet reaches; see Appendix B of the deployment plan.
+
+services:
+  postgres:
+    image: postgres:17.9-alpine
+    restart: unless-stopped
+    # No env_file here on purpose: it would inject the API's JWT signing keys
+    # and mail credentials into the database container, which has no use for
+    # them. Only these four values, interpolated from --env-file.
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+      TZ: Asia/Ho_Chi_Minh
+    # Tuned for a 1 GB container, not for the host's 4 GB. shared_buffers at
+    # the usual "25% of RAM" would be 1 GB here — the entire limit, leaving
+    # nothing for connections or sorts.
+    command: >
+      postgres
+      -c max_connections=50
+      -c shared_buffers=256MB
+      -c effective_cache_size=768MB
+      -c work_mem=8MB
+      -c maintenance_work_mem=128MB
+      -c wal_compression=on
+    volumes:
+      - db:/var/lib/postgresql/data
+    # Default is 10s. A shutdown cut short mid-checkpoint means crash recovery
+    # on the next boot — survivable, but slower and needless.
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits: { cpus: "1.5", memory: 1024M }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  api:
+    image: ghcr.io/quachthanhhmd/dna-academy-server:latest
+    restart: unless-stopped
+    # Runs migrations and the seed, then starts. The image's default CMD is
+    # the dev script; name the production one explicitly so a stale image
+    # cannot quietly seed development fixtures.
+    command: ["/opt/startup.relational.prod.sh"]
+    env_file: /etc/dna-academy/api.env
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      # Headroom for Chromium: the PDF export spikes several hundred MB on
+      # top of the heap, and the limit below has to cover both.
+      NODE_OPTIONS: --max-old-space-size=768
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      # Only needed while FILE_DRIVER=local. Once R2 is in place this can go,
+      # and with it the risk of lecture media filling the disk Postgres is on.
+      - uploads:/usr/src/app/upload
+    # In-flight PDF renders are capped at 30s (PdfService.TIMEOUT_MS). Give
+    # them that long to finish, plus a moment for Nest's shutdown hooks to
+    # drain the connection pool, before SIGKILL.
+    stop_grace_period: 40s
+    healthcheck:
+      # Liveness, not readiness: Postgres being briefly away must not restart
+      # the API. `wget` is busybox's, present in every alpine image.
+      #
+      # NOTE: `restart: unless-stopped` above does NOT react to this. Docker's
+      # restart policy fires on container EXIT; a container stuck `unhealthy`
+      # is left running forever. scripts/autoheal.sh + the systemd timer in
+      # deploy/systemd/ are what actually restart it.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/api/v1/health/liveness >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # The entrypoint runs migrations and the seed before it listens. On a
+      # first deploy against an empty database that is 30 migrations plus
+      # every seed — 90s was optimistic. Failures during start_period do not
+      # count toward `retries`, so a generous value costs nothing.
+      start_period: 300s
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 1280M }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  web:
+    image: ghcr.io/quachthanhhmd/dna-academy-client:latest
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    # No env_file: every NEXT_PUBLIC_* value was compiled into the bundle at
+    # build time. Changing one here does nothing — rebuild the image instead.
+    ports:
+      - "127.0.0.1:3000:3000"
+    stop_grace_period: 20s
+    # No healthcheck key: the client image declares its own HEALTHCHECK
+    # (a request to /), so `docker inspect` reports health here too and
+    # autoheal.sh covers this container like the other two.
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits: { cpus: "1.5", memory: 640M }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  db:
+  uploads:

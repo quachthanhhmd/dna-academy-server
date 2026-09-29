@@ -1,0 +1,14 @@
+[Unit]
+Description=Check DNA Academy container health every minute
+
+[Timer]
+# 60s after boot, then every minute. Docker's own healthcheck interval is
+# 30s with 3 retries, so a genuinely dead container is detected within
+# ~2 minutes and restarted within ~3.
+OnBootSec=60s
+OnUnitActiveSec=60s
+AccuracySec=10s
+Unit=dna-autoheal.service
+
+[Install]
+WantedBy=timers.target

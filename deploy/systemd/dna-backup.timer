@@ -1,0 +1,15 @@
+[Unit]
+Description=Run the DNA Academy backup at 01:00 Asia/Ho_Chi_Minh
+
+[Timer]
+OnCalendar=*-*-* 01:00:00
+# Explicit, so the timer is correct even if the host's timezone is ever
+# changed. Do not rely on the VPS being on Asia/Ho_Chi_Minh.
+Timezone=Asia/Ho_Chi_Minh
+# If the VPS was off at 01:00, run when it comes back rather than skipping
+# a night silently.
+Persistent=true
+Unit=dna-backup.service
+
+[Install]
+WantedBy=timers.target
