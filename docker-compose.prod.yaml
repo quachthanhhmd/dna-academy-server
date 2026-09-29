@@ -118,8 +118,18 @@ services:
     restart: unless-stopped
     environment:
       TZ: Asia/Ho_Chi_Minh
+      # Server-side only, read at runtime. The Next server renders the home
+      # page every 300s (`export const revalidate = 300`) and would otherwise
+      # call the API at its PUBLIC https address: out to the internet, back
+      # to this host's own IP, through nginx and a TLS handshake, to reach a
+      # container on this very network. This is the short way round.
+      #
+      # No NEXT_PUBLIC_ prefix on purpose — in a browser this hostname does
+      # not resolve, and baking it into the bundle would only mislead.
+      INTERNAL_API_URL: http://api:3001/api
     # No env_file: every NEXT_PUBLIC_* value was compiled into the bundle at
     # build time. Changing one here does nothing — rebuild the image instead.
+    # INTERNAL_API_URL above is the exception: it is read at runtime.
     ports:
       - "127.0.0.1:3000:3000"
     stop_grace_period: 20s
