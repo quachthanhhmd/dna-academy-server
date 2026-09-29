@@ -22,6 +22,7 @@ import { SocialLinksModule } from './social-links/social-links.module';
 import { HeaderResolver, I18nModule } from 'nestjs-i18n';
 import { TypeOrmConfigService } from './database/typeorm-config.service';
 import { MailModule } from './mail/mail.module';
+import { HealthModule } from './health/health.module';
 import { HomeModule } from './home/home.module';
 import { FormsModule } from './forms/forms.module';
 import { DataSource, DataSourceOptions } from 'typeorm';
@@ -246,6 +247,7 @@ import { UserLocaleInterceptor } from './utils/i18n/user-locale.interceptor';
     MailModule,
     MailerModule,
     HomeModule,
+    HealthModule,
     FormsModule,
   ],
   providers: [
