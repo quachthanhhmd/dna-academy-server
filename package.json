@@ -51,7 +51,9 @@
     "test:stack:down": "docker compose -f docker-compose.test.yaml down -v",
     "test:db:reset": "npm run test:stack:down && npm run test:stack:up",
     "test:e2e:ci": "npm run test:stack:up && npm run test:e2e; code=$?; npm run test:stack:down; exit $code",
-    "clean:master-data": "ts-node -r tsconfig-paths/register ./src/database/maintenance/clean-master-data.ts"
+    "clean:master-data": "ts-node -r tsconfig-paths/register ./src/database/maintenance/clean-master-data.ts",
+    "create:admin": "env-cmd --no-override --silent -f ${ENV_FILE:-./env/.env.${APP_ENV:-local}} -- ts-node -r tsconfig-paths/register ./src/database/maintenance/create-admin.ts",
+    "grant:admin": "env-cmd --no-override --silent -f ${ENV_FILE:-./env/.env.${APP_ENV:-local}} -- ts-node -r tsconfig-paths/register ./src/database/maintenance/grant-admin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1011.0",
