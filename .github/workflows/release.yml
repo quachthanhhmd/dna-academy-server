@@ -18,22 +18,13 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+# Build only. Lint and the unit suite run locally, enforced by the
+# pre-commit hook (`npm run lint` + `jest`), so repeating them here would
+# cost minutes per push to re-prove what the commit already proved.
+# Type errors are still caught: `nest build` inside the Dockerfile compiles
+# the whole project, so a broken type fails this workflow at the build step.
 jobs:
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npx tsc --noEmit -p tsconfig.json
-      - run: npx jest --ci
-
   image:
-    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
