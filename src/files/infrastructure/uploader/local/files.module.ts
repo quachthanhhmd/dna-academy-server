@@ -13,6 +13,7 @@ import { randomStringGenerator } from '@nestjs/common/utils/random-string-genera
 import { FilesLocalService } from './files.service';
 import { FileUploaderService } from '../file-uploader.service';
 import { isAllowedUpload } from '../../../file-upload-rules';
+import { uploadPurposeOf } from '../../../storage/upload-purpose';
 
 import { RelationalFilePersistenceModule } from '../../persistence/relational/relational-persistence.module';
 import { AllConfigType } from '../../../../config/config.type';
@@ -35,6 +36,14 @@ import { AllConfigType } from '../../../../config/config.type';
 
         return {
           fileFilter: (request, file, callback) => {
+            // The disk engine never looks at the purpose, so an invalid one
+            // is caught here — before the file is written — rather than after.
+            try {
+              uploadPurposeOf(request);
+            } catch (error) {
+              return callback(error, false);
+            }
+
             if (!isAllowedUpload(file.originalname, file.mimetype)) {
               return callback(
                 new UnprocessableEntityException({

@@ -9,11 +9,13 @@ import { FileRepository } from '../../persistence/file.repository';
 import { FileUploadDto } from './dto/file.dto';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { randomStringGenerator } from '@nestjs/common/utils/random-string-generator.util';
 import { ConfigService } from '@nestjs/config';
 import { FileType } from '../../../domain/file';
 import { isAllowedUpload } from '../../../file-upload-rules';
 import { AllConfigType } from '../../../../config/config.type';
+import { UploadOptions } from '../file-uploader.service';
+import { buildObjectKey } from '../../../storage/storage-location';
+import { visibilityOf } from '../../../storage/upload-purpose';
 
 @Injectable()
 export class FilesS3PresignedService {
@@ -38,6 +40,7 @@ export class FilesS3PresignedService {
 
   async create(
     file: FileUploadDto,
+    options: UploadOptions,
   ): Promise<{ file: FileType; uploadSignedUrl: string }> {
     if (!file) {
       throw new UnprocessableEntityException({
@@ -70,21 +73,25 @@ export class FilesS3PresignedService {
       });
     }
 
-    const key = `${randomStringGenerator()}.${file.fileName
-      .split('.')
-      .pop()
-      ?.toLowerCase()}`;
+    const key = buildObjectKey(options.purpose, file.fileName);
+    const bucket = this.configService.getOrThrow('file.awsDefaultS3Bucket', {
+      infer: true,
+    });
 
     const command = new PutObjectCommand({
-      Bucket: this.configService.getOrThrow('file.awsDefaultS3Bucket', {
-        infer: true,
-      }),
+      Bucket: bucket,
       Key: key,
       ContentLength: file.fileSize,
     });
     const signedUrl = await getSignedUrl(this.s3, command, { expiresIn: 3600 });
     const data = await this.fileRepository.create({
-      path: key,
+      objectKey: key,
+      bucket,
+      visibility: visibilityOf(options.purpose),
+      purpose: options.purpose,
+      fileName: file.fileName,
+      sizeBytes: file.fileSize,
+      uploadedById: options.uploadedById,
     });
 
     return {

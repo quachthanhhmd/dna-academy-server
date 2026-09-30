@@ -60,6 +60,10 @@ export class MediaFilesService {
       objectKey: createMediaFileDto.objectKey,
 
       bucket: createMediaFileDto.bucket,
+
+      visibility: createMediaFileDto.visibility,
+
+      purpose: createMediaFileDto.purpose,
     });
   }
 
@@ -126,6 +130,10 @@ export class MediaFilesService {
       objectKey: updateMediaFileDto.objectKey,
 
       bucket: updateMediaFileDto.bucket,
+
+      visibility: updateMediaFileDto.visibility,
+
+      purpose: updateMediaFileDto.purpose,
     });
   }
 

@@ -12,7 +12,7 @@ import {
 } from 'typeorm';
 import { RoleEntity } from '../../../../../roles/infrastructure/persistence/relational/entities/role.entity';
 import { StatusEntity } from '../../../../../statuses/infrastructure/persistence/relational/entities/status.entity';
-import { FileEntity } from '../../../../../files/infrastructure/persistence/relational/entities/file.entity';
+import { MediaFileEntity } from '../../../../../media-files/infrastructure/persistence/relational/entities/media-file.entity';
 
 import { AuthProvidersEnum } from '../../../../../auth/auth-providers.enum';
 import { EntityRelationalHelper } from '../../../../../utils/relational-entity-helper';
@@ -102,11 +102,11 @@ export class UserEntity extends EntityRelationalHelper {
   @Column({ name: 'last_name', type: String, nullable: true })
   lastName: string | null;
 
-  @OneToOne(() => FileEntity, {
+  @OneToOne(() => MediaFileEntity, {
     eager: true,
   })
   @JoinColumn({ name: 'photo_id' })
-  photo?: FileEntity | null;
+  photo?: MediaFileEntity | null;
 
   @ManyToOne(() => RoleEntity, {
     eager: true,

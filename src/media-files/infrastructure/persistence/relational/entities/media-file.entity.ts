@@ -1,6 +1,7 @@
 import { UserEntity } from '../../../../../users/infrastructure/persistence/relational/entities/user.entity';
 
 import {
+  Check,
   CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
@@ -14,6 +15,7 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 @Entity({
   name: 'media_file',
 })
+@Check('CK_media_file_visibility', `"visibility" IN ('public', 'private')`)
 export class MediaFileEntity extends EntityRelationalHelper {
   @ManyToOne(() => UserEntity, { eager: false, nullable: true })
   @JoinColumn({ name: 'uploaded_by_id' })
@@ -60,6 +62,21 @@ export class MediaFileEntity extends EntityRelationalHelper {
     type: String,
   })
   bucket: string;
+
+  @Column({
+    name: 'visibility',
+    nullable: false,
+    type: String,
+    default: 'private',
+  })
+  visibility: string;
+
+  @Column({
+    name: 'purpose',
+    nullable: true,
+    type: String,
+  })
+  purpose?: string | null;
 
   @PrimaryGeneratedColumn('uuid')
   id: string;

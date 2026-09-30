@@ -12,6 +12,7 @@ import { FilesS3Module } from './infrastructure/uploader/s3/files.module';
 import { FilesS3PresignedModule } from './infrastructure/uploader/s3-presigned/files.module';
 import { FilesR2Module } from './infrastructure/uploader/r2/files.module';
 import { FilesR2PresignedModule } from './infrastructure/uploader/r2-presigned/files.module';
+import { StorageUrlService } from './storage/storage-url.service';
 
 const uploaderModules = {
   [FileDriver.LOCAL]: FilesLocalModule,
@@ -30,12 +31,13 @@ const infrastructureUploaderModule =
     RelationalFilePersistenceModule,
     infrastructureUploaderModule,
   ],
-  providers: [FilesService],
+  providers: [FilesService, StorageUrlService],
   // Re-exported so a feature module that imports FilesModule can inject
   // FileUploaderService and use FileInterceptor with the active driver's
   // multer options. Absent under the presigned drivers — inject @Optional().
   exports: [
     FilesService,
+    StorageUrlService,
     RelationalFilePersistenceModule,
     infrastructureUploaderModule,
   ],

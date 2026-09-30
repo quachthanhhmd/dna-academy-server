@@ -1,18 +1,12 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiHideProperty, ApiProperty } from '@nestjs/swagger';
 import { Allow } from 'class-validator';
-import { Transform } from 'class-transformer';
-import fileConfig from '../config/file.config';
-import { FileConfig, FileDriver, R2_DRIVERS } from '../config/file-config.type';
+import { Exclude, Transform } from 'class-transformer';
+import { resolveFileUrlFromEnv } from '../storage/storage-url.service';
 
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { AppConfig } from '../../config/app-config.type';
-import appConfig from '../../config/app.config';
-import {
-  buildPublicUrl,
-  createR2Client,
-} from '../infrastructure/uploader/r2/r2.client';
-
+/**
+ * A stored file as clients see it: `{ id, path }`, where `path` is a URL they
+ * can load. Backed by a `media_file` row.
+ */
 export class FileType {
   @ApiProperty({
     type: String,
@@ -21,63 +15,44 @@ export class FileType {
   @Allow()
   id: string;
 
+  /**
+   * Holds the object key; serialized as a URL. Resolved from this file's own
+   * bucket and visibility, so a public avatar and a private document in the
+   * same response each get the right kind of URL. A presigned URL comes back
+   * as a Promise, which `ResolvePromisesInterceptor` awaits before the
+   * response is written.
+   */
   @ApiProperty({
     type: String,
     example: 'https://example.com/path/to/file.jpg',
   })
   @Transform(
-    ({ value }) => {
-      // Values coming from an external provider (e.g. an OAuth avatar) are
-      // already absolute and must not be resolved against a bucket.
-      if (typeof value === 'string' && /^https?:\/\//i.test(value)) {
-        return value;
-      }
-
-      if ((fileConfig() as FileConfig).driver === FileDriver.LOCAL) {
-        return (appConfig() as AppConfig).backendDomain + value;
-      } else if (R2_DRIVERS.includes((fileConfig() as FileConfig).driver)) {
-        const config = fileConfig() as FileConfig;
-
-        // A public bucket / custom domain serves objects directly; without
-        // one, hand out a short-lived presigned GET URL.
-        const publicUrl = buildPublicUrl(config, value);
-        if (publicUrl) {
-          return publicUrl;
-        }
-
-        const r2 = createR2Client(config);
-        const command = new GetObjectCommand({
-          Bucket: config.r2Bucket ?? '',
-          Key: value,
-        });
-
-        return getSignedUrl(r2, command, { expiresIn: 3600 });
-      } else if (
-        [FileDriver.S3_PRESIGNED, FileDriver.S3].includes(
-          (fileConfig() as FileConfig).driver,
-        )
-      ) {
-        const s3 = new S3Client({
-          region: (fileConfig() as FileConfig).awsS3Region ?? '',
-          credentials: {
-            accessKeyId: (fileConfig() as FileConfig).accessKeyId ?? '',
-            secretAccessKey: (fileConfig() as FileConfig).secretAccessKey ?? '',
-          },
-        });
-
-        const command = new GetObjectCommand({
-          Bucket: (fileConfig() as FileConfig).awsDefaultS3Bucket ?? '',
-          Key: value,
-        });
-
-        return getSignedUrl(s3, command, { expiresIn: 3600 });
-      }
-
-      return value;
-    },
+    ({ value, obj }) =>
+      resolveFileUrlFromEnv({
+        objectKey: value,
+        bucket: obj.bucket,
+        visibility: obj.visibility,
+      }),
     {
       toPlainOnly: true,
     },
   )
   path: string;
+
+  @ApiHideProperty()
+  @Exclude({ toPlainOnly: true })
+  bucket?: string;
+
+  @ApiHideProperty()
+  @Exclude({ toPlainOnly: true })
+  visibility?: string;
+
+  @ApiHideProperty()
+  @Exclude({ toPlainOnly: true })
+  purpose?: string | null;
+
+  /** The name the file was uploaded with. */
+  @ApiHideProperty()
+  @Exclude({ toPlainOnly: true })
+  fileName?: string | null;
 }

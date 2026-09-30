@@ -6,7 +6,9 @@ import {
   IsString,
   IsOptional,
   IsNumber,
+  IsEnum,
 } from 'class-validator';
+import { FileVisibility } from '../../files/storage/file-purpose';
 
 import {
   // decorators here
@@ -60,6 +62,21 @@ export class CreateMediaFileDto {
   })
   @IsString()
   bucket: string;
+
+  @ApiProperty({
+    required: true,
+    enum: FileVisibility,
+  })
+  @IsEnum(FileVisibility)
+  visibility: FileVisibility;
+
+  @ApiProperty({
+    required: false,
+    type: () => String,
+  })
+  @IsOptional()
+  @IsString()
+  purpose?: string | null;
 
   // Don't forget to use the class-validator decorators in the DTO properties.
 }
