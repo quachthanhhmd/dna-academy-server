@@ -41,10 +41,24 @@ export class CreateCourseAdminDto {
   @IsString()
   fullDescription?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    deprecated: true,
+    description:
+      'Prefer `thumbnailFileId`. A URL set here is stored as given and is not tied to an uploaded file.',
+  })
   @IsOptional()
   @IsString()
   thumbnailUrl?: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description:
+      'Id of a file uploaded with `?purpose=course-thumbnail`. The server stores its public URL as `thumbnailUrl`. Takes precedence over `thumbnailUrl`; `null` removes the thumbnail.',
+  })
+  @IsOptional()
+  @IsUUID()
+  thumbnailFileId?: string | null;
 
   @ApiPropertyOptional({
     description: 'Validated against the YouTube oEmbed API before saving.',

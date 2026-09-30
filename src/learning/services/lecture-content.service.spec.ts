@@ -9,7 +9,12 @@ describe('LectureContentService', () => {
     deps = {
       videosService: { findByLectureId: jest.fn() as jest.Mock<any> },
       articlesService: { findByLectureId: jest.fn() as jest.Mock<any> },
-      documentsService: { findByLectureId: jest.fn() as jest.Mock<any> },
+      documentsService: {
+        findByLectureId: jest.fn() as jest.Mock<any>,
+        resolveFileUrl: (jest.fn() as jest.Mock<any>).mockResolvedValue(
+          'https://signed.example/doc.pdf?X-Amz-Expires=600',
+        ),
+      },
       quizzesService: {
         findByLectureId: (jest.fn() as jest.Mock<any>).mockResolvedValue({
           id: 'quiz-1',
@@ -127,6 +132,38 @@ describe('LectureContentService', () => {
       deps.quizzesService.findByLectureId.mockResolvedValue(null);
 
       expect(await service.payloadFor('lec-1', 'quiz', 'enr-1')).toBeNull();
+    });
+  });
+
+  describe('pdf_document payload', () => {
+    // An uploaded document is private: the player must hand out a URL
+    // resolved now, never one stored on the row.
+    it('should serve the URL resolved for the document', async () => {
+      const doc = {
+        fileUrl: null,
+        file: { id: 'file-1', path: 'lecture-documents/a.pdf' },
+        fileName: 'a.pdf',
+        isDownloadable: true,
+      };
+      deps.documentsService.findByLectureId.mockResolvedValue(doc);
+
+      await expect(
+        service.payloadFor('lec-1', 'pdf_document', 'enr-1'),
+      ).resolves.toEqual({
+        fileUrl: 'https://signed.example/doc.pdf?X-Amz-Expires=600',
+        fileName: 'a.pdf',
+        isDownloadable: true,
+      });
+      expect(deps.documentsService.resolveFileUrl).toHaveBeenCalledWith(doc);
+    });
+
+    it('should return null when the lecture has no document', async () => {
+      deps.documentsService.findByLectureId.mockResolvedValue(null);
+
+      expect(
+        await service.payloadFor('lec-1', 'pdf_document', 'enr-1'),
+      ).toBeNull();
+      expect(deps.documentsService.resolveFileUrl).not.toHaveBeenCalled();
     });
   });
 });

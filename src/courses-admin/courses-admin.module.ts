@@ -22,6 +22,7 @@ import { QuizAnswerOptionsModule } from '../quiz-answer-options/quiz-answer-opti
 import { LectureContentReflectionsModule } from '../lecture-content-reflections/lecture-content-reflections.module';
 import { ReflectionQuestionsModule } from '../reflection-questions/reflection-questions.module';
 import { AuthorizationModule } from '../authorization/authorization.module';
+import { FilesModule } from '../files/files.module';
 import { CoursesAdminController } from './courses-admin.controller';
 import { CoursesAdminService } from './courses-admin.service';
 import { CourseInstructorsAdminService } from './course-instructors-admin.service';
@@ -41,6 +42,7 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
 @Module({
   imports: [
     CoursesModule,
+    FilesModule,
     MasterDataCodesModule,
     CourseInstructorsModule,
     InstructorsModule,

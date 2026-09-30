@@ -28,11 +28,15 @@ export class FileType {
   })
   @Transform(
     ({ value, obj }) =>
-      resolveFileUrlFromEnv({
-        objectKey: value,
-        bucket: obj.bucket,
-        visibility: obj.visibility,
-      }),
+      // A file loaded only as a reference (`{ id }`) has no key to resolve;
+      // leave it empty rather than build a URL to ".../undefined".
+      value
+        ? resolveFileUrlFromEnv({
+            objectKey: value,
+            bucket: obj.bucket,
+            visibility: obj.visibility,
+          })
+        : value,
     {
       toPlainOnly: true,
     },

@@ -7,6 +7,7 @@ import {
 
   IsString,
   IsOptional,
+  IsUUID,
   IsNumber,
   IsBoolean,
   ValidateNested,
@@ -126,6 +127,14 @@ export class CreateCourseDto {
   @IsOptional()
   @IsString()
   thumbnailUrl?: string | null;
+
+  @ApiProperty({
+    required: false,
+    type: () => String,
+  })
+  @IsOptional()
+  @IsUUID()
+  thumbnailFileId?: string | null;
 
   @ApiProperty({
     required: false,

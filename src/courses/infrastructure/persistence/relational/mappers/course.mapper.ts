@@ -74,6 +74,8 @@ export class CourseMapper {
 
     domainEntity.thumbnailUrl = raw.thumbnailUrl;
 
+    domainEntity.thumbnailFileId = raw.thumbnailFileId;
+
     domainEntity.fullDescription = raw.fullDescription;
 
     domainEntity.shortDescription = raw.shortDescription;
@@ -165,6 +167,8 @@ export class CourseMapper {
     persistenceEntity.introVideoUrl = domainEntity.introVideoUrl;
 
     persistenceEntity.thumbnailUrl = domainEntity.thumbnailUrl;
+
+    persistenceEntity.thumbnailFileId = domainEntity.thumbnailFileId;
 
     persistenceEntity.fullDescription = domainEntity.fullDescription;
 

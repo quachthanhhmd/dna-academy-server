@@ -57,9 +57,11 @@ export class LectureContentService {
 
       case 'pdf_document': {
         const doc = await this.documentsService.findByLectureId(lectureId);
+        // Only reached once the player has checked enrollment and locks, so
+        // this is where a private document gets its (short-lived) URL.
         return doc
           ? {
-              fileUrl: doc.fileUrl,
+              fileUrl: await this.documentsService.resolveFileUrl(doc),
               fileName: doc.fileName ?? null,
               isDownloadable: doc.isDownloadable,
             }
