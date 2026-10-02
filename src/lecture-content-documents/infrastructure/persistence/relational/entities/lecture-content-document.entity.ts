@@ -1,4 +1,5 @@
 import { LectureEntity } from '../../../../../lectures/infrastructure/persistence/relational/entities/lecture.entity';
+import { MediaFileEntity } from '../../../../../media-files/infrastructure/persistence/relational/entities/media-file.entity';
 
 import {
   CreateDateColumn,
@@ -6,6 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   JoinColumn,
+  ManyToOne,
   OneToOne,
   Column,
 } from 'typeorm';
@@ -29,12 +31,25 @@ export class LectureContentDocumentEntity extends EntityRelationalHelper {
   })
   fileName?: string | null;
 
+  /**
+   * A URL stored as given, from before documents were uploaded files. Null
+   * once `file` is set: a private file has no URL worth storing — it is
+   * presigned each time it is read.
+   */
   @Column({
     name: 'file_url',
-    nullable: false,
+    nullable: true,
     type: String,
   })
-  fileUrl: string;
+  fileUrl?: string | null;
+
+  @ManyToOne(() => MediaFileEntity, {
+    eager: true,
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'file_id' })
+  file?: MediaFileEntity | null;
 
   @OneToOne(() => LectureEntity, { eager: true, nullable: false })
   @JoinColumn({ name: 'lecture_id' })

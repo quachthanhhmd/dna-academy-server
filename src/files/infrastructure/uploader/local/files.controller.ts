@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   Post,
+  Request,
   Response,
   UploadedFile,
   UseGuards,
@@ -21,6 +22,10 @@ import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { FilesLocalService } from './files.service';
 import { FileResponseDto } from './dto/file-response.dto';
+import {
+  ApiUploadPurposeQuery,
+  uploadPurposeOf,
+} from '../../../storage/upload-purpose';
 import { AllConfigType } from '../../../../config/config.type';
 
 @ApiTags('Files')
@@ -40,6 +45,7 @@ export class FilesLocalController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Post('upload')
+  @ApiUploadPurposeQuery()
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -55,8 +61,12 @@ export class FilesLocalController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
+    @Request() request,
   ): Promise<FileResponseDto> {
-    return this.filesService.create(file);
+    return this.filesService.create(file, {
+      purpose: uploadPurposeOf(request),
+      uploadedById: request.user?.id,
+    });
   }
 
   @Get(':path')

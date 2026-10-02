@@ -13,12 +13,9 @@ import { FileUploaderService } from '../../files/infrastructure/uploader/file-up
 import { QuizService } from './quiz.service';
 import { QuizAnswerFileDto } from '../dto/quiz.dto';
 import { QUIZ_UPLOAD_MAX_BYTES } from '../quiz-upload-multer.options';
-import { MediaFilesService } from '../../media-files/media-files.service';
-import { ConfigService } from '@nestjs/config';
-import { AllConfigType } from '../../config/config.type';
-
-/** The only status a file that finished uploading can be in. */
-export const MEDIA_FILE_READY = 'ready';
+import { FilePurpose } from '../../files/storage/file-purpose';
+import { StorageUrlService } from '../../files/storage/storage-url.service';
+import { fileRefOf } from '../../files/storage/storage-url';
 
 export const FILE_UPLOAD_QUESTION_TYPE = 'file_upload';
 const BYTES_PER_MB = 1024 * 1024;
@@ -61,8 +58,7 @@ export class QuizFileUploadService {
     @Optional()
     @Inject(FileUploaderService)
     private readonly uploader: FileUploaderService | null,
-    private readonly mediaFilesService: MediaFilesService,
-    private readonly configService: ConfigService<AllConfigType>,
+    private readonly storageUrl: StorageUrlService,
   ) {}
 
   async upload(
@@ -145,22 +141,18 @@ export class QuizFileUploadService {
       });
     }
 
-    const stored = await this.uploader.create(file);
+    // The route's UploadPurposeInterceptor already sent the bytes to the
+    // private bucket under this purpose; the row records the same. The row is
+    // a `media_file`, which is what `quiz_attempt_answer.file_id` points at,
+    // so its id is exactly what the submit body needs.
+    const stored = await this.uploader.create(file, {
+      purpose: FilePurpose.QUIZ_SUBMISSION,
+      uploadedById: studentId,
+    });
 
-    // `quiz_attempt_answer.fileId` is a FK to `media_file`, while the uploader
-    // writes to `file` — two different tables. Handing back the uploader's id
-    // made every submit carrying a fileId fail with `file: notExists`, so the
-    // blob is registered as a media_file here and that id is what goes back.
-    const media = await this.mediaFilesService.create({
-      objectKey: stored.file.path,
-      bucket: this.configService.getOrThrow('file.driver', { infer: true }),
-      status: MEDIA_FILE_READY,
-      fileName: file.originalname ?? null,
-      mimeType: file.mimetype ?? null,
-      sizeBytes: file.size ?? null,
-      uploadedBy: { id: studentId },
-    } as never);
-
-    return { fileId: media.id, path: stored.file.path };
+    return {
+      fileId: stored.file.id,
+      path: await this.storageUrl.urlFor(fileRefOf(stored.file)),
+    };
   }
 }

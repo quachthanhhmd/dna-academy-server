@@ -11,6 +11,8 @@ import { UpdateLectureContentDocumentDto } from './dto/update-lecture-content-do
 import { LectureContentDocumentRepository } from './infrastructure/persistence/lecture-content-document.repository';
 import { IPaginationOptions } from '../utils/types/pagination-options';
 import { LectureContentDocument } from './domain/lecture-content-document';
+import { StorageUrlService } from '../files/storage/storage-url.service';
+import { fileRefOf } from '../files/storage/storage-url';
 
 @Injectable()
 export class LectureContentDocumentsService {
@@ -19,7 +21,24 @@ export class LectureContentDocumentsService {
 
     // Dependencies here
     private readonly lectureContentDocumentRepository: LectureContentDocumentRepository,
+    private readonly storageUrl: StorageUrlService,
   ) {}
+
+  /**
+   * The URL to hand a reader of `document` now. An uploaded document is
+   * resolved from its own row — for a private one that is a presigned URL,
+   * fresh on every read — and a legacy one gives back the URL it was stored
+   * with. Call it only after the reader has passed the access check.
+   */
+  async resolveFileUrl(
+    document: Pick<LectureContentDocument, 'file' | 'fileUrl'>,
+  ): Promise<string | null> {
+    if (document.file) {
+      return this.storageUrl.urlFor(fileRefOf(document.file));
+    }
+
+    return document.fileUrl ?? null;
+  }
 
   async create(
     createLectureContentDocumentDto: CreateLectureContentDocumentDto,
@@ -48,6 +67,8 @@ export class LectureContentDocumentsService {
       fileName: createLectureContentDocumentDto.fileName,
 
       fileUrl: createLectureContentDocumentDto.fileUrl,
+
+      file: createLectureContentDocumentDto.file,
 
       lecture,
     });
@@ -111,6 +132,8 @@ export class LectureContentDocumentsService {
       fileName: updateLectureContentDocumentDto.fileName,
 
       fileUrl: updateLectureContentDocumentDto.fileUrl,
+
+      file: updateLectureContentDocumentDto.file,
 
       lecture,
     });

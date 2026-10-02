@@ -43,6 +43,20 @@ export class MediaFile {
   bucket: string;
 
   @ApiProperty({
+    type: () => String,
+    nullable: false,
+    description:
+      '`public` files are served from the public domain; `private` files only through short-lived presigned URLs.',
+  })
+  visibility: string;
+
+  @ApiProperty({
+    type: () => String,
+    nullable: true,
+  })
+  purpose?: string | null;
+
+  @ApiProperty({
     type: String,
   })
   id: string;

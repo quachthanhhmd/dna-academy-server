@@ -17,6 +17,7 @@ import { LectureContentReflectionsService } from '../lecture-content-reflections
 import { ReflectionQuestionsService } from '../reflection-questions/reflection-questions.service';
 import { CourseAggregatesService } from './course-aggregates.service';
 import { SaveLectureContentDto } from './dto/save-lecture-content.dto';
+import { FilesService } from '../files/files.service';
 
 @Injectable()
 export class LectureContentAdminService {
@@ -32,6 +33,7 @@ export class LectureContentAdminService {
     private readonly lectureContentReflectionsService: LectureContentReflectionsService,
     private readonly reflectionQuestionsService: ReflectionQuestionsService,
     private readonly courseAggregatesService: CourseAggregatesService,
+    private readonly filesService: FilesService,
   ) {}
 
   /**
@@ -75,7 +77,11 @@ export class LectureContentAdminService {
         return document
           ? {
               lectureType: 'pdf_document',
-              fileUrl: document.fileUrl,
+              fileId: document.file?.id ?? null,
+              fileUrl:
+                await this.lectureContentDocumentsService.resolveFileUrl(
+                  document,
+                ),
               fileName: document.fileName ?? null,
               isDownloadable: document.isDownloadable,
             }
@@ -276,19 +282,38 @@ export class LectureContentAdminService {
     });
   }
 
+  private async uploadedDocumentPayload(
+    fileId: string,
+    dto: SaveLectureContentDto,
+  ) {
+    const file = await this.filesService.findByIdOrFail(fileId, 'fileId');
+
+    return {
+      fileUrl: null,
+      file: { id: file.id, path: file.path },
+      fileName: dto.fileName ?? file.fileName ?? null,
+      isDownloadable: dto.isDownloadable ?? false,
+    };
+  }
+
   private async saveDocument(
     lectureId: Lecture['id'],
     dto: SaveLectureContentDto,
   ) {
-    if (!dto.fileUrl) {
-      throw this.missingFieldException('fileUrl');
+    if (!dto.fileId && !dto.fileUrl) {
+      throw this.missingFieldException('fileId');
     }
 
-    const payload = {
-      fileUrl: dto.fileUrl,
-      fileName: dto.fileName,
-      isDownloadable: dto.isDownloadable ?? false,
-    };
+    // An uploaded file replaces any stored URL, and a stored URL unlinks any
+    // file, so the document never carries two sources that disagree.
+    const payload = dto.fileId
+      ? await this.uploadedDocumentPayload(dto.fileId, dto)
+      : {
+          fileUrl: dto.fileUrl,
+          file: null,
+          fileName: dto.fileName,
+          isDownloadable: dto.isDownloadable ?? false,
+        };
 
     const existing =
       await this.lectureContentDocumentsService.findByLectureId(lectureId);

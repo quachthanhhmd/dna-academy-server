@@ -157,6 +157,8 @@ export class CoursesService {
 
       thumbnailUrl: createCourseDto.thumbnailUrl,
 
+      thumbnailFileId: createCourseDto.thumbnailFileId,
+
       fullDescription: createCourseDto.fullDescription,
 
       shortDescription: createCourseDto.shortDescription,
@@ -358,6 +360,8 @@ export class CoursesService {
       introVideoUrl: updateCourseDto.introVideoUrl,
 
       thumbnailUrl: updateCourseDto.thumbnailUrl,
+
+      thumbnailFileId: updateCourseDto.thumbnailFileId,
 
       fullDescription: updateCourseDto.fullDescription,
 

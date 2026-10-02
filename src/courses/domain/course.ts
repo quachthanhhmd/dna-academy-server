@@ -115,6 +115,14 @@ export class Course {
   @ApiProperty({
     type: () => String,
     nullable: true,
+    description:
+      'The uploaded file `thumbnailUrl` comes from, when it was set with `thumbnailFileId`.',
+  })
+  thumbnailFileId?: string | null;
+
+  @ApiProperty({
+    type: () => String,
+    nullable: true,
   })
   fullDescription?: string | null;
 

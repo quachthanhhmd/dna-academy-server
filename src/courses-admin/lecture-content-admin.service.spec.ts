@@ -27,6 +27,7 @@ describe('LectureContentAdminService', () => {
     create: jest.Mock<any>;
     update: jest.Mock<any>;
     remove: jest.Mock<any>;
+    resolveFileUrl: jest.Mock<any>;
   };
   let lectureContentQuizzesService: {
     findByLectureId: jest.Mock<any>;
@@ -56,6 +57,7 @@ describe('LectureContentAdminService', () => {
     create: jest.Mock<any>;
   };
   let courseAggregatesService: { recalculate: jest.Mock<any> };
+  let filesService: { findByIdOrFail: jest.Mock<any> };
 
   const lecture = (lectureType: string) => ({
     id: 'lecture-1',
@@ -83,7 +85,12 @@ describe('LectureContentAdminService', () => {
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn(),
+      // The real one presigns uploaded files; a stored URL comes back as is.
+      resolveFileUrl: jest.fn((doc: any) =>
+        Promise.resolve(doc.file ? `signed:${doc.file.id}` : doc.fileUrl),
+      ),
     };
+    filesService = { findByIdOrFail: jest.fn() };
     lectureContentQuizzesService = {
       findByLectureId: (jest.fn() as jest.Mock<any>).mockResolvedValue(null),
       create: jest.fn(),
@@ -125,6 +132,7 @@ describe('LectureContentAdminService', () => {
       lectureContentReflectionsService as any,
       reflectionQuestionsService as any,
       courseAggregatesService as any,
+      filesService as any,
     );
   });
 
@@ -211,7 +219,7 @@ describe('LectureContentAdminService', () => {
   });
 
   describe('pdf_document', () => {
-    it('should 422 when fileUrl is missing', async () => {
+    it('should 422 when neither fileId nor fileUrl is given', async () => {
       lecturesService.findById.mockResolvedValue(lecture('pdf_document'));
 
       await expect(
@@ -232,9 +240,55 @@ describe('LectureContentAdminService', () => {
       expect(lectureContentDocumentsService.create).toHaveBeenCalledWith({
         lecture: { id: 'lecture-1' },
         fileUrl: 'https://example.com/f.pdf',
+        file: null,
         fileName: 'f.pdf',
         isDownloadable: false,
       });
+    });
+
+    it('should link an uploaded file instead of storing a URL', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('pdf_document'));
+      filesService.findByIdOrFail.mockResolvedValue({
+        id: 'file-1',
+        path: 'lecture-documents/a.pdf',
+        fileName: 'Bài 1.pdf',
+      });
+      lectureContentDocumentsService.create.mockResolvedValue({ id: 'd-1' });
+
+      await service.save('lecture-1', {
+        lectureType: 'pdf_document',
+        fileId: 'file-1',
+        fileUrl: 'https://ignored/f.pdf',
+      } as any);
+
+      expect(filesService.findByIdOrFail).toHaveBeenCalledWith(
+        'file-1',
+        'fileId',
+      );
+      // The upload's own name is the default; the stored URL is dropped so
+      // the document has one source.
+      expect(lectureContentDocumentsService.create).toHaveBeenCalledWith({
+        lecture: { id: 'lecture-1' },
+        fileUrl: null,
+        file: { id: 'file-1', path: 'lecture-documents/a.pdf' },
+        fileName: 'Bài 1.pdf',
+        isDownloadable: false,
+      });
+    });
+
+    it('should 422 when fileId does not exist', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('pdf_document'));
+      filesService.findByIdOrFail.mockRejectedValue(
+        new UnprocessableEntityException({ errors: { fileId: 'notExists' } }),
+      );
+
+      await expect(
+        service.save('lecture-1', {
+          lectureType: 'pdf_document',
+          fileId: '00000000-0000-0000-0000-000000000000',
+        } as any),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(lectureContentDocumentsService.create).not.toHaveBeenCalled();
     });
   });
 
@@ -604,9 +658,28 @@ describe('LectureContentAdminService', () => {
 
       await expect(service.findContent('lec-1')).resolves.toEqual({
         lectureType: 'pdf_document',
+        fileId: null,
         fileUrl: 'https://cdn/x.pdf',
         fileName: 'x.pdf',
         isDownloadable: true,
+      });
+    });
+
+    it('should read back an uploaded document with a freshly resolved URL', async () => {
+      lectureOfType('pdf_document');
+      lectureContentDocumentsService.findByLectureId.mockResolvedValue({
+        fileUrl: null,
+        file: { id: 'file-1', path: 'lecture-documents/a.pdf' },
+        fileName: 'a.pdf',
+        isDownloadable: false,
+      });
+
+      await expect(service.findContent('lec-1')).resolves.toEqual({
+        lectureType: 'pdf_document',
+        fileId: 'file-1',
+        fileUrl: 'signed:file-1',
+        fileName: 'a.pdf',
+        isDownloadable: false,
       });
     });
 

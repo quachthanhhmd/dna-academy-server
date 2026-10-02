@@ -1,4 +1,14 @@
 import { FileType } from '../../domain/file';
+import { FilePurpose } from '../../storage/file-purpose';
+
+export type UploadOptions = {
+  /**
+   * Must be the purpose the storage engine stored the bytes under — the one
+   * `uploadPurposeOf` reads from the same request.
+   */
+  purpose: FilePurpose;
+  uploadedById?: number | null;
+};
 
 /**
  * Driver-agnostic port for a server-side multipart upload.
@@ -9,5 +19,8 @@ import { FileType } from '../../domain/file';
  * silently store nothing. Inject it with `@Optional()` and handle the null.
  */
 export abstract class FileUploaderService {
-  abstract create(file: Express.Multer.File): Promise<{ file: FileType }>;
+  abstract create(
+    file: Express.Multer.File,
+    options: UploadOptions,
+  ): Promise<{ file: FileType }>;
 }

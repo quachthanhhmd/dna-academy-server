@@ -6,13 +6,14 @@ import {
 import { FilesS3Controller } from './files.controller';
 import { MulterModule } from '@nestjs/platform-express';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { randomStringGenerator } from '@nestjs/common/utils/random-string-generator.util';
 import { S3Client } from '@aws-sdk/client-s3';
 import multerS3 from 'multer-s3';
 
 import { FilesS3Service } from './files.service';
 import { FileUploaderService } from '../file-uploader.service';
 import { isAllowedUpload } from '../../../file-upload-rules';
+import { buildObjectKey } from '../../../storage/storage-location';
+import { uploadPurposeOf } from '../../../storage/upload-purpose';
 
 import { RelationalFilePersistenceModule } from '../../persistence/relational/relational-persistence.module';
 import { AllConfigType } from '../../../../config/config.type';
@@ -59,13 +60,14 @@ import { AllConfigType } from '../../../../config/config.type';
             }),
             contentType: multerS3.AUTO_CONTENT_TYPE,
             key: (request, file, callback) => {
-              callback(
-                null,
-                `${randomStringGenerator()}.${file.originalname
-                  .split('.')
-                  .pop()
-                  ?.toLowerCase()}`,
-              );
+              try {
+                callback(
+                  null,
+                  buildObjectKey(uploadPurposeOf(request), file.originalname),
+                );
+              } catch (error) {
+                callback(error);
+              }
             },
           }),
           limits: {

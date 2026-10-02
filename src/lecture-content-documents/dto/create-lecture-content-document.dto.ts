@@ -1,4 +1,5 @@
 import { LectureDto } from '../../lectures/dto/lecture.dto';
+import { FileDto } from '../../files/dto/file.dto';
 
 import {
   // decorators here
@@ -37,11 +38,21 @@ export class CreateLectureContentDocumentDto {
   fileName?: string | null;
 
   @ApiProperty({
-    required: true,
+    required: false,
     type: () => String,
   })
+  @IsOptional()
   @IsString()
-  fileUrl: string;
+  fileUrl?: string | null;
+
+  @ApiProperty({
+    required: false,
+    type: () => FileDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => FileDto)
+  file?: FileDto | null;
 
   @ApiProperty({
     required: true,

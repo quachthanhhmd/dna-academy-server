@@ -8,6 +8,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
   ValidateNested,
@@ -138,7 +139,18 @@ export class SaveLectureContentDto {
 
   // pdf_document
   @ApiPropertyOptional({
-    description: 'Required when lectureType=pdf_document.',
+    description:
+      'Id of a file uploaded with `?purpose=lecture-document` (stored privately, read through short-lived presigned URLs). ' +
+      'lectureType=pdf_document requires this or `fileUrl`; this one wins when both are sent.',
+  })
+  @IsOptional()
+  @IsUUID()
+  fileId?: string;
+
+  @ApiPropertyOptional({
+    deprecated: true,
+    description:
+      'Prefer `fileId`. A URL stored as given — served to every enrolled student as is.',
   })
   @IsOptional()
   @IsString()

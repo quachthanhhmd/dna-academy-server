@@ -1,6 +1,7 @@
 import { Lecture } from '../../lectures/domain/lecture';
 
 import { ApiProperty } from '@nestjs/swagger';
+import { FileType } from '../../files/domain/file';
 
 export class LectureContentDocument {
   @ApiProperty({
@@ -17,9 +18,17 @@ export class LectureContentDocument {
 
   @ApiProperty({
     type: () => String,
-    nullable: false,
+    nullable: true,
+    description:
+      'Legacy: a URL stored as given. Null for uploaded documents — read `file.path`.',
   })
-  fileUrl: string;
+  fileUrl?: string | null;
+
+  @ApiProperty({
+    type: () => FileType,
+    nullable: true,
+  })
+  file?: FileType | null;
 
   @ApiProperty({
     type: () => Lecture,

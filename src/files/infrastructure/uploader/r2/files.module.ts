@@ -10,11 +10,12 @@ import multerS3 from 'multer-s3';
 import { FilesR2Controller } from './files.controller';
 import { FilesR2Service } from './files.service';
 import { FileUploaderService } from '../file-uploader.service';
+import { ALLOWED_FILE_EXTENSIONS, createR2Client } from './r2.client';
 import {
-  ALLOWED_FILE_EXTENSIONS,
+  bucketForPurpose,
   buildObjectKey,
-  createR2Client,
-} from './r2.client';
+} from '../../../storage/storage-location';
+import { uploadPurposeOf } from '../../../storage/upload-purpose';
 
 import { RelationalFilePersistenceModule } from '../../persistence/relational/relational-persistence.module';
 import { AllConfigType } from '../../../../config/config.type';
@@ -47,10 +48,28 @@ import { AllConfigType } from '../../../../config/config.type';
           },
           storage: multerS3({
             s3: r2,
-            bucket: fileConfig.r2Bucket ?? '',
+            // Public and private uploads go to different buckets, so the
+            // bucket is chosen per request, from the upload's purpose.
+            bucket: (request, file, callback) => {
+              try {
+                callback(
+                  null,
+                  bucketForPurpose(fileConfig, uploadPurposeOf(request)),
+                );
+              } catch (error) {
+                callback(error);
+              }
+            },
             contentType: multerS3.AUTO_CONTENT_TYPE,
             key: (request, file, callback) => {
-              callback(null, buildObjectKey(file.originalname));
+              try {
+                callback(
+                  null,
+                  buildObjectKey(uploadPurposeOf(request), file.originalname),
+                );
+              } catch (error) {
+                callback(error);
+              }
             },
           }),
           limits: {

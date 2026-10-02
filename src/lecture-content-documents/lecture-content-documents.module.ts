@@ -1,4 +1,5 @@
 import { LecturesModule } from '../lectures/lectures.module';
+import { FilesModule } from '../files/files.module';
 import {
   // do not remove this comment
   Module,
@@ -9,6 +10,7 @@ import { RelationalLectureContentDocumentPersistenceModule } from './infrastruct
 @Module({
   imports: [
     LecturesModule,
+    FilesModule,
 
     // do not remove this comment
     RelationalLectureContentDocumentPersistenceModule,

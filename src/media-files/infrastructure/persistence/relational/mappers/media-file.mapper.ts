@@ -24,6 +24,10 @@ export class MediaFileMapper {
 
     domainEntity.bucket = raw.bucket;
 
+    domainEntity.visibility = raw.visibility;
+
+    domainEntity.purpose = raw.purpose;
+
     domainEntity.id = raw.id;
     domainEntity.createdAt = raw.createdAt;
     domainEntity.updatedAt = raw.updatedAt;
@@ -52,6 +56,10 @@ export class MediaFileMapper {
     persistenceEntity.objectKey = domainEntity.objectKey;
 
     persistenceEntity.bucket = domainEntity.bucket;
+
+    persistenceEntity.visibility = domainEntity.visibility;
+
+    persistenceEntity.purpose = domainEntity.purpose;
 
     if (domainEntity.id) {
       persistenceEntity.id = domainEntity.id;

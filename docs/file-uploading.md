@@ -14,6 +14,7 @@
 - [Uploading and attach file flow for `s3-presigned` driver](#uploading-and-attach-file-flow-for-s3-presigned-driver)
   - [Configuration for `s3-presigned` driver](#configuration-for-s3-presigned-driver)
   - [An example of uploading an avatar to a user profile (S3 Presigned URL)](#an-example-of-uploading-an-avatar-to-a-user-profile-s3-presigned-url)
+- [Cloudflare R2: public and private files](#cloudflare-r2-public-and-private-files)
 - [How to delete files?](#how-to-delete-files)
 
 ---
@@ -171,6 +172,30 @@ sequenceDiagram
     note right of A: Attach File entity to User entity
     A->>B: Update user via PATCH /api/v1/auth/me
 ```
+
+## Cloudflare R2: public and private files
+
+Every upload names a **purpose** with `POST /api/v1/files/upload?purpose=…`. The purpose decides the bucket, the key prefix and who can read the file, and all three are recorded on the file's `media_file` row:
+
+| `purpose` | Bucket | Served as |
+|---|---|---|
+| `upload` (default when omitted) | `R2_BUCKET_PUBLIC` | `R2_PUBLIC_URL/<key>`, never expires |
+| `course-thumbnail`, `avatar` | `R2_BUCKET_PUBLIC` | `R2_PUBLIC_URL/<key>`, never expires |
+| `lecture-document` | `R2_BUCKET_PRIVATE` | presigned GET, valid `FILE_PRESIGNED_GET_TTL` seconds (default 600) |
+| `quiz-submission` (quiz answer route only) | `R2_BUCKET_PRIVATE` | presigned GET |
+
+`purpose` is a query parameter, not a form field, because the bucket is chosen while the bytes stream in.
+
+A private file's `path` expires. **Never store it** — reference the file by id:
+
+- course thumbnail: `PATCH /api/v1/admin/courses/:id` with `thumbnailFileId`. The server stores the file's public URL as `thumbnailUrl` (a private file is refused with `thumbnailFileId: notPublic`).
+- lecture document: `PATCH /api/v1/admin/lectures/:id/content` with `fileId`. Each read of the lecture returns a freshly presigned `fileUrl`.
+
+`thumbnailUrl` / `fileUrl` sent as plain strings are still accepted from older clients and stored as given.
+
+### Moving files uploaded before the split
+
+`npm run storage:backfill` finds lecture documents and thumbnails still stored as `R2_PUBLIC_URL/...` strings. It prints a plan by default; `-- --apply` copies documents into the private bucket and links both kinds to their `media_file` rows; `-- --apply --delete-source` also deletes the public copies of documents no longer referenced. Until that last step runs, a moved document is still downloadable from its old public URL.
 
 ## How to delete files?
 

@@ -1,4 +1,4 @@
-import { FileEntity } from '../../../../../files/infrastructure/persistence/relational/entities/file.entity';
+import { MediaFileEntity } from '../../../../../media-files/infrastructure/persistence/relational/entities/media-file.entity';
 
 import { FileMapper } from '../../../../../files/infrastructure/persistence/relational/mappers/file.mapper';
 import { RoleEntity } from '../../../../../roles/infrastructure/persistence/relational/entities/role.entity';
@@ -49,12 +49,10 @@ export class UserMapper {
       role.id = Number(domainEntity.role.id);
     }
 
-    let photo: FileEntity | undefined | null = undefined;
+    let photo: MediaFileEntity | undefined | null = undefined;
 
     if (domainEntity.photo) {
-      photo = new FileEntity();
-      photo.id = domainEntity.photo.id;
-      photo.path = domainEntity.photo.path;
+      photo = FileMapper.toReference(domainEntity.photo);
     } else if (domainEntity.photo === null) {
       photo = null;
     }

@@ -33,8 +33,7 @@ describe('QuizFileUploadService', () => {
       deps.quizService,
       deps.quizQuestionsService,
       uploader as never,
-      deps.mediaFilesService,
-      deps.configService ?? { getOrThrow: () => 'local' },
+      deps.storageUrl,
     );
 
   beforeEach(() => {
@@ -57,10 +56,10 @@ describe('QuizFileUploadService', () => {
           file: { id: 'file-1', path: '/api/v1/files/abc.pdf' },
         }),
       },
-      mediaFilesService: {
-        create: (jest.fn() as jest.Mock<any>).mockResolvedValue({
-          id: 'media-1',
-        }),
+      storageUrl: {
+        urlFor: (jest.fn() as jest.Mock<any>).mockResolvedValue(
+          'https://signed.example/abc.pdf',
+        ),
       },
     };
 
@@ -70,7 +69,10 @@ describe('QuizFileUploadService', () => {
   it('should store the file and return its id and path', async () => {
     await expect(
       service.upload('att-1', 'q1', 7, multerFile()),
-    ).resolves.toEqual({ fileId: 'media-1', path: '/api/v1/files/abc.pdf' });
+    ).resolves.toEqual({
+      fileId: 'file-1',
+      path: 'https://signed.example/abc.pdf',
+    });
     expect(deps.quizService.findOwnAttempt).toHaveBeenCalledWith('att-1', 7);
   });
 
@@ -123,7 +125,7 @@ describe('QuizFileUploadService', () => {
 
     await expect(
       service.upload('att-1', 'q1', 7, multerFile({ mimetype: 'image/png' })),
-    ).resolves.toMatchObject({ fileId: 'media-1' });
+    ).resolves.toMatchObject({ fileId: 'file-1' });
   });
 
   it('should honour a type/* wildcard in the allowlist', async () => {
@@ -133,7 +135,7 @@ describe('QuizFileUploadService', () => {
 
     await expect(
       service.upload('att-1', 'q1', 7, multerFile({ mimetype: 'image/webp' })),
-    ).resolves.toMatchObject({ fileId: 'media-1' });
+    ).resolves.toMatchObject({ fileId: 'file-1' });
 
     await expect(
       service.upload(
@@ -156,7 +158,7 @@ describe('QuizFileUploadService', () => {
 
     await expect(
       service.upload('att-1', 'q1', 7, multerFile({ size: 1024 * 1024 })),
-    ).resolves.toMatchObject({ fileId: 'media-1' });
+    ).resolves.toMatchObject({ fileId: 'file-1' });
   });
 
   it('should fail loudly when the active file driver cannot accept uploads', async () => {
@@ -175,7 +177,7 @@ describe('QuizFileUploadService', () => {
 
       await expect(
         service.upload('att-1', 'q1', 7, multerFile()),
-      ).resolves.toMatchObject({ fileId: 'media-1' });
+      ).resolves.toMatchObject({ fileId: 'file-1' });
     });
 
     it('should accept a DOCX for a question that asks for one', async () => {
@@ -193,7 +195,7 @@ describe('QuizFileUploadService', () => {
           7,
           multerFile({ originalname: 'essay.docx', mimetype: docx }),
         ),
-      ).resolves.toMatchObject({ fileId: 'media-1' });
+      ).resolves.toMatchObject({ fileId: 'file-1' });
     });
 
     it('should accept any type when the question sets no allowlist', async () => {
@@ -204,7 +206,7 @@ describe('QuizFileUploadService', () => {
           7,
           multerFile({ originalname: 'notes.txt', mimetype: 'text/plain' }),
         ),
-      ).resolves.toMatchObject({ fileId: 'media-1' });
+      ).resolves.toMatchObject({ fileId: 'file-1' });
     });
 
     it('should reject a file over the absolute cap even with no per-question cap', async () => {
@@ -228,49 +230,38 @@ describe('QuizFileUploadService', () => {
           7,
           multerFile({ size: QUIZ_UPLOAD_MAX_BYTES }),
         ),
-      ).resolves.toMatchObject({ fileId: 'media-1' });
+      ).resolves.toMatchObject({ fileId: 'file-1' });
     });
   });
 
   /**
-   * `quiz_attempt_answer.fileId` is a FK to `media_file`, but the uploader
-   * writes a row to `file` — a different table. Returning the uploader's id
-   * meant every submit carrying a fileId was rejected with
-   * `422 file: notExists`, so §2.3's documented upload → submit round trip
-   * could never complete.
+   * `quiz_attempt_answer.fileId` is a FK to `media_file`. The uploader used to
+   * write a row to a separate `file` table, and the id it returned was
+   * rejected with `422 file: notExists` on submit; uploads now go straight
+   * into `media_file`, once.
    */
   describe('media_file registration', () => {
-    it('should return the media_file id the submit body needs', async () => {
+    it('should return the id of the one row the uploader wrote', async () => {
       const result = await service.upload('att-1', 'q1', 7, multerFile());
 
-      expect(result.fileId).toBe('media-1');
-      expect(result.fileId).not.toBe('file-1');
+      expect(result.fileId).toBe('file-1');
+      expect(deps.uploader.create).toHaveBeenCalledTimes(1);
     });
 
-    it('should record what was uploaded and who uploaded it', async () => {
-      await service.upload(
-        'att-1',
-        'q1',
-        7,
-        multerFile({
-          originalname: 'essay.pdf',
-          mimetype: 'application/pdf',
-          size: 2048,
-        }),
-      );
+    // A submission is the student's own work: it must land in the private
+    // bucket and never be served from the public domain.
+    it('should store it as a private quiz submission, owned by the student', async () => {
+      const file = multerFile({ originalname: 'essay.pdf' });
 
-      expect(deps.mediaFilesService.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          objectKey: '/api/v1/files/abc.pdf',
-          fileName: 'essay.pdf',
-          mimeType: 'application/pdf',
-          sizeBytes: 2048,
-          uploadedBy: { id: 7 },
-        }),
-      );
+      await service.upload('att-1', 'q1', 7, file);
+
+      expect(deps.uploader.create).toHaveBeenCalledWith(file, {
+        purpose: 'quiz-submission',
+        uploadedById: 7,
+      });
     });
 
-    it('should not register anything when the question rejects the file', async () => {
+    it('should not store anything when the question rejects the file', async () => {
       deps.quizQuestionsService.findByLectureId.mockResolvedValue([
         fileUploadQuestion({ allowedMimeTypes: 'image/png' }),
       ]);
@@ -280,13 +271,15 @@ describe('QuizFileUploadService', () => {
       ).rejects.toBeInstanceOf(UnprocessableEntityException);
 
       expect(deps.uploader.create).not.toHaveBeenCalled();
-      expect(deps.mediaFilesService.create).not.toHaveBeenCalled();
     });
 
-    it('should still expose the servable path', async () => {
+    it('should expose a URL resolved from the stored row', async () => {
       const result = await service.upload('att-1', 'q1', 7, multerFile());
 
-      expect(result.path).toBe('/api/v1/files/abc.pdf');
+      expect(deps.storageUrl.urlFor).toHaveBeenCalledWith(
+        expect.objectContaining({ objectKey: '/api/v1/files/abc.pdf' }),
+      );
+      expect(result.path).toBe('https://signed.example/abc.pdf');
     });
   });
 });

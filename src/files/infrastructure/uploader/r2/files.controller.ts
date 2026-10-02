@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Request,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -16,6 +17,10 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FilesR2Service } from './files.service';
 import { FileResponseDto } from './dto/file-response.dto';
+import {
+  ApiUploadPurposeQuery,
+  uploadPurposeOf,
+} from '../../../storage/upload-purpose';
 
 @ApiTags('Files')
 @Controller({
@@ -31,6 +36,7 @@ export class FilesR2Controller {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Post('upload')
+  @ApiUploadPurposeQuery()
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -46,7 +52,11 @@ export class FilesR2Controller {
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
     @UploadedFile() file: Express.MulterS3.File,
+    @Request() request,
   ): Promise<FileResponseDto> {
-    return this.filesService.create(file);
+    return this.filesService.create(file, {
+      purpose: uploadPurposeOf(request),
+      uploadedById: request.user?.id,
+    });
   }
 }

@@ -22,6 +22,8 @@ describe('CoursesAdminService', () => {
     validateAssignable: jest.Mock<any>;
   };
   let youtubeService: { validateAndExtractVideoId: jest.Mock<any> };
+  let filesService: { findByIdOrFail: jest.Mock<any> };
+  let storageUrl: { stableUrlFor: jest.Mock<any> };
 
   const levelCode = {
     id: 'level-1',
@@ -56,6 +58,8 @@ describe('CoursesAdminService', () => {
       undefined,
     );
     youtubeService = { validateAndExtractVideoId: jest.fn() };
+    filesService = { findByIdOrFail: jest.fn() };
+    storageUrl = { stableUrlFor: jest.fn() };
 
     // No course claims the incoming courseId unless a test says otherwise.
     coursesService.findByCourseId.mockResolvedValue(null);
@@ -65,6 +69,8 @@ describe('CoursesAdminService', () => {
       masterDataCodesService as any,
       youtubeService as any,
       courseInstructorsAdminService as any,
+      filesService as any,
+      storageUrl as any,
     );
   });
 
@@ -390,6 +396,156 @@ describe('CoursesAdminService', () => {
 
       expect(youtubeService.validateAndExtractVideoId).toHaveBeenCalledWith(
         'https://youtu.be/xyz789',
+      );
+    });
+  });
+
+  describe('thumbnail', () => {
+    const baseDto = {
+      courseId: 'DNA-101',
+      title: 'Intro',
+      language: 'en',
+      price: 0,
+      hasCertificate: false,
+      enrollmentOpen: true,
+    };
+    const thumbnailFile = {
+      id: 'file-1',
+      path: 'course-thumbnails/a.webp',
+      bucket: 'pub',
+      visibility: 'public',
+    };
+
+    beforeEach(() => {
+      coursesService.findBySlug.mockResolvedValue(null);
+      coursesService.create.mockResolvedValue({ id: 'course-1' });
+      coursesService.update.mockResolvedValue({ id: 'course-1' });
+    });
+
+    it('should store the public URL and the id of an uploaded thumbnail', async () => {
+      filesService.findByIdOrFail.mockResolvedValue(thumbnailFile);
+      storageUrl.stableUrlFor.mockReturnValue(
+        'https://cdn.example.com/course-thumbnails/a.webp',
+      );
+
+      await service.create({ ...baseDto, thumbnailFileId: 'file-1' } as any, 7);
+
+      expect(filesService.findByIdOrFail).toHaveBeenCalledWith(
+        'file-1',
+        'thumbnailFileId',
+      );
+      expect(coursesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          thumbnailUrl: 'https://cdn.example.com/course-thumbnails/a.webp',
+          thumbnailFileId: 'file-1',
+        }),
+      );
+    });
+
+    // A presigned URL stored as the thumbnail would stop loading once it
+    // expires, so a file that has no stable URL is refused up front.
+    it('should refuse a file that has no stable public URL', async () => {
+      filesService.findByIdOrFail.mockResolvedValue({
+        ...thumbnailFile,
+        visibility: 'private',
+      });
+      storageUrl.stableUrlFor.mockReturnValue(null);
+
+      await expect(
+        service.create({ ...baseDto, thumbnailFileId: 'file-1' } as any, 7),
+      ).rejects.toMatchObject({
+        response: { errors: { thumbnailFileId: 'notPublic' } },
+      });
+      expect(coursesService.create).not.toHaveBeenCalled();
+    });
+
+    it('should let the file win over a URL sent alongside it', async () => {
+      filesService.findByIdOrFail.mockResolvedValue(thumbnailFile);
+      storageUrl.stableUrlFor.mockReturnValue('https://cdn.example.com/x');
+
+      await service.create(
+        {
+          ...baseDto,
+          thumbnailFileId: 'file-1',
+          thumbnailUrl: 'https://elsewhere/y',
+        } as any,
+        7,
+      );
+
+      expect(coursesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ thumbnailUrl: 'https://cdn.example.com/x' }),
+      );
+    });
+
+    it('should still accept a bare URL from older clients, unlinked from any file', async () => {
+      await service.create(
+        { ...baseDto, thumbnailUrl: 'https://cdn.example.com/old.png' } as any,
+        7,
+      );
+
+      expect(filesService.findByIdOrFail).not.toHaveBeenCalled();
+      expect(coursesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          thumbnailUrl: 'https://cdn.example.com/old.png',
+          thumbnailFileId: null,
+        }),
+      );
+    });
+
+    it('should remove the thumbnail when thumbnailFileId is null', async () => {
+      coursesService.findById.mockResolvedValue({
+        id: 'course-1',
+        thumbnailUrl: 'https://cdn.example.com/a.webp',
+        thumbnailFileId: 'file-1',
+      });
+
+      await service.update('course-1', { thumbnailFileId: null } as any);
+
+      expect(coursesService.update).toHaveBeenCalledWith(
+        'course-1',
+        expect.objectContaining({ thumbnailUrl: null, thumbnailFileId: null }),
+      );
+    });
+
+    // Admin forms send the whole course back; the URL they read must not
+    // unlink the file it came from.
+    it('should keep the file link when the unchanged URL is sent back', async () => {
+      coursesService.findById.mockResolvedValue({
+        id: 'course-1',
+        thumbnailUrl: 'https://cdn.example.com/a.webp',
+        thumbnailFileId: 'file-1',
+      });
+
+      await service.update('course-1', {
+        thumbnailUrl: 'https://cdn.example.com/a.webp',
+        title: 'New',
+      } as any);
+
+      const payload = coursesService.update.mock.calls[0][1] as Record<
+        string,
+        unknown
+      >;
+      expect(payload).not.toHaveProperty('thumbnailUrl');
+      expect(payload).not.toHaveProperty('thumbnailFileId');
+    });
+
+    it('should unlink the file when a different URL is set', async () => {
+      coursesService.findById.mockResolvedValue({
+        id: 'course-1',
+        thumbnailUrl: 'https://cdn.example.com/a.webp',
+        thumbnailFileId: 'file-1',
+      });
+
+      await service.update('course-1', {
+        thumbnailUrl: 'https://cdn.example.com/b.webp',
+      } as any);
+
+      expect(coursesService.update).toHaveBeenCalledWith(
+        'course-1',
+        expect.objectContaining({
+          thumbnailUrl: 'https://cdn.example.com/b.webp',
+          thumbnailFileId: null,
+        }),
       );
     });
   });

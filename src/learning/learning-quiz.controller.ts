@@ -29,6 +29,8 @@ import { OnboardingGuard } from '../auth/guards/onboarding.guard';
 import { QuizService } from './services/quiz.service';
 import { QuizFileUploadService } from './services/quiz-file-upload.service';
 import { QUIZ_UPLOAD_MULTER_OPTIONS } from './quiz-upload-multer.options';
+import { UploadPurposeInterceptor } from '../files/storage/upload-purpose';
+import { FilePurpose } from '../files/storage/file-purpose';
 import {
   QuizAnswerFileDto,
   QuizAttemptDto,
@@ -122,7 +124,12 @@ export class LearningQuizController {
       properties: { file: { type: 'string', format: 'binary' } },
     },
   })
-  @UseInterceptors(FileInterceptor('file', QUIZ_UPLOAD_MULTER_OPTIONS))
+  // Order matters: the purpose has to be on the request before multer
+  // starts storing, because it decides the (private) bucket.
+  @UseInterceptors(
+    UploadPurposeInterceptor(FilePurpose.QUIZ_SUBMISSION),
+    FileInterceptor('file', QUIZ_UPLOAD_MULTER_OPTIONS),
+  )
   @ApiCreatedResponse({ type: QuizAnswerFileDto })
   @ApiConflictResponse({ description: 'ATTEMPT_ALREADY_SUBMITTED' })
   uploadAnswerFile(

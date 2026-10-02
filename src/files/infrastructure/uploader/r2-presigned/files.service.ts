@@ -13,11 +13,13 @@ import { FileUploadDto } from './dto/file.dto';
 import { FileType } from '../../../domain/file';
 import { AllConfigType } from '../../../../config/config.type';
 import { FileConfig } from '../../../config/file-config.type';
+import { ALLOWED_FILE_EXTENSIONS, createR2Client } from '../r2/r2.client';
+import { UploadOptions } from '../file-uploader.service';
 import {
-  ALLOWED_FILE_EXTENSIONS,
+  bucketForPurpose,
   buildObjectKey,
-  createR2Client,
-} from '../r2/r2.client';
+} from '../../../storage/storage-location';
+import { visibilityOf } from '../../../storage/upload-purpose';
 
 @Injectable()
 export class FilesR2PresignedService {
@@ -34,6 +36,7 @@ export class FilesR2PresignedService {
 
   async create(
     file: FileUploadDto,
+    options: UploadOptions,
   ): Promise<{ file: FileType; uploadSignedUrl: string }> {
     if (!file) {
       throw new UnprocessableEntityException({
@@ -61,10 +64,11 @@ export class FilesR2PresignedService {
       });
     }
 
-    const key = buildObjectKey(file.fileName);
+    const key = buildObjectKey(options.purpose, file.fileName);
+    const bucket = bucketForPurpose(this.fileConfig, options.purpose);
 
     const command = new PutObjectCommand({
-      Bucket: this.fileConfig.r2Bucket,
+      Bucket: bucket,
       Key: key,
       ContentLength: file.fileSize,
       ContentType: file.contentType,
@@ -74,7 +78,16 @@ export class FilesR2PresignedService {
     });
 
     return {
-      file: await this.fileRepository.create({ path: key }),
+      file: await this.fileRepository.create({
+        objectKey: key,
+        bucket,
+        visibility: visibilityOf(options.purpose),
+        purpose: options.purpose,
+        fileName: file.fileName,
+        mimeType: file.contentType ?? null,
+        sizeBytes: file.fileSize,
+        uploadedById: options.uploadedById,
+      }),
       uploadSignedUrl,
     };
   }

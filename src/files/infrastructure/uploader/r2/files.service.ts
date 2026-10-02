@@ -5,12 +5,17 @@ import {
 } from '@nestjs/common';
 import { FileRepository } from '../../persistence/file.repository';
 import { FileType } from '../../../domain/file';
+import { UploadOptions } from '../file-uploader.service';
+import { visibilityOf } from '../../../storage/upload-purpose';
 
 @Injectable()
 export class FilesR2Service {
   constructor(private readonly fileRepository: FileRepository) {}
 
-  async create(file: Express.MulterS3.File): Promise<{ file: FileType }> {
+  async create(
+    file: Express.MulterS3.File,
+    options: UploadOptions,
+  ): Promise<{ file: FileType }> {
     if (!file) {
       throw new UnprocessableEntityException({
         status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -22,7 +27,15 @@ export class FilesR2Service {
 
     return {
       file: await this.fileRepository.create({
-        path: file.key,
+        objectKey: file.key,
+        // Set by multer-s3 from the bucket callback — where the bytes are.
+        bucket: file.bucket,
+        visibility: visibilityOf(options.purpose),
+        purpose: options.purpose,
+        fileName: file.originalname,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        uploadedById: options.uploadedById,
       }),
     };
   }

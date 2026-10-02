@@ -21,7 +21,22 @@ export class LectureContentDocumentRelationalRepository implements LectureConten
     const newEntity = await this.lectureContentDocumentRepository.save(
       this.lectureContentDocumentRepository.create(persistenceModel),
     );
-    return LectureContentDocumentMapper.toDomain(newEntity);
+    return this.reload(newEntity.id);
+  }
+
+  /**
+   * `save` hands back `file` as the `{ id }` it was given. Its bucket,
+   * visibility and key are what its URL is resolved from, so read the row
+   * back with its relations loaded rather than return a half-filled file.
+   */
+  private async reload(
+    id: LectureContentDocument['id'],
+  ): Promise<LectureContentDocument> {
+    return LectureContentDocumentMapper.toDomain(
+      await this.lectureContentDocumentRepository.findOneOrFail({
+        where: { id },
+      }),
+    );
   }
 
   async findAllWithPagination({
@@ -83,7 +98,7 @@ export class LectureContentDocumentRelationalRepository implements LectureConten
       throw new Error('Record not found');
     }
 
-    const updatedEntity = await this.lectureContentDocumentRepository.save(
+    await this.lectureContentDocumentRepository.save(
       this.lectureContentDocumentRepository.create(
         LectureContentDocumentMapper.toPersistence({
           ...LectureContentDocumentMapper.toDomain(entity),
@@ -92,7 +107,7 @@ export class LectureContentDocumentRelationalRepository implements LectureConten
       ),
     );
 
-    return LectureContentDocumentMapper.toDomain(updatedEntity);
+    return this.reload(id);
   }
 
   async remove(id: LectureContentDocument['id']): Promise<void> {

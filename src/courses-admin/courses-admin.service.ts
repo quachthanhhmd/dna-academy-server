@@ -15,6 +15,9 @@ import { YoutubeService } from '../youtube/youtube.service';
 import { CreateCourseAdminDto } from './dto/create-course-admin.dto';
 import { UpdateCourseAdminDto } from './dto/update-course-admin.dto';
 import { FindAllCoursesAdminDto } from './dto/find-all-courses-admin.dto';
+import { FilesService } from '../files/files.service';
+import { StorageUrlService } from '../files/storage/storage-url.service';
+import { fileRefOf } from '../files/storage/storage-url';
 
 @Injectable()
 export class CoursesAdminService {
@@ -23,6 +26,8 @@ export class CoursesAdminService {
     private readonly masterDataCodesService: MasterDataCodesService,
     private readonly youtubeService: YoutubeService,
     private readonly courseInstructorsAdminService: CourseInstructorsAdminService,
+    private readonly filesService: FilesService,
+    private readonly storageUrl: StorageUrlService,
   ) {}
 
   async create(dto: CreateCourseAdminDto, createdByUserId: User['id']) {
@@ -49,6 +54,8 @@ export class CoursesAdminService {
       coInstructorIds: dto.coInstructorIds,
     });
 
+    const thumbnail = await this.resolveThumbnail(dto);
+
     const slug = await this.generateUniqueSlug(dto.title);
 
     const course = await this.coursesService.create({
@@ -56,7 +63,8 @@ export class CoursesAdminService {
       title: dto.title,
       shortDescription: dto.shortDescription,
       fullDescription: dto.fullDescription,
-      thumbnailUrl: dto.thumbnailUrl,
+      thumbnailUrl: thumbnail?.thumbnailUrl,
+      thumbnailFileId: thumbnail?.thumbnailFileId,
       introVideoUrl: dto.introVideoUrl,
       language: dto.language,
       price: dto.price,
@@ -130,7 +138,14 @@ export class CoursesAdminService {
             'categoryId',
           )
         : undefined;
+    const thumbnail = await this.resolveThumbnail(dto, course);
+
     const payload: Partial<Course> = { ...dto };
+    delete payload.thumbnailUrl;
+    delete payload.thumbnailFileId;
+    if (thumbnail) {
+      Object.assign(payload, thumbnail);
+    }
     delete (payload as Partial<UpdateCourseAdminDto>).levelId;
     delete (payload as Partial<UpdateCourseAdminDto>).categoryId;
     delete (payload as Partial<UpdateCourseAdminDto>).primaryInstructorId;
@@ -164,6 +179,56 @@ export class CoursesAdminService {
     });
 
     return updated;
+  }
+
+  /**
+   * What to store for the thumbnail, or `undefined` to leave it as is.
+   *
+   * `thumbnailFileId` is the way in: the file's public URL is stored as
+   * `thumbnailUrl`, so every reader of `thumbnailUrl` works unchanged, and the
+   * id records which object that URL is. A file without a stable public URL
+   * (private, or no public domain configured) is refused — its URL would be a
+   * presigned one, and a stored presigned URL is a thumbnail that breaks ten
+   * minutes later.
+   *
+   * A bare `thumbnailUrl` is still accepted from older clients. It is not an
+   * uploaded file, so it clears `thumbnailFileId` — unless it is the URL the
+   * course already has, which is what a client re-sending the whole form does.
+   */
+  private async resolveThumbnail(
+    dto: Pick<CreateCourseAdminDto, 'thumbnailUrl' | 'thumbnailFileId'>,
+    current?: Course,
+  ): Promise<Pick<Course, 'thumbnailUrl' | 'thumbnailFileId'> | undefined> {
+    if (dto.thumbnailFileId === null) {
+      return { thumbnailUrl: null, thumbnailFileId: null };
+    }
+
+    if (dto.thumbnailFileId !== undefined) {
+      const file = await this.filesService.findByIdOrFail(
+        dto.thumbnailFileId,
+        'thumbnailFileId',
+      );
+      const thumbnailUrl = this.storageUrl.stableUrlFor(fileRefOf(file));
+
+      if (!thumbnailUrl) {
+        throw new UnprocessableEntityException({
+          status: HttpStatus.UNPROCESSABLE_ENTITY,
+          errors: { thumbnailFileId: 'notPublic' },
+        });
+      }
+
+      return { thumbnailUrl, thumbnailFileId: file.id };
+    }
+
+    if (dto.thumbnailUrl === undefined) {
+      return undefined;
+    }
+
+    if (current && dto.thumbnailUrl === current.thumbnailUrl) {
+      return undefined;
+    }
+
+    return { thumbnailUrl: dto.thumbnailUrl, thumbnailFileId: null };
   }
 
   private async assertCourseIdAvailable(courseId: string): Promise<void> {

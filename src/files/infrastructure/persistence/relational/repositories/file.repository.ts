@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FileEntity } from '../entities/file.entity';
 import { In, Repository } from 'typeorm';
-import { FileRepository } from '../../file.repository';
+import { MediaFileEntity } from '../../../../../media-files/infrastructure/persistence/relational/entities/media-file.entity';
+import { UserEntity } from '../../../../../users/infrastructure/persistence/relational/entities/user.entity';
+import {
+  FileRepository,
+  MEDIA_FILE_READY,
+  NewStoredFile,
+} from '../../file.repository';
 
 import { FileMapper } from '../mappers/file.mapper';
 import { FileType } from '../../../../domain/file';
@@ -11,21 +16,30 @@ import { NullableType } from '../../../../../utils/types/nullable.type';
 @Injectable()
 export class FileRelationalRepository implements FileRepository {
   constructor(
-    @InjectRepository(FileEntity)
-    private readonly fileRepository: Repository<FileEntity>,
+    @InjectRepository(MediaFileEntity)
+    private readonly mediaFileRepository: Repository<MediaFileEntity>,
   ) {}
 
-  async create(data: FileType): Promise<FileType> {
-    const persistenceModel = FileMapper.toPersistence(data);
-    const entity = await this.fileRepository.save(
-      this.fileRepository.create(persistenceModel),
-    );
+  async create(data: NewStoredFile): Promise<FileType> {
+    const entity = this.mediaFileRepository.create({
+      status: MEDIA_FILE_READY,
+      objectKey: data.objectKey,
+      bucket: data.bucket,
+      visibility: data.visibility,
+      purpose: data.purpose,
+      fileName: data.fileName ?? null,
+      mimeType: data.mimeType ?? null,
+      sizeBytes: data.sizeBytes ?? null,
+      uploadedBy: data.uploadedById
+        ? ({ id: data.uploadedById } as UserEntity)
+        : null,
+    });
 
-    return FileMapper.toDomain(entity);
+    return FileMapper.toDomain(await this.mediaFileRepository.save(entity));
   }
 
   async findById(id: FileType['id']): Promise<NullableType<FileType>> {
-    const entity = await this.fileRepository.findOne({
+    const entity = await this.mediaFileRepository.findOne({
       where: {
         id: id,
       },
@@ -35,7 +49,7 @@ export class FileRelationalRepository implements FileRepository {
   }
 
   async findByIds(ids: FileType['id'][]): Promise<FileType[]> {
-    const entities = await this.fileRepository.find({
+    const entities = await this.mediaFileRepository.find({
       where: {
         id: In(ids),
       },

@@ -1,4 +1,5 @@
 import { UserEntity } from '../../../../../users/infrastructure/persistence/relational/entities/user.entity';
+import { MediaFileEntity } from '../../../../../media-files/infrastructure/persistence/relational/entities/media-file.entity';
 
 import { MasterDataCodeEntity } from '../../../../../master-data-codes/infrastructure/persistence/relational/entities/master-data-code.entity';
 
@@ -198,6 +199,26 @@ export class CourseEntity extends EntityRelationalHelper {
     type: String,
   })
   thumbnailUrl?: string | null;
+
+  /**
+   * The uploaded file `thumbnailUrl` was taken from. Kept so the object is
+   * known to be in use; readers keep using `thumbnailUrl`, which is the
+   * file's public URL and never expires.
+   */
+  @Column({
+    name: 'thumbnail_file_id',
+    nullable: true,
+    type: 'uuid',
+  })
+  thumbnailFileId?: string | null;
+
+  @ManyToOne(() => MediaFileEntity, {
+    eager: false,
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'thumbnail_file_id' })
+  thumbnailFile?: MediaFileEntity | null;
 
   @Column({
     name: 'full_description',
