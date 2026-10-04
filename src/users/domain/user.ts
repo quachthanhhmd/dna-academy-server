@@ -73,11 +73,17 @@ export class User {
   @Expose({ groups: ['me', 'admin'] })
   provider: string;
 
+  /*
+    Admin only, not 'me'. This is the provider's subject identifier for a
+    Google or Facebook account: a stable identifier usable across services,
+    and the client has never read it — it only declares it on its User type.
+    An admin keeps it for troubleshooting a linked account.
+  */
   @ApiProperty({
     type: String,
     example: '1234567890',
   })
-  @Expose({ groups: ['me', 'admin'] })
+  @Expose({ groups: ['admin'] })
   socialId?: string | null;
 
   @ApiProperty({

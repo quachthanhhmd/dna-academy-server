@@ -1,7 +1,9 @@
 import { MediaFileEntity } from '../../../../../media-files/infrastructure/persistence/relational/entities/media-file.entity';
 
 import { FileMapper } from '../../../../../files/infrastructure/persistence/relational/mappers/file.mapper';
+import { Role } from '../../../../../roles/domain/role';
 import { RoleEntity } from '../../../../../roles/infrastructure/persistence/relational/entities/role.entity';
+import { Status } from '../../../../../statuses/domain/status';
 import { StatusEntity } from '../../../../../statuses/infrastructure/persistence/relational/entities/status.entity';
 import { User } from '../../../../domain/user';
 import { UserEntity } from '../entities/user.entity';
@@ -33,8 +35,34 @@ export class UserMapper {
     if (raw.photo) {
       domainEntity.photo = FileMapper.toDomain(raw.photo);
     }
-    domainEntity.role = raw.role;
-    domainEntity.status = raw.status;
+    /*
+      Mapped field by field, like `photo` above, rather than assigned straight
+      across. A TypeORM entity assigned to a domain object reaches the client
+      intact: that is where the `__entity: "RoleEntity"` in every user response
+      came from, since EntityRelationalHelper stamps it in @AfterLoad.
+
+      The leak today is only the framework's name, but the shape is the real
+      problem — any column added to RoleEntity or StatusEntity later would ship
+      to every client with nobody reviewing it. Only id and name cross: the
+      client reads `role.id` to gate pages and `role.name` as a label fallback,
+      and nothing anywhere reads `description` or `isActive` off an embedded
+      role.
+    */
+    if (raw.role) {
+      const role = new Role();
+      role.id = raw.role.id;
+      role.name = raw.role.name;
+      domainEntity.role = role;
+    } else {
+      domainEntity.role = raw.role;
+    }
+
+    if (raw.status) {
+      const status = new Status();
+      status.id = raw.status.id;
+      status.name = raw.status.name;
+      domainEntity.status = status;
+    }
     domainEntity.createdAt = raw.createdAt;
     domainEntity.updatedAt = raw.updatedAt;
     domainEntity.deletedAt = raw.deletedAt;
