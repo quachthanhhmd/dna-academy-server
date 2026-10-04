@@ -651,6 +651,35 @@ export class AuthService {
       }
     }
 
+    /*
+      The email address is the login identity and is not user-changeable. A
+      PATCH that carries a different address is refused outright rather than
+      ignored: `delete userDto.email` below has always dropped it, so without
+      this guard the caller got a 200 and a profile that had not changed.
+
+      The address is compared, not merely present, so a client that PATCHes the
+      whole profile back including its own unchanged email still succeeds.
+    */
+    if (userDto.email && userDto.email !== currentUser.email) {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: {
+          email: 'emailNotChangeable',
+        },
+      });
+    }
+
+    /*
+      The change-email flow, kept for a future re-enable rather than deleted:
+      it checked the new address was free, signed a confirmEmail token bound to
+      both addresses and mailed the confirmation link, which
+      `confirmNewEmail()` above (still present, still tested) consumes. To
+      restore it, uncomment this and drop the guard above, re-enable
+      `POST auth/email/confirm/new` in AuthController, the `FormChangeEmail`
+      chain in the client's profile/edit page-content.tsx, and the e2e cases
+      marked DISABLED in test/user/auth.e2e-spec.ts and auth-security.e2e-spec.ts.
+    */
+    /*
     if (userDto.email && userDto.email !== currentUser.email) {
       const userByEmail = await this.usersService.findByEmail(userDto.email);
 
@@ -687,6 +716,7 @@ export class AuthService {
         },
       });
     }
+    */
 
     delete userDto.email;
     delete userDto.oldPassword;

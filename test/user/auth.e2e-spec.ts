@@ -306,7 +306,13 @@ describe('Auth Module', () => {
         .expect(200);
     });
 
-    it('should update profile email successfully: /api/v1/auth/me (PATCH)', async () => {
+    /*
+      DISABLED with the change-email flow — see AuthService.update(). Kept as
+      the end-to-end description of what re-enabling it has to restore: the
+      PATCH, the mailed confirm link, the address not moving until the link is
+      used, and the old address no longer logging in afterwards.
+    */
+    it.skip('should update profile email successfully: /api/v1/auth/me (PATCH)', async () => {
       const newUserFirstName = `Tester${Date.now()}`;
       const newUserLastName = `E2E`;
       const newUserEmail = `user.${Date.now()}@example.com`;
