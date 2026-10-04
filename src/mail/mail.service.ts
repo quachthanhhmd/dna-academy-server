@@ -15,6 +15,24 @@ export class MailService {
     private readonly configService: ConfigService<AllConfigType>,
   ) {}
 
+  /**
+   * Absolute URL of the brand mark, served by the Next client from its
+   * `public/brand/` folder.
+   *
+   * It has to be a PNG at an absolute URL: Gmail strips <svg> outright and
+   * Outlook renders it as nothing, and every mail client fetches images over
+   * the network with no page to resolve a relative path against.
+   *
+   * Each template pairs it with alt="{{app_name}}", so the many clients that
+   * block remote images by default still show the brand name as text.
+   */
+  private logoUrl(): string {
+    const frontendDomain = this.configService.getOrThrow('app.frontendDomain', {
+      infer: true,
+    });
+    return new URL('/brand/careerdna-icon.png', frontendDomain).toString();
+  }
+
   async userSignUp(
     mailData: MailData<{ hash: string; firstName?: string }>,
   ): Promise<void> {
@@ -52,6 +70,7 @@ export class MailService {
         title: emailConfirmTitle,
         url: url.toString(),
         actionTitle: emailConfirmTitle,
+        logo_url: this.logoUrl(),
         app_name: this.configService.get('app.name', { infer: true }),
         email: mailData.to,
         firstName: mailData.data.firstName ?? '',
@@ -113,6 +132,7 @@ export class MailService {
         title: resetPasswordTitle,
         url: url.toString(),
         actionTitle: resetPasswordTitle,
+        logo_url: this.logoUrl(),
         app_name: this.configService.get('app.name', {
           infer: true,
         }),
@@ -174,6 +194,7 @@ export class MailService {
         title,
         url: url.toString(),
         actionTitle: title,
+        logo_url: this.logoUrl(),
         app_name: this.configService.get('app.name', {
           infer: true,
         }),
@@ -225,6 +246,7 @@ export class MailService {
         title: emailConfirmTitle,
         url: url.toString(),
         actionTitle: emailConfirmTitle,
+        logo_url: this.logoUrl(),
         app_name: this.configService.get('app.name', { infer: true }),
         text1,
         text2,

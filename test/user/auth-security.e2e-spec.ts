@@ -208,7 +208,15 @@ describe('Auth security', () => {
     });
   });
 
-  describe('Email change confirmation', () => {
+  /*
+    DISABLED with the change-email flow: the login email is not user-changeable,
+    so PATCH auth/me now answers 422 `emailNotChangeable` and
+    POST auth/email/confirm/new is commented out in AuthController. These two
+    cases are kept, not deleted — they cover the superseded-link and
+    single-use-link rules, which are exactly what has to still hold if the flow
+    is ever re-enabled. Un-skip this describe together with that code.
+  */
+  describe.skip('Email change confirmation', () => {
     // A confirm link emailed to an address the user abandoned — a typo, an old
     // work inbox — must not be able to move the account back there later, where
     // "forgot password" would hand the account to whoever reads that inbox.

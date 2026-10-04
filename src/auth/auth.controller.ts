@@ -96,6 +96,15 @@ export class AuthController {
     return this.service.confirmEmail(confirmEmailDto.hash);
   }
 
+  /*
+    The second half of the change-email flow, disabled with the first half:
+    the login email is not user-changeable, so AuthService.update() no longer
+    issues the token this route consumed and nothing can reach it with a valid
+    hash. Commented rather than deleted — `AuthService.confirmNewEmail()` is
+    still present and still unit-tested, so re-enabling the flow is this block
+    plus the branch marked DISABLED in that service's update().
+  */
+  /*
   @Post('email/confirm/new')
   @HttpCode(HttpStatus.NO_CONTENT)
   async confirmNewEmail(
@@ -103,6 +112,7 @@ export class AuthController {
   ): Promise<void> {
     return this.service.confirmNewEmail(confirmEmailDto.hash);
   }
+  */
 
   @ApiOperation({
     summary: 'Resend the sign-up verification email',
