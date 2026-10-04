@@ -118,11 +118,19 @@ services:
     restart: unless-stopped
     environment:
       TZ: Asia/Ho_Chi_Minh
-      # Server-side only, read at runtime. The Next server renders the home
-      # page every 300s (`export const revalidate = 300`) and would otherwise
-      # call the API at its PUBLIC https address: out to the internet, back
-      # to this host's own IP, through nginx and a TLS handshake, to reach a
-      # container on this very network. This is the short way round.
+      # Server-side only, read at runtime. The Next server re-renders the home
+      # page at most once a minute per locale (`export const revalidate = 60`,
+      # lowered from 300 so a newly published course reaches the free-courses
+      # rail in a minute rather than five) and would otherwise call the API at
+      # its PUBLIC https address: out to the internet, back to this host's own
+      # IP, through nginx and a TLS handshake, to reach a container on this
+      # very network. This is the short way round.
+      #
+      # "At most", not "every": ISR revalidation is triggered by a request
+      # after the window expires, not by a timer, so an idle hour costs
+      # nothing. Measured, each of those renders is ~67ms of CPU here plus
+      # ~16ms in the API and ~6ms in Postgres — against the 1.5 cores below,
+      # ~0.3% of one core at the worst case of steady traffic on both locales.
       #
       # No NEXT_PUBLIC_ prefix on purpose — in a browser this hostname does
       # not resolve, and baking it into the bundle would only mislead.
