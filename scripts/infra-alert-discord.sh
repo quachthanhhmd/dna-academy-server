@@ -24,7 +24,7 @@
 # whole credential; no bot, no OAuth.
 #
 # Why thresholds + cooldown and not "alert every run": a timer firing every
-# 3 minutes against a disk that sits at 88% would post 480 identical messages
+# 5 minutes against a disk that sits at 88% would post 288 identical messages
 # a day. This fires once when a metric goes over, stays quiet while it stays
 # over (re-reminding only every REPEAT_MINUTES), and fires once more when it
 # drops back under. State lives in STATE_DIR, one small file per metric.
@@ -74,7 +74,7 @@ DISK_MOUNT="${DISK_MOUNT:-/}"
 # While a metric stays over its threshold, re-remind at most this often.
 REPEAT_MINUTES="${REPEAT_MINUTES:-180}"
 # How many consecutive over-threshold checks before the first alert. At the
-# 3-minute timer interval, 2 means a spike must last ~3-6 minutes to page.
+# 5-minute timer interval, 2 means a spike must last ~5-10 minutes to page.
 CONSECUTIVE_BREACHES="${CONSECUTIVE_BREACHES:-2}"
 # Default window for `mute` with no minutes argument.
 MUTE_DEFAULT_MINUTES="${MUTE_DEFAULT_MINUTES:-15}"
