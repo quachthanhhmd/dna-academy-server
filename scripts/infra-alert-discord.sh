@@ -12,12 +12,14 @@
 #
 # The webhook URL is a secret: anyone holding it can post to your channel.
 # It is NEVER placed on the command line (where `ps` would show it) and NEVER
-# committed. Put it in the env file this reads, next to the API's other
-# secrets, chmod 600:
+# committed. It lives in the SAME env file the rest of the ops tooling uses
+# (/etc/dna-academy/api.env — autoheal, backup and the prod compose all read
+# it); one env file for the box, not one per script. Append the webhook to it,
+# chmod 600:
 #
 #   echo 'DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/XXX/YYY' \
-#     >> /etc/dna-academy/infra-alert.env
-#   chmod 600 /etc/dna-academy/infra-alert.env
+#     >> /etc/dna-academy/api.env
+#   chmod 600 /etc/dna-academy/api.env
 #
 # Create the webhook in Discord: Server Settings -> Integrations -> Webhooks
 # -> New Webhook -> pick the channel -> Copy Webhook URL. That URL is the
@@ -56,7 +58,7 @@ set -uo pipefail
 # ---- settings ---------------------------------------------------------------
 # Read the webhook (and any THRESHOLD overrides) from an env file if present,
 # so the secret never has to be exported by hand or baked into the unit.
-ENV_FILE="${ENV_FILE:-/etc/dna-academy/infra-alert.env}"
+ENV_FILE="${ENV_FILE:-/etc/dna-academy/api.env}"
 # shellcheck disable=SC1090
 [ -f "$ENV_FILE" ] && . "$ENV_FILE"
 
@@ -81,12 +83,12 @@ MUTE_DEFAULT_MINUTES="${MUTE_DEFAULT_MINUTES:-15}"
 STATE_DIR="${STATE_DIR:-/var/lib/dna-academy-infra-alert}"
 HOSTNAME_LABEL="${HOSTNAME_LABEL:-$(hostname -s 2>/dev/null || echo host)}"
 
-# Used only for deploy/boot auto-detect (reading container health). The env
-# file here is the COMPOSE one (${DATABASE_*} interpolation), not this
-# script's secret file above.
+# Used only for deploy/boot auto-detect (reading container health). The
+# compose env file (for ${DATABASE_*} interpolation) is the same api.env this
+# script already sources — one env file for the box.
 COMPOSE_FILE="${COMPOSE_FILE:-/opt/dna-academy/docker-compose.prod.yaml}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-dna-academy}"
-COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-/etc/dna-academy/api.env}"
+COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-$ENV_FILE}"
 
 MUTE_FILE="$STATE_DIR/mute"
 

@@ -6,10 +6,11 @@ Requires=docker.service
 [Service]
 Type=oneshot
 ExecStart=/opt/dna-academy/scripts/infra-alert-discord.sh
-# The webhook URL and any threshold overrides live here, chmod 600. The
-# script also sources this file itself; naming it here means a value set in
-# the unit's environment wins, and the service fails loudly if the file is
-# missing rather than running with no webhook.
-EnvironmentFile=/etc/dna-academy/infra-alert.env
+# The webhook URL and any threshold overrides live in the box's single env
+# file, the same one autoheal, backup and the prod compose read — no per-script
+# env file. The script also sources it itself; naming it here too means the
+# service fails loudly if the file is missing rather than running with no
+# webhook.
+EnvironmentFile=/etc/dna-academy/api.env
 StandardOutput=journal
 StandardError=journal
