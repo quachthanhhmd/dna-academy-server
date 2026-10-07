@@ -7,6 +7,8 @@
 #
 #   scripts/infra-alert-discord.sh            # check everything, alert if needed
 #   scripts/infra-alert-discord.sh test       # send one test message and exit
+#   scripts/infra-alert-discord.sh mute 20    # suppress alerts for 20 minutes
+#   scripts/infra-alert-discord.sh unmute     # lift a mute early
 #
 # The webhook URL is a secret: anyone holding it can post to your channel.
 # It is NEVER placed on the command line (where `ps` would show it) and NEVER
@@ -26,6 +28,28 @@
 # a day. This fires once when a metric goes over, stays quiet while it stays
 # over (re-reminding only every REPEAT_MINUTES), and fires once more when it
 # drops back under. State lives in STATE_DIR, one small file per metric.
+#
+# ---- Not crying wolf during a deploy ----------------------------------------
+# A deploy spikes CPU and RAM for minutes: image pull, then the entrypoint
+# runs 30 migrations and the seed before the API even listens (start_period
+# is 300s in docker-compose.prod.yaml). Three layers keep that from paging:
+#
+#   1. Deploy/boot auto-detect. While ANY compose container reports Docker
+#      health `starting` or state `restarting`, the whole check is skipped.
+#      No human action needed: the api's 300s start_period means its health
+#      reads `starting` for the entire migrate+seed window, so a normal
+#      `compose up -d` is silent on its own.
+#   2. Sustained-breach gate. A metric must read over its threshold on
+#      CONSECUTIVE_BREACHES checks in a row before the FIRST alert fires, so a
+#      single transient spike (a cron job, a GC pause, a `compose pull` that
+#      does not touch container health) clears itself and never pages.
+#   3. Manual mute, for maintenance the first two cannot see — a host-level
+#      `docker compose pull` before the up, a package upgrade, a restore.
+#      `mute [minutes]` writes a deadline; checks are skipped until it passes.
+#
+# A long deploy that runs past the start_period window is still covered: the
+# sustained-breach gate needs the spike to persist across several checks, and
+# `mute` is there for the rare case you want certainty.
 
 set -uo pipefail
 
@@ -49,15 +73,49 @@ CPU_LOAD_THRESHOLD="${CPU_LOAD_THRESHOLD:-2.0}"
 DISK_MOUNT="${DISK_MOUNT:-/}"
 # While a metric stays over its threshold, re-remind at most this often.
 REPEAT_MINUTES="${REPEAT_MINUTES:-180}"
+# How many consecutive over-threshold checks before the first alert. At the
+# 3-minute timer interval, 2 means a spike must last ~3-6 minutes to page.
+CONSECUTIVE_BREACHES="${CONSECUTIVE_BREACHES:-2}"
+# Default window for `mute` with no minutes argument.
+MUTE_DEFAULT_MINUTES="${MUTE_DEFAULT_MINUTES:-15}"
 STATE_DIR="${STATE_DIR:-/var/lib/dna-academy-infra-alert}"
 HOSTNAME_LABEL="${HOSTNAME_LABEL:-$(hostname -s 2>/dev/null || echo host)}"
+
+# Used only for deploy/boot auto-detect (reading container health). The env
+# file here is the COMPOSE one (${DATABASE_*} interpolation), not this
+# script's secret file above.
+COMPOSE_FILE="${COMPOSE_FILE:-/opt/dna-academy/docker-compose.prod.yaml}"
+COMPOSE_PROJECT="${COMPOSE_PROJECT:-dna-academy}"
+COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-/etc/dna-academy/api.env}"
+
+MUTE_FILE="$STATE_DIR/mute"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] $*"; }
 die() { log "ERROR: $*"; exit 1; }
 
+mkdir -p "$STATE_DIR"
+
+# ---- mute / unmute subcommands ----------------------------------------------
+# These do not need the webhook, so handle them before the webhook check.
+case "${1:-}" in
+  mute)
+    mins="${2:-$MUTE_DEFAULT_MINUTES}"
+    until_epoch=$(( $(date +%s) + mins * 60 ))
+    echo "$until_epoch" > "$MUTE_FILE"
+    # A fresh mute should also clear half-counted breaches, so the window
+    # after it starts from a clean slate.
+    find "$STATE_DIR" -name '*.pending' -delete 2>/dev/null || true
+    log "Muted for ${mins}m (until $(date -d "@$until_epoch" '+%Y-%m-%d %H:%M:%S %Z' 2>/dev/null || echo "$until_epoch"))."
+    exit 0 ;;
+  unmute)
+    rm -f "$MUTE_FILE"
+    log "Mute lifted."
+    exit 0 ;;
+esac
+
+DISCORD_WEBHOOK_URL="${DISCORD_WEBHOOK_URL:-}"
 [ -n "$DISCORD_WEBHOOK_URL" ] || die "DISCORD_WEBHOOK_URL is not set (see $ENV_FILE)."
 command -v curl >/dev/null || die "curl is not installed."
-mkdir -p "$STATE_DIR"
 
 now=$(date +%s)
 repeat=$((REPEAT_MINUTES * 60))
@@ -89,10 +147,52 @@ notify() {
 RED=15158332     # 0xE74C3C
 GREEN=3066993    # 0x2ECC71
 
+# ---- test mode --------------------------------------------------------------
+if [ "${1:-}" = "test" ]; then
+  notify "$GREEN" "infra-watch test on ${HOSTNAME_LABEL}" \
+    "If you can read this, the webhook works. $(date '+%Y-%m-%d %H:%M:%S %Z')"
+  exit 0
+fi
+
+# ---- suppression: mute window -----------------------------------------------
+if [ -f "$MUTE_FILE" ]; then
+  mute_until=$(cat "$MUTE_FILE" 2>/dev/null || echo 0)
+  if [ "$now" -lt "$mute_until" ]; then
+    log "Muted until $mute_until — skipping checks."
+    exit 0
+  fi
+  rm -f "$MUTE_FILE"   # stale; window has passed
+fi
+
+# ---- suppression: deploy / boot in progress ---------------------------------
+# True while any compose container is still coming up (health `starting`) or
+# bouncing (`restarting`). docker-compose.prod.yaml gives the api a 300s
+# start_period, so a normal migrate+seed deploy sits here and stays quiet.
+deploy_in_progress() {
+  command -v docker >/dev/null 2>&1 || return 1
+  local env_args=() id st health
+  [ -f "$COMPOSE_ENV_FILE" ] && env_args=(--env-file "$COMPOSE_ENV_FILE")
+  for id in $(docker compose "${env_args[@]}" -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" ps -q 2>/dev/null); do
+    [ -n "$id" ] || continue
+    st=$(docker inspect -f '{{.State.Status}}' "$id" 2>/dev/null || echo "")
+    health=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id" 2>/dev/null || echo none)
+    [ "$st" = "restarting" ] && return 0
+    [ "$health" = "starting" ] && return 0
+  done
+  return 1
+}
+
+if deploy_in_progress; then
+  log "A container is starting/restarting (deploy or boot) — skipping checks to avoid false alarms."
+  exit 0
+fi
+
 # ---- threshold bookkeeping --------------------------------------------------
-# A metric's state file exists while it is in breach; its mtime (epoch, also
-# written as content) is when we last alerted. check_metric decides whether to
-# fire a new alert, stay quiet, re-remind, or fire a recovery.
+# Per metric, two files in STATE_DIR:
+#   <key>          exists while the metric is in the ALERTED state; content is
+#                  the epoch of the last alert sent (for REPEAT_MINUTES).
+#   <key>.pending  counts consecutive over-threshold checks BEFORE the first
+#                  alert, so a transient spike never pages (layer 2 above).
 #
 #   $1 metric key (filename-safe)   $2 human label
 #   $3 current value                $4 threshold
@@ -100,7 +200,7 @@ GREEN=3066993    # 0x2ECC71
 #   $6 "ge" integer compare, or "gef" float compare (for load average)
 check_metric() {
   local key="$1" label="$2" value="$3" threshold="$4" unit="$5" cmp="$6"
-  local state="$STATE_DIR/$key"
+  local state="$STATE_DIR/$key" pend="$STATE_DIR/$key.pending"
   local over=0
 
   if [ "$cmp" = "gef" ]; then
@@ -111,20 +211,30 @@ check_metric() {
 
   if [ "$over" = "1" ]; then
     if [ -f "$state" ]; then
+      # Already alerting: re-remind only every REPEAT_MINUTES.
       local last; last=$(cat "$state" 2>/dev/null || echo 0)
       if [ $((now - last)) -ge "$repeat" ]; then
         notify "$RED" "⚠️ ${label} still high on ${HOSTNAME_LABEL}" \
           "**${value}${unit}** (threshold ${threshold}${unit}) — still over after a while."
         echo "$now" > "$state"
       else
-        log "$label over threshold ($value$unit) but within cooldown — quiet."
+        log "$label over ($value$unit) but within cooldown — quiet."
       fi
     else
-      notify "$RED" "🔴 ${label} high on ${HOSTNAME_LABEL}" \
-        "**${value}${unit}** has crossed the ${threshold}${unit} threshold."
-      echo "$now" > "$state"
+      # Not yet alerting: require CONSECUTIVE_BREACHES in a row first.
+      local count; count=$(( $(cat "$pend" 2>/dev/null || echo 0) + 1 ))
+      if [ "$count" -ge "$CONSECUTIVE_BREACHES" ]; then
+        notify "$RED" "🔴 ${label} high on ${HOSTNAME_LABEL}" \
+          "**${value}${unit}** has crossed the ${threshold}${unit} threshold."
+        echo "$now" > "$state"
+        rm -f "$pend"
+      else
+        echo "$count" > "$pend"
+        log "$label over ($value$unit) — breach $count/$CONSECUTIVE_BREACHES, holding."
+      fi
     fi
   else
+    rm -f "$pend"   # streak broken; reset the sustained-breach counter
     if [ -f "$state" ]; then
       notify "$GREEN" "✅ ${label} back to normal on ${HOSTNAME_LABEL}" \
         "**${value}${unit}** is under the ${threshold}${unit} threshold again."
@@ -132,13 +242,6 @@ check_metric() {
     fi
   fi
 }
-
-# ---- test mode --------------------------------------------------------------
-if [ "${1:-}" = "test" ]; then
-  notify "$GREEN" "infra-watch test on ${HOSTNAME_LABEL}" \
-    "If you can read this, the webhook works. $(date '+%Y-%m-%d %H:%M:%S %Z')"
-  exit 0
-fi
 
 # ---- collect & check --------------------------------------------------------
 # Disk: percent used of DISK_MOUNT, integer.
