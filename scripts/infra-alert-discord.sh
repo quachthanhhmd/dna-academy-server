@@ -12,14 +12,14 @@
 #
 # The webhook URL is a secret: anyone holding it can post to your channel.
 # It is NEVER placed on the command line (where `ps` would show it) and NEVER
-# committed. It lives in the SAME env file the rest of the ops tooling uses
-# (/etc/dna-academy/api.env — autoheal, backup and the prod compose all read
-# it); one env file for the box, not one per script. Append the webhook to it,
-# chmod 600:
+# committed. It lives in its own file beside the app env — same directory, so
+# nothing is scattered across the box, but a separate file so the webhook is
+# not injected into the API container the way the app's .env is. Start from the
+# committed template:
 #
-#   echo 'DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/XXX/YYY' \
-#     >> /etc/dna-academy/api.env
-#   chmod 600 /etc/dna-academy/api.env
+#   cp env-example-infra-alert /srv/dna-academy/infra-alert.env
+#   chmod 600 /srv/dna-academy/infra-alert.env
+#   # then edit it and paste your real DISCORD_WEBHOOK_URL
 #
 # Create the webhook in Discord: Server Settings -> Integrations -> Webhooks
 # -> New Webhook -> pick the channel -> Copy Webhook URL. That URL is the
@@ -58,7 +58,7 @@ set -uo pipefail
 # ---- settings ---------------------------------------------------------------
 # Read the webhook (and any THRESHOLD overrides) from an env file if present,
 # so the secret never has to be exported by hand or baked into the unit.
-ENV_FILE="${ENV_FILE:-/etc/dna-academy/api.env}"
+ENV_FILE="${ENV_FILE:-/srv/dna-academy/infra-alert.env}"
 # shellcheck disable=SC1090
 [ -f "$ENV_FILE" ] && . "$ENV_FILE"
 
@@ -84,11 +84,11 @@ STATE_DIR="${STATE_DIR:-/var/lib/dna-academy-infra-alert}"
 HOSTNAME_LABEL="${HOSTNAME_LABEL:-$(hostname -s 2>/dev/null || echo host)}"
 
 # Used only for deploy/boot auto-detect (reading container health). The
-# compose env file (for ${DATABASE_*} interpolation) is the same api.env this
-# script already sources — one env file for the box.
-COMPOSE_FILE="${COMPOSE_FILE:-/opt/dna-academy/docker-compose.prod.yaml}"
+# compose env file here is the APP's own .env (for ${DATABASE_*} interpolation
+# when listing containers), not the infra-alert file sourced above.
+COMPOSE_FILE="${COMPOSE_FILE:-/srv/dna-academy/docker-compose.prod.yaml}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-dna-academy}"
-COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-$ENV_FILE}"
+COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-/srv/dna-academy/.env}"
 
 MUTE_FILE="$STATE_DIR/mute"
 
