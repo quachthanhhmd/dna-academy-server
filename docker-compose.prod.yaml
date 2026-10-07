@@ -8,11 +8,11 @@
 # from it, and compose reads interpolation variables from --env-file (or a
 # `.env` beside this file), never from a service's `env_file:` key.
 #
-#   cd /srv/dna-academy
+#   cd /root/srv/dna-academy
 #   docker compose -f docker-compose.prod.yaml pull
 #   docker compose -f docker-compose.prod.yaml up -d
 #
-# The env file is /srv/dna-academy/.env, right beside this compose file, so
+# The env file is /root/srv/dna-academy/.env, right beside this compose file, so
 # compose auto-loads it for ${DATABASE_*} interpolation when you run from this
 # directory and --env-file can be dropped. Pass --env-file only if you keep the
 # env elsewhere or run from another directory.
@@ -72,7 +72,7 @@ services:
     # the dev script; name the production one explicitly so a stale image
     # cannot quietly seed development fixtures.
     command: ["/opt/startup.relational.prod.sh"]
-    env_file: /srv/dna-academy/.env
+    env_file: /root/srv/dna-academy/.env
     environment:
       TZ: Asia/Ho_Chi_Minh
       # Headroom for Chromium: the PDF export spikes several hundred MB on

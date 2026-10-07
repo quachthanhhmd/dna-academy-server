@@ -4,11 +4,11 @@
 # fill in the real webhook — the real file holds a secret and is never
 # committed:
 #
-#   cp env-example-infra-alert /srv/dna-academy/infra-alert.env
-#   chmod 600 /srv/dna-academy/infra-alert.env
+#   cp env-example-infra-alert /root/srv/dna-academy/infra-alert.env
+#   chmod 600 /root/srv/dna-academy/infra-alert.env
 #   # then edit it and paste your real DISCORD_WEBHOOK_URL
 #
-# Kept separate from the app's own /srv/dna-academy/.env on purpose: that file
+# Kept separate from the app's own /root/srv/dna-academy/.env on purpose: that file
 # is the API container's env_file, and the webhook has no business inside the
 # API container. Same directory, different file — not scattered across the box.
 
@@ -32,7 +32,7 @@ DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/XXXXXXXX/YYYYYYYY
 
 # --- deploy auto-detect (optional) ------------------------------------------
 # Where the script finds the compose stack, to stay quiet while a container is
-# still starting. Defaults assume the app lives in /srv/dna-academy.
-#COMPOSE_FILE=/srv/dna-academy/docker-compose.prod.yaml
+# still starting. Defaults assume the app lives in /root/srv/dna-academy.
+#COMPOSE_FILE=/root/srv/dna-academy/docker-compose.prod.yaml
 #COMPOSE_PROJECT=dna-academy
-#COMPOSE_ENV_FILE=/srv/dna-academy/.env
+#COMPOSE_ENV_FILE=/root/srv/dna-academy/.env

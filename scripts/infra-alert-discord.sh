@@ -17,8 +17,8 @@
 # not injected into the API container the way the app's .env is. Start from the
 # committed template:
 #
-#   cp env-example-infra-alert /srv/dna-academy/infra-alert.env
-#   chmod 600 /srv/dna-academy/infra-alert.env
+#   cp env-example-infra-alert /root/srv/dna-academy/infra-alert.env
+#   chmod 600 /root/srv/dna-academy/infra-alert.env
 #   # then edit it and paste your real DISCORD_WEBHOOK_URL
 #
 # Create the webhook in Discord: Server Settings -> Integrations -> Webhooks
@@ -58,7 +58,7 @@ set -uo pipefail
 # ---- settings ---------------------------------------------------------------
 # Read the webhook (and any THRESHOLD overrides) from an env file if present,
 # so the secret never has to be exported by hand or baked into the unit.
-ENV_FILE="${ENV_FILE:-/srv/dna-academy/infra-alert.env}"
+ENV_FILE="${ENV_FILE:-/root/srv/dna-academy/infra-alert.env}"
 # shellcheck disable=SC1090
 [ -f "$ENV_FILE" ] && . "$ENV_FILE"
 
@@ -86,9 +86,9 @@ HOSTNAME_LABEL="${HOSTNAME_LABEL:-$(hostname -s 2>/dev/null || echo host)}"
 # Used only for deploy/boot auto-detect (reading container health). The
 # compose env file here is the APP's own .env (for ${DATABASE_*} interpolation
 # when listing containers), not the infra-alert file sourced above.
-COMPOSE_FILE="${COMPOSE_FILE:-/srv/dna-academy/docker-compose.prod.yaml}"
+COMPOSE_FILE="${COMPOSE_FILE:-/root/srv/dna-academy/docker-compose.prod.yaml}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-dna-academy}"
-COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-/srv/dna-academy/.env}"
+COMPOSE_ENV_FILE="${COMPOSE_ENV_FILE:-/root/srv/dna-academy/.env}"
 
 MUTE_FILE="$STATE_DIR/mute"
 
