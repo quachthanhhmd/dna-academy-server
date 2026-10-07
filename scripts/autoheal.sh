@@ -17,9 +17,9 @@
 
 set -uo pipefail
 
-COMPOSE_FILE="${COMPOSE_FILE:-/opt/dna-academy/docker-compose.prod.yaml}"
+COMPOSE_FILE="${COMPOSE_FILE:-/srv/dna-academy/docker-compose.prod.yaml}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-dna-academy}"
-ENV_FILE="${ENV_FILE:-/etc/dna-academy/api.env}"
+ENV_FILE="${ENV_FILE:-/srv/dna-academy/.env}"
 # Restarting the same container in a tight loop hides the real fault and can
 # be worse than leaving it down. After this many restarts within the window,
 # stop trying and let the alerting notice.

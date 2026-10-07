@@ -1,12 +1,12 @@
 [Unit]
 Description=Restart DNA Academy containers that Docker marked unhealthy
-Documentation=file:///opt/dna-academy/scripts/autoheal.sh
+Documentation=file:///srv/dna-academy/scripts/autoheal.sh
 After=docker.service
 Requires=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/dna-academy/scripts/autoheal.sh
+ExecStart=/srv/dna-academy/scripts/autoheal.sh
 # Journald collects stdout; no log file to rotate.
 StandardOutput=journal
 StandardError=journal
