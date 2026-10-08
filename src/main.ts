@@ -15,6 +15,7 @@ import { AppModule } from './app.module';
 import validationOptions from './utils/validation-options';
 import { AllConfigType } from './config/config.type';
 import { ResolvePromisesInterceptor } from './utils/serializer.interceptor';
+import { ProductionLogger } from './utils/production-logger';
 
 async function bootstrap() {
   // An allowlist, not `cors: true`. `true` reflects whatever Origin the
@@ -33,6 +34,11 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    // Startup narration off, no ANSI colours. Development keeps Nest's default.
+    logger:
+      process.env.NODE_ENV === 'production'
+        ? new ProductionLogger()
+        : undefined,
     // Outside production there is no deployed front end to name, and the e2e
     // suite calls the API from several origins.
     cors:
