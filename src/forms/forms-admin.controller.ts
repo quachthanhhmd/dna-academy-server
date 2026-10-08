@@ -32,9 +32,11 @@ import {
   UpdateSubmissionDto,
 } from './dto/form-admin.dto';
 import {
+  AnalyticsQuestionsDto,
   AnalyticsSummaryDto,
   AnalyticsTimeseriesDto,
   FindAnalyticsDto,
+  FindFormAnalyticsDto,
 } from './dto/form-analytics.dto';
 import { FormsAnalyticsService } from './forms-analytics.service';
 import { FormsService } from './forms.service';
@@ -114,6 +116,17 @@ export class FormsAdminController {
   @Get('analytics/timeseries')
   getAnalyticsTimeseries(@Query() query: FindAnalyticsDto) {
     return this.formsAnalyticsService.getTimeseries(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({
+    summary: 'Per-question distributions for one form (with drill)',
+  })
+  @ApiOkResponse({ type: AnalyticsQuestionsDto })
+  @ApiNotFoundResponse()
+  @Get('analytics/questions')
+  getAnalyticsQuestions(@Query() query: FindFormAnalyticsDto) {
+    return this.formsAnalyticsService.getQuestions(query);
   }
 
   @RequirePermission('forms', 'view')

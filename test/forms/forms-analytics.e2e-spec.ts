@@ -175,4 +175,107 @@ describe('Forms analytics API (PLAN-forms-insights)', () => {
       expect(body.points).toHaveLength(8);
     });
   });
+
+  describe('questions', () => {
+    const questions = (query: string) =>
+      request(app)
+        .get(`/api/v1/admin/forms/analytics/questions${query}`)
+        .auth(adminToken, { type: 'bearer' });
+
+    const countFor = (
+      body: {
+        questions: {
+          code: string;
+          options: { code: string; count: number }[];
+        }[];
+      },
+      questionCode: string,
+      optionCode: string,
+    ) =>
+      body.questions
+        .find((question) => question.code === questionCode)
+        ?.options.find((option) => option.code === optionCode)?.count ?? 0;
+
+    const answeredFor = (
+      body: { questions: { code: string; answered: number }[] },
+      questionCode: string,
+    ) =>
+      body.questions.find((question) => question.code === questionCode)
+        ?.answered ?? 0;
+
+    it('should 404 an unknown form code', async () => {
+      await questions('?formCode=not_a_form').expect(404);
+    });
+
+    it('should count options and answered per question', async () => {
+      const baseline = await questions('?formCode=free_course_waitlist').expect(
+        200,
+      );
+      const baseAnswered = answeredFor(baseline.body, 'profession');
+      const baseBa = countFor(baseline.body, 'profession', 'business_analysis');
+      const baseDa = countFor(baseline.body, 'profession', 'data_analytics');
+
+      const payload = (email: string, optionCodes: string[]) => ({
+        answers: [
+          { questionCode: 'full_name', text: 'Nguyễn Văn Test' },
+          { questionCode: 'email', text: email },
+          { questionCode: 'profession', optionCodes },
+        ],
+        consents: ['contact'],
+        context: { source: 'landing', locale: 'vi' },
+        _hp: '',
+        startedAt: Date.now() - 60_000,
+      });
+
+      await submit(
+        'free_course_waitlist',
+        payload(uniqueEmail(`forms.analytics.q1.${runId}`), [
+          'business_analysis',
+          'data_analytics',
+        ]),
+      ).expect(201);
+      await submit(
+        'free_course_waitlist',
+        payload(uniqueEmail(`forms.analytics.q2.${runId}`), [
+          'business_analysis',
+        ]),
+      ).expect(201);
+
+      const after = await questions('?formCode=free_course_waitlist').expect(
+        200,
+      );
+      expect(answeredFor(after.body, 'profession')).toBeGreaterThanOrEqual(
+        baseAnswered + 2,
+      );
+      expect(
+        countFor(after.body, 'profession', 'business_analysis'),
+      ).toBeGreaterThanOrEqual(baseBa + 2);
+      expect(
+        countFor(after.body, 'profession', 'data_analytics'),
+      ).toBeGreaterThanOrEqual(baseDa + 1);
+    });
+
+    it('should keep the drill question at its full distribution', async () => {
+      const drilled = await questions(
+        '?formCode=free_course_waitlist&fq=profession&fo=data_analytics',
+      ).expect(200);
+
+      // The drill question's own card is not narrowed: business_analysis
+      // (from a submission that also chose data_analytics) still counts.
+      expect(
+        countFor(drilled.body, 'profession', 'business_analysis'),
+      ).toBeGreaterThanOrEqual(1);
+
+      // A different question is narrowed: its answered set cannot exceed the
+      // drilled respondents.
+      const referral = answeredFor(drilled.body, 'referral_source');
+      expect(referral).toBeLessThanOrEqual(drilled.body.respondents);
+    });
+
+    it('should 422 a drill missing its option', async () => {
+      await questions('?formCode=free_course_waitlist&fq=profession').expect(
+        422,
+      );
+    });
+  });
 });

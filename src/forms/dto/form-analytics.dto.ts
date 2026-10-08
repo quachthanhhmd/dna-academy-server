@@ -150,3 +150,40 @@ export class AnalyticsTimeseriesDto {
   @ApiProperty({ type: [AnalyticsTimeseriesPointDto] })
   points: AnalyticsTimeseriesPointDto[];
 }
+
+// ───────────────────────── questions response ─────────────────────────
+
+export const ANALYTICS_QUESTION_TYPES = [
+  'single_select',
+  'multi_select',
+] as const;
+export type AnalyticsQuestionType = (typeof ANALYTICS_QUESTION_TYPES)[number];
+
+export class AnalyticsQuestionOptionDto {
+  @ApiProperty() code: string;
+  @ApiProperty() name: string;
+  @ApiProperty() count: number;
+}
+
+export class AnalyticsQuestionDto {
+  @ApiProperty() code: string;
+  @ApiProperty() label: string;
+  @ApiProperty({ enum: ANALYTICS_QUESTION_TYPES })
+  type: AnalyticsQuestionType;
+  @ApiProperty() sectionCode: string;
+  @ApiProperty({ description: 'submissions in scope that answered this' })
+  answered: number;
+  @ApiProperty({ nullable: true, type: String })
+  parentQuestionCode: string | null;
+  @ApiProperty({ nullable: true, type: String })
+  parentOptionCode: string | null;
+  @ApiProperty({ type: [AnalyticsQuestionOptionDto] })
+  options: AnalyticsQuestionOptionDto[];
+}
+
+export class AnalyticsQuestionsDto {
+  @ApiProperty() formCode: string;
+  @ApiProperty() respondents: number;
+  @ApiProperty({ type: [AnalyticsQuestionDto] })
+  questions: AnalyticsQuestionDto[];
+}

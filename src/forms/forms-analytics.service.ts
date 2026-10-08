@@ -1,16 +1,18 @@
 import { Injectable, UnprocessableEntityException } from '@nestjs/common';
-import type { SelectQueryBuilder } from 'typeorm';
-import { FormSubmissionEntity } from '../form-submission/infrastructure/persistence/relational/entities/form-submission.entity';
+import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { FormSubmissionConsentEntity } from '../form-submission-consent/infrastructure/persistence/relational/entities/form-submission-consent.entity';
 import { LocaleContext } from '../utils/i18n/locale-context';
 import { pickLocalized } from '../utils/i18n/pick-localized';
 import { FormsRepository } from './infrastructure/persistence/relational/forms.repository';
+import { FormsService } from './forms.service';
 import {
   ANALYTICS_STATUS_ORDER,
   AnalyticsBucket,
+  AnalyticsQuestionsDto,
   AnalyticsSummaryDto,
   AnalyticsTimeseriesDto,
   FindAnalyticsDto,
+  FindFormAnalyticsDto,
 } from './dto/form-analytics.dto';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -50,7 +52,10 @@ type ScopeOptions = {
  */
 @Injectable()
 export class FormsAnalyticsService {
-  constructor(private readonly repository: FormsRepository) {}
+  constructor(
+    private readonly repository: FormsRepository,
+    private readonly formsService: FormsService,
+  ) {}
 
   // ───────────────────────────── range ─────────────────────────────
 
@@ -71,6 +76,14 @@ export class FormsAnalyticsService {
    * inclusive through local end of day (`toTsExclusive` = next local 00:00).
    */
   resolveRange(dto: FindAnalyticsDto): Range {
+    // A drill is a pair: half of it is a client bug, not a wider query.
+    if (Boolean(dto.fq) !== Boolean(dto.fo)) {
+      throw new UnprocessableEntityException({
+        status: 422,
+        errors: { drill: 'analytics_drill_incomplete' },
+      });
+    }
+
     const to = dto.to ?? this.localDateOf(new Date());
     const from =
       dto.from ??
@@ -118,12 +131,12 @@ export class FormsAnalyticsService {
    * applies: latest, not archived, in range, suspicious per the flag, and the
    * source / locale / form / drill filters.
    */
-  applyScope(
-    qb: SelectQueryBuilder<FormSubmissionEntity>,
+  applyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
     range: Range,
     filters: FindAnalyticsDto & { formCode?: string },
     options: ScopeOptions = {},
-  ): SelectQueryBuilder<FormSubmissionEntity> {
+  ): SelectQueryBuilder<T> {
     const alias = options.alias ?? 'submission';
     const defAlias = options.defAlias ?? 'definition';
 
@@ -405,6 +418,129 @@ export class FormsAnalyticsService {
           formCodes.map((code) => [code, byBucket.get(start)?.get(code) ?? 0]),
         ),
       })),
+    };
+  }
+
+  // ───────────────────────────── questions ─────────────────────────────
+
+  private async answeredCounts(
+    range: Range,
+    dto: FindFormAnalyticsDto,
+    ignoreDrill: boolean,
+  ): Promise<Map<string, number>> {
+    const qb = this.repository.answersRepo
+      .createQueryBuilder('answer')
+      .innerJoin('answer.submission', 'submission')
+      .innerJoin('answer.question', 'question');
+    this.applyScope(qb, range, dto, { ignoreDrill });
+
+    const rows = await qb
+      .select('question.code', 'questionCode')
+      .addSelect('COUNT(DISTINCT submission.id)', 'answered')
+      .groupBy('question.code')
+      .getRawMany<{ questionCode: string; answered: string }>();
+
+    return new Map(rows.map((row) => [row.questionCode, Number(row.answered)]));
+  }
+
+  private async optionCounts(
+    range: Range,
+    dto: FindFormAnalyticsDto,
+    ignoreDrill: boolean,
+  ): Promise<Map<string, Map<string, number>>> {
+    const qb = this.repository.answerOptionsRepo
+      .createQueryBuilder('option')
+      .innerJoin('option.submission', 'submission')
+      .innerJoin('option.question', 'question');
+    this.applyScope(qb, range, dto, { ignoreDrill });
+
+    const rows = await qb
+      .select('question.code', 'questionCode')
+      .addSelect('option.optionCode', 'optionCode')
+      .addSelect('COUNT(DISTINCT submission.id)', 'count')
+      .groupBy('question.code')
+      .addGroupBy('option.optionCode')
+      .getRawMany<{
+        questionCode: string;
+        optionCode: string;
+        count: string;
+      }>();
+
+    const byQuestion = new Map<string, Map<string, number>>();
+    for (const row of rows) {
+      const counts =
+        byQuestion.get(row.questionCode) ?? new Map<string, number>();
+      counts.set(row.optionCode, Number(row.count));
+      byQuestion.set(row.questionCode, counts);
+    }
+    return byQuestion;
+  }
+
+  async getQuestions(
+    dto: FindFormAnalyticsDto,
+  ): Promise<AnalyticsQuestionsDto> {
+    const range = this.resolveRange(dto);
+    // Unknown or inactive code → the same 404 `form_definition_not_found` the
+    // public definition route throws.
+    const definition = await this.formsService.getPublicDefinition(
+      dto.formCode,
+    );
+    const questions = definition.sections
+      .flatMap((section) => section.questions)
+      .filter(
+        (question) =>
+          question.type === 'single_select' || question.type === 'multi_select',
+      );
+
+    const [respondents, answeredWith, answeredNo, optionsWith, optionsNo] =
+      await Promise.all([
+        this.applyScope(
+          this.repository.submissionsRepo.createQueryBuilder('submission'),
+          range,
+          dto,
+        ).getCount(),
+        this.answeredCounts(range, dto, false),
+        this.answeredCounts(range, dto, true),
+        this.optionCounts(range, dto, false),
+        this.optionCounts(range, dto, true),
+      ]);
+
+    return {
+      formCode: definition.code,
+      respondents,
+      questions: questions.map((question) => {
+        // The drill question keeps its full distribution, so the client can
+        // dim the non-selected bars instead of collapsing the card to 100%.
+        const isDrillQuestion = dto.fq === question.code;
+        const answered =
+          (isDrillQuestion ? answeredNo : answeredWith).get(question.code) ?? 0;
+        const counts =
+          (isDrillQuestion ? optionsNo : optionsWith).get(question.code) ??
+          new Map<string, number>();
+
+        const options = question.options.map((option) => ({
+          code: option.code,
+          name: option.name,
+          count: counts.get(option.code) ?? 0,
+        }));
+        // A code that was allowlisted when the answer was written but has since
+        // been removed: keep the number, label it by code.
+        const known = new Set(options.map((option) => option.code));
+        for (const [code, count] of counts) {
+          if (!known.has(code)) options.push({ code, name: code, count });
+        }
+
+        return {
+          code: question.code,
+          label: question.label,
+          type: question.type as 'single_select' | 'multi_select',
+          sectionCode: question.sectionCode,
+          answered,
+          parentQuestionCode: question.parentQuestionCode ?? null,
+          parentOptionCode: question.parentOptionCode ?? null,
+          options,
+        };
+      }),
     };
   }
 }
