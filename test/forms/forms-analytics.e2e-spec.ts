@@ -278,4 +278,94 @@ describe('Forms analytics API (PLAN-forms-insights)', () => {
       );
     });
   });
+
+  describe('supply-demand', () => {
+    const supplyDemand = (query = '') =>
+      request(app)
+        .get(`/api/v1/admin/forms/analytics/supply-demand${query}`)
+        .auth(adminToken, { type: 'bearer' });
+
+    const instructor = (
+      email: string,
+      overrides: Record<string, unknown> = {},
+    ) => ({
+      answers: [
+        { questionCode: 'full_name', text: 'Trần Thị Test' },
+        { questionCode: 'email', text: email },
+        { questionCode: 'phone', text: '0901234567' },
+        { questionCode: 'profession', optionCodes: ['business_analysis'] },
+        { questionCode: 'experience_years', optionCodes: ['3_5'] },
+        { questionCode: 'taught_before', optionCodes: ['yes'] },
+        { questionCode: 'contribution_mode', optionCodes: ['teach'] },
+        {
+          questionCode: 'experiences_to_design',
+          text: 'Quy trình nghiệp vụ thực tế của tôi.',
+        },
+      ],
+      consents: ['contact'],
+      context: { source: 'landing', locale: 'vi' },
+      _hp: '',
+      startedAt: Date.now() - 60_000,
+      ...overrides,
+    });
+
+    const rowFor = (
+      body: { rows: { code: string; demand: number; supply: number }[] },
+      code: string,
+    ) => body.rows.find((row) => row.code === code);
+
+    it('should 401 an anonymous caller', async () => {
+      await request(app)
+        .get('/api/v1/admin/forms/analytics/supply-demand')
+        .expect(401);
+    });
+
+    it('should list every field with a name and both numbers', async () => {
+      const { body } = await supplyDemand().expect(200);
+      const codes = body.rows.map((row: { code: string }) => row.code);
+      expect(codes).toEqual(
+        expect.arrayContaining([
+          'data_analytics',
+          'business_analysis',
+          'other',
+        ]),
+      );
+
+      for (const row of body.rows) {
+        expect(typeof row.name).toBe('string');
+        expect(row.name.length).toBeGreaterThan(0);
+        expect(typeof row.demand).toBe('number');
+        expect(typeof row.supply).toBe('number');
+      }
+    });
+
+    it('should count a learner pick as demand and an instructor pick as supply', async () => {
+      const baseline = await supplyDemand().expect(200);
+      const base = rowFor(baseline.body, 'business_analysis');
+      const baseDemand = base?.demand ?? 0;
+      const baseSupply = base?.supply ?? 0;
+
+      await submit(
+        'free_course_waitlist',
+        waitlist(uniqueEmail(`forms.sd.demand.${runId}`)),
+      ).expect(201);
+      await submit(
+        'instructor_application',
+        instructor(uniqueEmail(`forms.sd.supply.${runId}`)),
+      ).expect(201);
+
+      const after = await supplyDemand().expect(200);
+      const row = rowFor(after.body, 'business_analysis');
+      expect(row?.demand).toBeGreaterThanOrEqual(baseDemand + 1);
+      expect(row?.supply).toBeGreaterThanOrEqual(baseSupply + 1);
+    });
+
+    it('should ignore a learner drill so instructor supply is not hidden', async () => {
+      const plain = await supplyDemand().expect(200);
+      const drilled = await supplyDemand(
+        '?fq=profession&fo=data_analytics',
+      ).expect(200);
+      expect(drilled.body.rows).toEqual(plain.body.rows);
+    });
+  });
 });

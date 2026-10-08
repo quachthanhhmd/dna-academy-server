@@ -1,6 +1,7 @@
 import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { FormSubmissionConsentEntity } from '../form-submission-consent/infrastructure/persistence/relational/entities/form-submission-consent.entity';
+import { MasterDataCodesService } from '../master-data-codes/master-data-codes.service';
 import { LocaleContext } from '../utils/i18n/locale-context';
 import { pickLocalized } from '../utils/i18n/pick-localized';
 import { FormsRepository } from './infrastructure/persistence/relational/forms.repository';
@@ -10,6 +11,7 @@ import {
   AnalyticsBucket,
   AnalyticsQuestionsDto,
   AnalyticsSummaryDto,
+  AnalyticsSupplyDemandDto,
   AnalyticsTimeseriesDto,
   FindAnalyticsDto,
   FindFormAnalyticsDto,
@@ -55,6 +57,7 @@ export class FormsAnalyticsService {
   constructor(
     private readonly repository: FormsRepository,
     private readonly formsService: FormsService,
+    private readonly masterDataCodes: MasterDataCodesService,
   ) {}
 
   // ───────────────────────────── range ─────────────────────────────
@@ -542,5 +545,80 @@ export class FormsAnalyticsService {
         };
       }),
     };
+  }
+
+  // ───────────────────────── supply / demand ─────────────────────────
+
+  /**
+   * The learner forms say which field the audience wants; the instructor form
+   * says which field they can teach. Same question code, same
+   * `expertise_area` allowlist, so a field with demand and no supply is a gap.
+   * Drill-blind on purpose: a learner drill must not hide the instructor side.
+   */
+  async getSupplyDemand(
+    dto: FindAnalyticsDto,
+  ): Promise<AnalyticsSupplyDemandDto> {
+    const range = this.resolveRange(dto);
+    const learnerForms = ['free_course_waitlist', 'advanced_course_interest'];
+
+    const qb = this.repository.answerOptionsRepo
+      .createQueryBuilder('option')
+      .innerJoin('option.submission', 'submission')
+      .innerJoin('option.question', 'question');
+    // `applyScope` joins `submission.formDefinition` as `definition`.
+    this.applyScope(qb, range, dto, { ignoreDrill: true });
+    qb.andWhere('question.code = :fieldQuestion', {
+      fieldQuestion: 'profession',
+    });
+
+    const rows = await qb
+      .select('option.optionCode', 'code')
+      .addSelect('definition.code', 'formCode')
+      .addSelect('COUNT(DISTINCT submission.id)', 'count')
+      .groupBy('option.optionCode')
+      .addGroupBy('definition.code')
+      .getRawMany<{ code: string; formCode: string; count: string }>();
+
+    const learner = new Set(learnerForms);
+    const totals = new Map<string, { demand: number; supply: number }>();
+    const bump = (code: string, key: 'demand' | 'supply', by: number) => {
+      const entry = totals.get(code) ?? { demand: 0, supply: 0 };
+      entry[key] += by;
+      totals.set(code, entry);
+    };
+    for (const row of rows) {
+      const count = Number(row.count);
+      if (learner.has(row.formCode)) bump(row.code, 'demand', count);
+      else if (row.formCode === 'instructor_application')
+        bump(row.code, 'supply', count);
+    }
+
+    const locale = LocaleContext.current();
+    const options = await this.masterDataCodes.findAllWithPagination({
+      filterOptions: { groupKey: 'expertise_area' },
+      paginationOptions: { page: 1, limit: 1000 },
+    });
+    const labels = new Map(
+      options.map((option) => [
+        option.code,
+        pickLocalized(option.nameTranslations, locale, option.name) as string,
+      ]),
+    );
+
+    // Every field in the group is listed, so a field with demand and no supply
+    // shows an explicit gap. A code no longer in the group (a retired option
+    // still referenced by old answers) keeps its raw code.
+    const codes = new Set<string>(labels.keys());
+    for (const code of totals.keys()) codes.add(code);
+
+    const result = [...codes].map((code) => ({
+      code,
+      name: labels.get(code) ?? code,
+      demand: totals.get(code)?.demand ?? 0,
+      supply: totals.get(code)?.supply ?? 0,
+    }));
+    result.sort((a, b) => b.demand - a.demand || a.name.localeCompare(b.name));
+
+    return { rows: result };
   }
 }

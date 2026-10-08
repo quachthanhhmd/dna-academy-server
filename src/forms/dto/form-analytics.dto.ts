@@ -187,3 +187,21 @@ export class AnalyticsQuestionsDto {
   @ApiProperty({ type: [AnalyticsQuestionDto] })
   questions: AnalyticsQuestionDto[];
 }
+
+// ─────────────────────── supply / demand response ───────────────────────
+
+export class AnalyticsSupplyDemandRowDto {
+  @ApiProperty() code: string;
+  @ApiProperty() name: string;
+  @ApiProperty({ description: 'learner-form submissions choosing this field' })
+  demand: number;
+  @ApiProperty({
+    description: 'instructor-form submissions choosing this field',
+  })
+  supply: number;
+}
+
+export class AnalyticsSupplyDemandDto {
+  @ApiProperty({ type: [AnalyticsSupplyDemandRowDto] })
+  rows: AnalyticsSupplyDemandRowDto[];
+}

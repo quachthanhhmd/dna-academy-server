@@ -34,6 +34,7 @@ import {
 import {
   AnalyticsQuestionsDto,
   AnalyticsSummaryDto,
+  AnalyticsSupplyDemandDto,
   AnalyticsTimeseriesDto,
   FindAnalyticsDto,
   FindFormAnalyticsDto,
@@ -127,6 +128,16 @@ export class FormsAdminController {
   @Get('analytics/questions')
   getAnalyticsQuestions(@Query() query: FindFormAnalyticsDto) {
     return this.formsAnalyticsService.getQuestions(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({
+    summary: 'Demand (learner forms) vs supply (instructor form) by field',
+  })
+  @ApiOkResponse({ type: AnalyticsSupplyDemandDto })
+  @Get('analytics/supply-demand')
+  getAnalyticsSupplyDemand(@Query() query: FindAnalyticsDto) {
+    return this.formsAnalyticsService.getSupplyDemand(query);
   }
 
   @RequirePermission('forms', 'view')
