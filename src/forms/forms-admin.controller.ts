@@ -31,6 +31,11 @@ import {
   FormSubmissionListResponseDto,
   UpdateSubmissionDto,
 } from './dto/form-admin.dto';
+import {
+  AnalyticsSummaryDto,
+  FindAnalyticsDto,
+} from './dto/form-analytics.dto';
+import { FormsAnalyticsService } from './forms-analytics.service';
 import { FormsService } from './forms.service';
 
 @ApiTags('Admin / Forms')
@@ -38,7 +43,10 @@ import { FormsService } from './forms.service';
 @UseGuards(AuthGuard('jwt'), PermissionGuard)
 @Controller({ path: 'admin/forms', version: '1' })
 export class FormsAdminController {
-  constructor(private readonly formsService: FormsService) {}
+  constructor(
+    private readonly formsService: FormsService,
+    private readonly formsAnalyticsService: FormsAnalyticsService,
+  ) {}
 
   @RequirePermission('forms', 'view')
   @ApiOperation({ summary: 'The form definitions, for the admin filter' })
@@ -87,6 +95,16 @@ export class FormsAdminController {
   @Get('analytics/overview')
   getOverview(@Query() query: FindOverviewDto) {
     return this.formsService.getOverview(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({
+    summary: 'Form insights summary: KPIs, source and status breakdowns',
+  })
+  @ApiOkResponse({ type: AnalyticsSummaryDto })
+  @Get('analytics/summary')
+  getAnalyticsSummary(@Query() query: FindAnalyticsDto) {
+    return this.formsAnalyticsService.getSummary(query);
   }
 
   @RequirePermission('forms', 'view')

@@ -13,6 +13,7 @@ import { FormAnswerOptionEntity } from '../form-answer-option/infrastructure/per
 import { FormSubmissionConsentEntity } from '../form-submission-consent/infrastructure/persistence/relational/entities/form-submission-consent.entity';
 import { FormSubmissionEventEntity } from '../form-submission-event/infrastructure/persistence/relational/entities/form-submission-event.entity';
 import { FormsService } from './forms.service';
+import { FormsAnalyticsService } from './forms-analytics.service';
 import { FormsPublicController } from './forms-public.controller';
 import { FormsAdminController } from './forms-admin.controller';
 
@@ -40,7 +41,7 @@ import { FormsAdminController } from './forms-admin.controller';
     AuthorizationModule,
   ],
   controllers: [FormsPublicController, FormsAdminController],
-  providers: [FormsRepository, FormsService],
+  providers: [FormsRepository, FormsService, FormsAnalyticsService],
   exports: [FormsService],
 })
 export class FormsModule {}

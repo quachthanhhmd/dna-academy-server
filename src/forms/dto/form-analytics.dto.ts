@@ -1,0 +1,130 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import {
+  IsBoolean,
+  IsIn,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { SOURCES, SubmissionSource } from './create-form-submission.dto';
+
+/**
+ * The analytics query contract (PLAN-forms-insights §2). Shared by every
+ * `admin/forms/analytics/*` route; `FindFormAnalyticsDto` adds the required
+ * `formCode` for the per-form endpoints.
+ *
+ * Dates are calendar days in `Asia/Ho_Chi_Minh`, not instants: `from` is
+ * inclusive at local 00:00 and `to` is inclusive through local end of day. The
+ * service resolves the instants; the DTO only checks the shape.
+ */
+
+export const ANALYTICS_LOCALES = ['vi', 'en'] as const;
+export type AnalyticsLocale = (typeof ANALYTICS_LOCALES)[number];
+
+/** The pipeline order the status card draws in; `archived` is never in scope. */
+export const ANALYTICS_STATUS_ORDER = [
+  'new',
+  'reviewing',
+  'contacted',
+  'grouped',
+  'approved',
+  'rejected',
+] as const;
+
+export class FindAnalyticsDto {
+  @ApiPropertyOptional({
+    description: 'YYYY-MM-DD, inclusive, Asia/Ho_Chi_Minh',
+    example: '2026-07-10',
+  })
+  @IsOptional()
+  @IsISO8601()
+  from?: string;
+
+  @ApiPropertyOptional({
+    description: 'YYYY-MM-DD, inclusive',
+    example: '2026-10-08',
+  })
+  @IsOptional()
+  @IsISO8601()
+  to?: string;
+
+  @ApiPropertyOptional({ enum: SOURCES })
+  @IsOptional()
+  @IsIn(SOURCES as unknown as string[])
+  source?: SubmissionSource;
+
+  @ApiPropertyOptional({ enum: ANALYTICS_LOCALES })
+  @IsOptional()
+  @IsIn(ANALYTICS_LOCALES as unknown as string[])
+  locale?: AnalyticsLocale;
+
+  @ApiPropertyOptional({ description: 'Count suspicious submissions too' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === undefined ? undefined : value === true || value === 'true',
+  )
+  @IsBoolean()
+  includeSuspicious?: boolean;
+
+  @ApiPropertyOptional({ description: 'Drill: the question code to filter on' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  fq?: string;
+
+  @ApiPropertyOptional({ description: 'Drill: the option code to filter on' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  fo?: string;
+}
+
+export class FindFormAnalyticsDto extends FindAnalyticsDto {
+  @ApiProperty({ description: 'form code', example: 'free_course_waitlist' })
+  @IsString()
+  @MaxLength(64)
+  formCode: string;
+}
+
+// ─────────────────────────── summary response ───────────────────────────
+
+export class AnalyticsRangeDto {
+  @ApiProperty() from: string;
+  @ApiProperty() to: string;
+}
+
+export class AnalyticsFormKpiDto {
+  @ApiProperty() formCode: string;
+  @ApiProperty({ description: 'localised form name' }) formName: string;
+  @ApiProperty() total: number;
+  @ApiProperty() previousTotal: number;
+  @ApiProperty({ description: "status = 'new'" }) newCount: number;
+  @ApiProperty({ description: "0..1, consent code 'contact'" })
+  contactConsentRate: number;
+}
+
+export class AnalyticsCountBySourceDto {
+  @ApiProperty() source: string;
+  @ApiProperty() count: number;
+}
+
+export class AnalyticsCountByStatusDto {
+  @ApiProperty() status: string;
+  @ApiProperty() count: number;
+}
+
+export class AnalyticsSummaryDto {
+  @ApiProperty({ type: AnalyticsRangeDto }) range: AnalyticsRangeDto;
+  @ApiProperty({ type: AnalyticsRangeDto }) previousRange: AnalyticsRangeDto;
+  @ApiProperty({ type: [AnalyticsFormKpiDto] }) forms: AnalyticsFormKpiDto[];
+  @ApiProperty({ type: [AnalyticsCountBySourceDto] })
+  bySource: AnalyticsCountBySourceDto[];
+  @ApiProperty({ type: [AnalyticsCountByStatusDto] })
+  byStatus: AnalyticsCountByStatusDto[];
+  @ApiProperty({
+    description: 'Always counted, regardless of includeSuspicious',
+  })
+  suspiciousCount: number;
+}
