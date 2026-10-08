@@ -36,6 +36,8 @@ export class CourseMapper {
     domainEntity.requiresSequentialCompletion =
       raw.requiresSequentialCompletion;
 
+    domainEntity.startsFromSectionZero = raw.startsFromSectionZero;
+
     domainEntity.avgRating = raw.avgRating;
 
     domainEntity.totalEnrollments = raw.totalEnrollments;
@@ -125,6 +127,9 @@ export class CourseMapper {
 
     persistenceEntity.requiresSequentialCompletion =
       domainEntity.requiresSequentialCompletion;
+
+    persistenceEntity.startsFromSectionZero =
+      domainEntity.startsFromSectionZero;
 
     persistenceEntity.avgRating = domainEntity.avgRating;
 

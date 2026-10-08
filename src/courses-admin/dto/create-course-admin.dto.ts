@@ -96,6 +96,16 @@ export class CreateCourseAdminDto {
   requiresSequentialCompletion?: boolean;
 
   @ApiPropertyOptional({
+    default: false,
+    description:
+      'When true, sections are numbered from 0 (the first section is an ' +
+      'introduction). Display only.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  startsFromSectionZero?: boolean;
+
+  @ApiPropertyOptional({
     description: 'master_data_code id from the course_level group.',
   })
   @IsOptional()

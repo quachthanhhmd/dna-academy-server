@@ -156,6 +156,12 @@ export class CourseOverviewDto {
   })
   requiresSequentialCompletion: boolean;
 
+  @ApiProperty({
+    description:
+      'When true the FE numbers sections from 0 (Phần 0 = introduction).',
+  })
+  startsFromSectionZero: boolean;
+
   @ApiProperty({ type: Number, nullable: true })
   avgRating: number | null;
 
