@@ -136,4 +136,43 @@ describe('Forms analytics API (PLAN-forms-insights)', () => {
   it('should 422 a range longer than 731 days', async () => {
     await summary('?from=2020-01-01&to=2026-10-08').expect(422);
   });
+
+  describe('timeseries', () => {
+    const timeseries = (query = '') =>
+      request(app)
+        .get(`/api/v1/admin/forms/analytics/timeseries${query}`)
+        .auth(adminToken, { type: 'bearer' });
+
+    it('should bucket a 90-day range by week, every form in every point', async () => {
+      const { body } = await timeseries().expect(200);
+
+      expect(body.bucket).toBe('week');
+      expect(Array.isArray(body.points)).toBe(true);
+      expect(body.points.length).toBeGreaterThan(0);
+
+      for (const point of body.points) {
+        expect(typeof point.start).toBe('string');
+        expect(point.byForm).toHaveProperty('free_course_waitlist');
+        expect(point.byForm).toHaveProperty('advanced_course_interest');
+        expect(point.byForm).toHaveProperty('instructor_application');
+      }
+
+      // The summary run above submitted three counted Form B rows; wherever
+      // they land, the range total must include them.
+      const waitlistTotal = body.points.reduce(
+        (sum: number, point: { byForm: Record<string, number> }) =>
+          sum + (point.byForm.free_course_waitlist ?? 0),
+        0,
+      );
+      expect(waitlistTotal).toBeGreaterThanOrEqual(3);
+    });
+
+    it('should bucket a short range by day', async () => {
+      const { body } = await timeseries(
+        '?from=2026-10-01&to=2026-10-08',
+      ).expect(200);
+      expect(body.bucket).toBe('day');
+      expect(body.points).toHaveLength(8);
+    });
+  });
 });

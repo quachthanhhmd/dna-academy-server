@@ -7,7 +7,9 @@ import { pickLocalized } from '../utils/i18n/pick-localized';
 import { FormsRepository } from './infrastructure/persistence/relational/forms.repository';
 import {
   ANALYTICS_STATUS_ORDER,
+  AnalyticsBucket,
   AnalyticsSummaryDto,
+  AnalyticsTimeseriesDto,
   FindAnalyticsDto,
 } from './dto/form-analytics.dto';
 
@@ -293,6 +295,116 @@ export class FormsAnalyticsService {
         count: statusCounts.get(status) ?? 0,
       })),
       suspiciousCount,
+    };
+  }
+
+  // ───────────────────────────── timeseries ─────────────────────────────
+
+  /**
+   * The bucket start dates a range covers, in local calendar days. Must match
+   * Postgres `date_trunc(bucket, ts AT TIME ZONE 'Asia/Ho_Chi_Minh')`: days are
+   * the days themselves, weeks start on the Monday on or before `from`, months
+   * on the first of the month.
+   */
+  private bucketStarts(
+    from: string,
+    to: string,
+    bucket: AnalyticsBucket,
+  ): string[] {
+    const toTs = this.startOfLocalDay(to).getTime();
+
+    if (bucket === 'day') {
+      const starts: string[] = [];
+      for (
+        let t = this.startOfLocalDay(from).getTime();
+        t <= toTs;
+        t += DAY_MS
+      ) {
+        starts.push(this.localDateOf(new Date(t)));
+      }
+      return starts;
+    }
+
+    if (bucket === 'week') {
+      // Postgres weeks start Monday. Noon UTC+7 lands on the same UTC day, so
+      // `getUTCDay` reads the local weekday without a second conversion.
+      const weekday = new Date(`${from}T12:00:00${TZ_OFFSET}`).getUTCDay();
+      const daysFromMonday = (weekday + 6) % 7;
+      const starts: string[] = [];
+      for (
+        let t = this.startOfLocalDay(from).getTime() - daysFromMonday * DAY_MS;
+        t <= toTs;
+        t += 7 * DAY_MS
+      ) {
+        starts.push(this.localDateOf(new Date(t)));
+      }
+      return starts;
+    }
+
+    const starts: string[] = [];
+    let [year, month] = from.slice(0, 7).split('-').map(Number);
+    while (
+      this.startOfLocalDay(
+        `${year}-${String(month).padStart(2, '0')}-01`,
+      ).getTime() <= toTs
+    ) {
+      starts.push(`${year}-${String(month).padStart(2, '0')}-01`);
+      if (month === 12) {
+        year += 1;
+        month = 1;
+      } else {
+        month += 1;
+      }
+    }
+    return starts;
+  }
+
+  async getTimeseries(dto: FindAnalyticsDto): Promise<AnalyticsTimeseriesDto> {
+    const range = this.resolveRange(dto);
+    const days = Math.round(
+      (range.toTsExclusive.getTime() - range.fromTs.getTime()) / DAY_MS,
+    );
+    const bucket: AnalyticsBucket =
+      days <= 31 ? 'day' : days <= 180 ? 'week' : 'month';
+
+    const bucketExpr = `date_trunc('${bucket}', submission.createdAt AT TIME ZONE 'Asia/Ho_Chi_Minh')`;
+
+    const [rows, definitions] = await Promise.all([
+      this.applyScope(
+        this.repository.submissionsRepo.createQueryBuilder('submission'),
+        range,
+        dto,
+      )
+        .select(`to_char(${bucketExpr}, 'YYYY-MM-DD')`, 'bucket')
+        .addSelect('definition.code', 'formCode')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy(bucketExpr)
+        .addGroupBy('definition.code')
+        .getRawMany<{ bucket: string; formCode: string; count: string }>(),
+
+      this.repository.findDefinitions(),
+    ]);
+
+    const formCodes = definitions
+      .filter((definition) => definition.isActive)
+      .map((definition) => definition.code);
+
+    const byBucket = new Map<string, Map<string, number>>();
+    for (const row of rows) {
+      const counts = byBucket.get(row.bucket) ?? new Map<string, number>();
+      counts.set(row.formCode, Number(row.count));
+      byBucket.set(row.bucket, counts);
+    }
+
+    // Zero-filled: every bucket present, every active form present in each.
+    return {
+      bucket,
+      points: this.bucketStarts(range.from, range.to, bucket).map((start) => ({
+        start,
+        byForm: Object.fromEntries(
+          formCodes.map((code) => [code, byBucket.get(start)?.get(code) ?? 0]),
+        ),
+      })),
     };
   }
 }

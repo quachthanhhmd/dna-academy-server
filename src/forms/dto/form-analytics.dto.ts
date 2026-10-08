@@ -128,3 +128,25 @@ export class AnalyticsSummaryDto {
   })
   suspiciousCount: number;
 }
+
+// ───────────────────────── timeseries response ─────────────────────────
+
+export const ANALYTICS_BUCKETS = ['day', 'week', 'month'] as const;
+export type AnalyticsBucket = (typeof ANALYTICS_BUCKETS)[number];
+
+export class AnalyticsTimeseriesPointDto {
+  @ApiProperty({ description: 'bucket start, YYYY-MM-DD (local)' })
+  start: string;
+
+  @ApiProperty({
+    description: 'form code → count, every active form present',
+    example: { free_course_waitlist: 3, advanced_course_interest: 0 },
+  })
+  byForm: Record<string, number>;
+}
+
+export class AnalyticsTimeseriesDto {
+  @ApiProperty({ enum: ANALYTICS_BUCKETS }) bucket: AnalyticsBucket;
+  @ApiProperty({ type: [AnalyticsTimeseriesPointDto] })
+  points: AnalyticsTimeseriesPointDto[];
+}

@@ -33,6 +33,7 @@ import {
 } from './dto/form-admin.dto';
 import {
   AnalyticsSummaryDto,
+  AnalyticsTimeseriesDto,
   FindAnalyticsDto,
 } from './dto/form-analytics.dto';
 import { FormsAnalyticsService } from './forms-analytics.service';
@@ -105,6 +106,14 @@ export class FormsAdminController {
   @Get('analytics/summary')
   getAnalyticsSummary(@Query() query: FindAnalyticsDto) {
     return this.formsAnalyticsService.getSummary(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({ summary: 'Submissions over time, bucketed by range length' })
+  @ApiOkResponse({ type: AnalyticsTimeseriesDto })
+  @Get('analytics/timeseries')
+  getAnalyticsTimeseries(@Query() query: FindAnalyticsDto) {
+    return this.formsAnalyticsService.getTimeseries(query);
   }
 
   @RequirePermission('forms', 'view')
