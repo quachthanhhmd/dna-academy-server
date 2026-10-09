@@ -31,7 +31,11 @@ import { TranslationMap } from '../../../../../utils/i18n/translation-map.type';
   name: 'master_data_code',
 })
 export class MasterDataCodeEntity extends EntityRelationalHelper {
-  @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'SET NULL',
+    eager: false,
+    nullable: true,
+  })
   @JoinColumn({ name: 'created_by_id' })
   createdBy?: UserEntity | null;
 

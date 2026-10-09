@@ -17,7 +17,11 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
 })
 @Check('CK_media_file_visibility', `"visibility" IN ('public', 'private')`)
 export class MediaFileEntity extends EntityRelationalHelper {
-  @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'SET NULL',
+    eager: false,
+    nullable: true,
+  })
   @JoinColumn({ name: 'uploaded_by_id' })
   uploadedBy?: UserEntity | null;
 

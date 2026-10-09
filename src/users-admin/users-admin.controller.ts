@@ -174,6 +174,16 @@ export class UsersAdminController {
     return this.usersAdminService.setStatus(request.user.id, id, dto.statusId);
   }
 
+  @ApiOperation({
+    summary: 'Permanently delete a user',
+    description:
+      'Removes the user and everything that belongs to them — enrollments ' +
+      'and learning data, certificates, ratings, profile, sessions, linked ' +
+      'social accounts, roles. Records that only name who acted (a course ' +
+      'creator, an uploader) keep existing with that reference cleared. ' +
+      'Course enrollment counts and ratings are corrected. Not reversible. ' +
+      '409 cannot_delete_self.',
+  })
   @RequirePermission('users', 'delete')
   @Delete(':id')
   @ApiParam({

@@ -65,11 +65,19 @@ export class CertificateEntity extends EntityRelationalHelper {
   @JoinColumn({ name: 'course_id' })
   course: CourseEntity;
 
-  @ManyToOne(() => UserEntity, { eager: true, nullable: false })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'CASCADE',
+    eager: true,
+    nullable: false,
+  })
   @JoinColumn({ name: 'student_id' })
   student: UserEntity;
 
-  @OneToOne(() => EnrollmentEntity, { eager: true, nullable: false })
+  @OneToOne(() => EnrollmentEntity, {
+    onDelete: 'CASCADE',
+    eager: true,
+    nullable: false,
+  })
   @JoinColumn({ name: 'enrollment_id' })
   enrollment: EnrollmentEntity;
 

@@ -29,11 +29,19 @@ export class InstructorEntity extends EntityRelationalHelper {
   // OneToOne (not ManyToOne) so Postgres enforces "one user ↔ one instructor"
   // with a unique index; the service still checks first so the caller gets a
   // 409 user_already_linked instead of a driver error.
-  @OneToOne(() => UserEntity, { eager: true, nullable: true })
+  @OneToOne(() => UserEntity, {
+    onDelete: 'SET NULL',
+    eager: true,
+    nullable: true,
+  })
   @JoinColumn({ name: 'user_id' })
   user?: UserEntity | null;
 
-  @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'SET NULL',
+    eager: false,
+    nullable: true,
+  })
   @JoinColumn({ name: 'created_by_id' })
   createdBy?: UserEntity | null;
 
