@@ -1,6 +1,11 @@
-import { Injectable, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { FormSubmissionConsentEntity } from '../form-submission-consent/infrastructure/persistence/relational/entities/form-submission-consent.entity';
+import { FormSubmissionEntity } from '../form-submission/infrastructure/persistence/relational/entities/form-submission.entity';
 import { FormAnswerOptionEntity } from '../form-answer-option/infrastructure/persistence/relational/entities/form-answer-option.entity';
 import { FormQuestionEntity } from '../form-question/infrastructure/persistence/relational/entities/form-question.entity';
 import { MasterDataCodesService } from '../master-data-codes/master-data-codes.service';
@@ -15,10 +20,13 @@ import {
   AnalyticsQuestionsDto,
   AnalyticsSummaryDto,
   AnalyticsSupplyDemandDto,
+  AnalyticsTextsDto,
   AnalyticsTimeseriesDto,
   FindAnalyticsDto,
   FindCrosstabDto,
   FindFormAnalyticsDto,
+  FindTextsDto,
+  SetAnswerThemeResponseDto,
 } from './dto/form-analytics.dto';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -730,4 +738,251 @@ export class FormsAnalyticsService {
 
     return { rows: result };
   }
+
+  // ─────────────────── free-text feed and themes ───────────────────
+
+  /** Which question's free text can carry which theme group. */
+  private static readonly THEME_GROUP_BY_QUESTION: Record<string, string> = {
+    biggest_challenge: 'form_theme_biggest_challenge',
+    experiences_to_design: 'form_theme_experiences_to_design',
+  };
+
+  private themeGroupFor(questionCode: string): string | null {
+    return FormsAnalyticsService.THEME_GROUP_BY_QUESTION[questionCode] ?? null;
+  }
+
+  async getTexts(dto: FindTextsDto): Promise<AnalyticsTextsDto> {
+    const range = this.resolveRange(dto);
+    const definition = await this.formsService.getPublicDefinition(
+      dto.formCode,
+    );
+    const question = definition.sections
+      .flatMap((section) => section.questions)
+      .find((item) => item.code === dto.questionCode);
+    const groupKey = this.themeGroupFor(dto.questionCode);
+    if (!question || !groupKey || question.type !== 'long_text') {
+      throw new UnprocessableEntityException({
+        status: 422,
+        errors: { question: 'analytics_invalid_text_question' },
+      });
+    }
+
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+    const locale = LocaleContext.current();
+
+    // The scope + the text-is-not-blank rule + the search, shared by the
+    // theme counts and the page.
+    const scoped = () => {
+      const qb = this.repository.answersRepo
+        .createQueryBuilder('answer')
+        .innerJoin('answer.submission', 'submission')
+        .innerJoin('answer.question', 'question');
+      this.applyScope(qb, range, dto, {});
+      qb.andWhere('question.code = :questionCode', {
+        questionCode: dto.questionCode,
+      });
+      qb.andWhere(
+        'answer.textValue IS NOT NULL AND btrim(answer.textValue) <> :blank',
+        { blank: '' },
+      );
+      if (dto.q) {
+        qb.andWhere('answer.textValue ILIKE :pattern', {
+          pattern: `%${escapeLike(dto.q)}%`,
+        });
+      }
+      return qb;
+    };
+
+    // Theme counts ignore the theme filter (so the chips stay stable while one
+    // is selected) but honour the search.
+    const themeRows = await scoped()
+      .select('answer.themeCode', 'themeCode')
+      .addSelect('COUNT(DISTINCT submission.id)', 'count')
+      .groupBy('answer.themeCode')
+      .getRawMany<{ themeCode: string | null; count: string }>();
+    const countByTheme = new Map(
+      themeRows.map((row) => [row.themeCode, Number(row.count)]),
+    );
+
+    const themeCodes = await this.masterDataCodes.findAllWithPagination({
+      filterOptions: { groupKey, isActive: true },
+      paginationOptions: { page: 1, limit: 1000 },
+    });
+    const themes = themeCodes.map((code) => ({
+      code: code.code,
+      name: pickLocalized(code.nameTranslations, locale, code.name) as string,
+      count: countByTheme.get(code.code) ?? 0,
+    }));
+    themes.push({
+      code: 'untagged',
+      name: locale === 'en' ? 'Untagged' : 'Chưa gắn',
+      count: countByTheme.get(null) ?? 0,
+    });
+
+    const filtered = () => {
+      const qb = scoped();
+      if (dto.theme === 'untagged') {
+        qb.andWhere('answer.themeCode IS NULL');
+      } else if (dto.theme) {
+        qb.andWhere('answer.themeCode = :theme', { theme: dto.theme });
+      }
+      return qb;
+    };
+
+    const [totalRow, items] = await Promise.all([
+      filtered()
+        .select('COUNT(DISTINCT submission.id)', 'n')
+        .getRawOne<{ n: string }>(),
+      filtered()
+        .select('answer.id', 'answerId')
+        .addSelect('submission.id', 'submissionId')
+        .addSelect('answer.textValue', 'text')
+        .addSelect('answer.themeCode', 'themeCode')
+        .addSelect('answer.themeSource', 'themeSource')
+        .addSelect('answer.createdAt', 'createdAt')
+        .addSelect('submission.source', 'source')
+        .orderBy('answer.createdAt', 'DESC')
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .getRawMany<{
+          answerId: string;
+          submissionId: string;
+          text: string;
+          themeCode: string | null;
+          themeSource: string | null;
+          createdAt: Date;
+          source: string;
+        }>(),
+    ]);
+
+    // profession names for just the rows on this page (G5: no PII).
+    const submissionIds = items.map((item) => item.submissionId);
+    const professionBySubmission = await this.professionsFor(
+      submissionIds,
+      locale,
+    );
+
+    const data = items.map((item) => ({
+      answerId: item.answerId,
+      submissionId: item.submissionId,
+      text: item.text,
+      themeCode: item.themeCode,
+      themeSource: item.themeSource,
+      createdAt: new Date(item.createdAt).toISOString(),
+      source: item.source,
+      professionNames: professionBySubmission.get(item.submissionId) ?? [],
+    }));
+
+    const totalWithText = Number(totalRow?.n ?? 0);
+    return {
+      question: { code: question.code, label: question.label },
+      themes,
+      totalWithText,
+      data,
+      page,
+      limit,
+      hasNextPage: page * limit < totalWithText,
+    };
+  }
+
+  private async professionsFor(
+    submissionIds: string[],
+    locale: string,
+  ): Promise<Map<string, string[]>> {
+    const result = new Map<string, string[]>();
+    if (submissionIds.length === 0) return result;
+
+    const rows = await this.repository.answerOptionsRepo
+      .createQueryBuilder('option')
+      .innerJoin('option.submission', 'submission')
+      .innerJoin('option.question', 'question')
+      .where('submission.id IN (:...ids)', { ids: submissionIds })
+      .andWhere('question.code = :profession', { profession: 'profession' })
+      .select('submission.id', 'submissionId')
+      .addSelect('option.optionCode', 'optionCode')
+      .getRawMany<{ submissionId: string; optionCode: string }>();
+
+    const expertise = await this.masterDataCodes.findAllWithPagination({
+      filterOptions: { groupKey: 'expertise_area', isActive: true },
+      paginationOptions: { page: 1, limit: 1000 },
+    });
+    const nameByCode = new Map(
+      expertise.map((code) => [
+        code.code,
+        pickLocalized(code.nameTranslations, locale, code.name) as string,
+      ]),
+    );
+
+    for (const row of rows) {
+      const list = result.get(row.submissionId) ?? [];
+      list.push(nameByCode.get(row.optionCode) ?? row.optionCode);
+      result.set(row.submissionId, list);
+    }
+    return result;
+  }
+
+  async setTheme(
+    answerId: string,
+    themeCode: string | null,
+    userId: number,
+  ): Promise<SetAnswerThemeResponseDto> {
+    const answer = await this.repository.answersRepo.findOne({
+      where: { id: answerId },
+      relations: ['question', 'submission'],
+    });
+    if (!answer) {
+      throw new NotFoundException({
+        status: 404,
+        errors: { answer: 'answer_not_found' },
+      });
+    }
+
+    const groupKey = this.themeGroupFor(answer.question.code);
+    if (!groupKey) {
+      throw new UnprocessableEntityException({
+        status: 422,
+        errors: { question: 'question_has_no_themes' },
+      });
+    }
+
+    if (themeCode !== null) {
+      const codes = await this.masterDataCodes.findAllWithPagination({
+        filterOptions: { groupKey, isActive: true },
+        paginationOptions: { page: 1, limit: 1000 },
+      });
+      if (!codes.some((code) => code.code === themeCode)) {
+        throw new UnprocessableEntityException({
+          status: 422,
+          errors: { theme: 'theme_not_allowed' },
+        });
+      }
+    }
+
+    const themedAt = themeCode === null ? null : new Date();
+    answer.themeCode = themeCode;
+    answer.themeSource = themeCode === null ? null : 'manual';
+    answer.themedAt = themedAt;
+    await this.repository.answersRepo.save(answer);
+
+    await this.repository.saveEvent({
+      submission: { id: answer.submission.id } as FormSubmissionEntity,
+      event: 'answer_themed',
+      actorUser: { id: userId } as never,
+      payload: { answerId, themeCode },
+    });
+
+    return {
+      answerId,
+      themeCode,
+      themeSource: answer.themeSource,
+      themedAt: (themedAt ?? new Date()).toISOString(),
+    };
+  }
+}
+
+/** Escape the LIKE metacharacters so a literal `%` or `_` in a search term is
+ *  matched, not treated as a wildcard. */
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }

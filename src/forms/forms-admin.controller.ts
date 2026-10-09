@@ -36,10 +36,14 @@ import {
   AnalyticsQuestionsDto,
   AnalyticsSummaryDto,
   AnalyticsSupplyDemandDto,
+  AnalyticsTextsDto,
   AnalyticsTimeseriesDto,
   FindAnalyticsDto,
   FindCrosstabDto,
   FindFormAnalyticsDto,
+  FindTextsDto,
+  SetAnswerThemeDto,
+  SetAnswerThemeResponseDto,
 } from './dto/form-analytics.dto';
 import { FormsAnalyticsService } from './forms-analytics.service';
 import { FormsService } from './forms.service';
@@ -151,6 +155,34 @@ export class FormsAdminController {
   @Get('analytics/supply-demand')
   getAnalyticsSupplyDemand(@Query() query: FindAnalyticsDto) {
     return this.formsAnalyticsService.getSupplyDemand(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({
+    summary: 'Free-text answers for one question, with theme counts',
+  })
+  @ApiOkResponse({ type: AnalyticsTextsDto })
+  @ApiNotFoundResponse()
+  @Get('analytics/texts')
+  getAnalyticsTexts(@Query() query: FindTextsDto) {
+    return this.formsAnalyticsService.getTexts(query);
+  }
+
+  @RequirePermission('forms', 'manage')
+  @ApiOperation({ summary: 'Tag (or clear the tag on) a free-text answer' })
+  @ApiOkResponse({ type: SetAnswerThemeResponseDto })
+  @ApiNotFoundResponse()
+  @Patch('analytics/answers/:answerId/theme')
+  setAnswerTheme(
+    @Param('answerId') answerId: string,
+    @Body() dto: SetAnswerThemeDto,
+    @Request() request: { user: { id: number } },
+  ) {
+    return this.formsAnalyticsService.setTheme(
+      answerId,
+      dto.themeCode ?? null,
+      request.user.id,
+    );
   }
 
   @RequirePermission('forms', 'view')

@@ -454,4 +454,80 @@ describe('Forms analytics API (PLAN-forms-insights)', () => {
       expect(drilled.body.rows).toEqual(plain.body.rows);
     });
   });
+
+  describe('texts and themes', () => {
+    const texts = (query: string) =>
+      request(app)
+        .get(`/api/v1/admin/forms/analytics/texts${query}`)
+        .auth(adminToken, { type: 'bearer' });
+
+    const tag = (
+      answerId: string,
+      themeCode: string | null,
+      token = adminToken,
+    ) =>
+      request(app)
+        .patch(`/api/v1/admin/forms/analytics/answers/${answerId}/theme`)
+        .auth(token, { type: 'bearer' })
+        .send({ themeCode });
+
+    const challenge = (email: string, text: string) => ({
+      answers: [
+        { questionCode: 'full_name', text: 'Nguyễn Văn Test' },
+        { questionCode: 'email', text: email },
+        { questionCode: 'profession', optionCodes: ['business_analysis'] },
+        { questionCode: 'biggest_challenge', text },
+      ],
+      consents: ['contact'],
+      context: { source: 'landing', locale: 'vi' },
+      _hp: '',
+      startedAt: Date.now() - 60_000,
+    });
+
+    const BASE =
+      '?formCode=free_course_waitlist&questionCode=biggest_challenge';
+
+    it('should 401 an anonymous caller', async () => {
+      await request(app).get('/api/v1/admin/forms/analytics/texts').expect(401);
+    });
+
+    it('should 422 a question that is not a text question', async () => {
+      await texts(
+        '?formCode=free_course_waitlist&questionCode=profession',
+      ).expect(422);
+    });
+
+    it('should search, tag and filter, and guard the write', async () => {
+      const email = uniqueEmail(`forms.texts.flow.${runId}`);
+      await submit(
+        'free_course_waitlist',
+        challenge(email, 'Không có thời gian luyện SQL'),
+      ).expect(201);
+
+      const found = await texts(`${BASE}&q=sql`).expect(200);
+      // G5: the feed never returns the submitter's e-mail.
+      expect(JSON.stringify(found.body)).not.toContain(email);
+
+      const item = found.body.data.find((row: { text: string }) =>
+        row.text.includes('luyện SQL'),
+      );
+      expect(item).toBeTruthy();
+
+      await tag(item.answerId, 'time').expect(200);
+
+      const tagged = await texts(`${BASE}&theme=time`).expect(200);
+      expect(
+        tagged.body.data.some(
+          (row: { answerId: string }) => row.answerId === item.answerId,
+        ),
+      ).toBe(true);
+      const timeTheme = tagged.body.themes.find(
+        (row: { code: string }) => row.code === 'time',
+      );
+      expect(timeTheme.count).toBeGreaterThanOrEqual(1);
+
+      await tag(item.answerId, 'not_a_theme').expect(422);
+      await tag(item.answerId, 'time', plainUser.token).expect(403);
+    });
+  });
 });

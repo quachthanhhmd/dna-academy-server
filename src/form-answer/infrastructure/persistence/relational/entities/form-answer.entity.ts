@@ -32,6 +32,17 @@ export class FormAnswerEntity extends EntityRelationalHelper {
   })
   numberValue: string | null;
 
+  // PLAN-forms-insights B6: the theme an admin assigned to a free-text answer.
+  // `themeSource` leaves room for a future AI pass; V1 only ever writes
+  // 'manual'. `themeCode` references a master data code (no FK: the theme
+  // groups are content, and a retired code must not orphan the answer).
+  @Column({ name: 'theme_code', nullable: true, type: String })
+  themeCode: string | null;
+  @Column({ name: 'theme_source', nullable: true, type: String })
+  themeSource: 'manual' | 'ai' | null;
+  @Column({ name: 'themed_at', nullable: true, type: 'timestamptz' })
+  themedAt: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

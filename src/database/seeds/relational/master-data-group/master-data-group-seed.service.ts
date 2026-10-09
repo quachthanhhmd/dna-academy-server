@@ -148,6 +148,22 @@ const MASTER_DATA_GROUPS: ReadonlyArray<{
       en: 'Teaching Experience',
     },
   },
+  {
+    groupKey: 'form_theme_biggest_challenge',
+    displayOrder: 21,
+    nameTranslations: {
+      vi: 'Chủ đề — Trở ngại lớn nhất',
+      en: 'Theme — Biggest challenge',
+    },
+  },
+  {
+    groupKey: 'form_theme_experiences_to_design',
+    displayOrder: 22,
+    nameTranslations: {
+      vi: 'Chủ đề — Kinh nghiệm để thiết kế khoá học',
+      en: 'Theme — Experiences to design around',
+    },
+  },
 ];
 
 @Injectable()

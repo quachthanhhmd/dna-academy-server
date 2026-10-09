@@ -1,12 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsIn,
+  IsInt,
   IsISO8601,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { SOURCES, SubmissionSource } from './create-form-submission.dto';
 
@@ -244,4 +247,96 @@ export class AnalyticsSupplyDemandRowDto {
 export class AnalyticsSupplyDemandDto {
   @ApiProperty({ type: [AnalyticsSupplyDemandRowDto] })
   rows: AnalyticsSupplyDemandRowDto[];
+}
+
+// ──────────────────── free-text feed and themes ────────────────────
+
+export class FindTextsDto extends FindFormAnalyticsDto {
+  @ApiProperty({ description: 'the long-text question code' })
+  @IsString()
+  @MaxLength(64)
+  questionCode: string;
+
+  @ApiPropertyOptional({ description: "a theme code, or 'untagged'" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  theme?: string;
+
+  @ApiPropertyOptional({
+    description: 'case-insensitive search within the text',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  q?: string;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 20, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
+export class AnalyticsTextQuestionDto {
+  @ApiProperty() code: string;
+  @ApiProperty() label: string;
+}
+
+export class AnalyticsTextThemeDto {
+  @ApiProperty() code: string;
+  @ApiProperty() name: string;
+  @ApiProperty() count: number;
+}
+
+export class AnalyticsTextItemDto {
+  @ApiProperty() answerId: string;
+  @ApiProperty() submissionId: string;
+  @ApiProperty() text: string;
+  @ApiProperty({ nullable: true, type: String }) themeCode: string | null;
+  @ApiProperty({ nullable: true, type: String }) themeSource: string | null;
+  @ApiProperty() createdAt: string;
+  @ApiProperty() source: string;
+  @ApiProperty({
+    type: [String],
+    description: 'names of the submission’s profession answer (may be empty)',
+  })
+  professionNames: string[];
+}
+
+export class AnalyticsTextsDto {
+  @ApiProperty({ type: AnalyticsTextQuestionDto })
+  question: AnalyticsTextQuestionDto;
+  @ApiProperty({ type: [AnalyticsTextThemeDto] })
+  themes: AnalyticsTextThemeDto[];
+  @ApiProperty() totalWithText: number;
+  @ApiProperty({ type: [AnalyticsTextItemDto] })
+  data: AnalyticsTextItemDto[];
+  @ApiProperty() page: number;
+  @ApiProperty() limit: number;
+  @ApiProperty() hasNextPage: boolean;
+}
+
+export class SetAnswerThemeDto {
+  @ApiPropertyOptional({ nullable: true, description: 'null clears the theme' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  themeCode?: string | null;
+}
+
+export class SetAnswerThemeResponseDto {
+  @ApiProperty() answerId: string;
+  @ApiProperty({ nullable: true, type: String }) themeCode: string | null;
+  @ApiProperty({ nullable: true, type: String }) themeSource: string | null;
+  @ApiProperty() themedAt: string;
 }
