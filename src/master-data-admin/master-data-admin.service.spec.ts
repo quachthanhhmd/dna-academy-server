@@ -8,6 +8,8 @@ describe('MasterDataAdminService', () => {
   let masterDataGroupsService: {
     findAllWithPagination: jest.Mock<any>;
     findByGroupKey: jest.Mock<any>;
+    create: jest.Mock<any>;
+    update: jest.Mock<any>;
   };
   let masterDataCodesService: {
     findAllWithPagination: jest.Mock<any>;
@@ -26,6 +28,8 @@ describe('MasterDataAdminService', () => {
     masterDataGroupsService = {
       findAllWithPagination: jest.fn(),
       findByGroupKey: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
     };
     masterDataCodesService = {
       findAllWithPagination: jest.fn(),
@@ -48,6 +52,92 @@ describe('MasterDataAdminService', () => {
       coursesService as any,
       courseGroupAssignmentsService as any,
     );
+  });
+
+  describe('createGroup', () => {
+    it('should create a group with the vi name as its default name', async () => {
+      masterDataGroupsService.findByGroupKey.mockResolvedValue(null);
+      masterDataGroupsService.create.mockImplementation((data: any) =>
+        Promise.resolve({ id: 'g-new', ...data }),
+      );
+
+      await service.createGroup({
+        groupKey: 'learning_goal',
+        nameTranslations: { vi: 'Mục tiêu', en: 'Goal' },
+      });
+
+      expect(masterDataGroupsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          groupKey: 'learning_goal',
+          name: 'Mục tiêu',
+          nameTranslations: { vi: 'Mục tiêu', en: 'Goal' },
+          isActive: true,
+          displayOrder: 0,
+        }),
+      );
+    });
+
+    it('should 409 when the groupKey is taken', async () => {
+      masterDataGroupsService.findByGroupKey.mockResolvedValue({ id: 'g1' });
+
+      await expect(
+        service.createGroup({ groupKey: 'course_level', name: 'Cấp độ' }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(masterDataGroupsService.create).not.toHaveBeenCalled();
+    });
+
+    it('should 422 without a Vietnamese name', async () => {
+      masterDataGroupsService.findByGroupKey.mockResolvedValue(null);
+
+      await expect(
+        service.createGroup({
+          groupKey: 'learning_goal',
+          nameTranslations: { en: 'Goal' },
+        }),
+      ).rejects.toMatchObject({ status: 422 });
+    });
+  });
+
+  describe('updateGroup', () => {
+    beforeEach(() => {
+      masterDataGroupsService.findByGroupKey.mockResolvedValue({
+        id: 'g1',
+        groupKey: 'course_level',
+        nameTranslations: { vi: 'Cấp độ', en: 'Level' },
+        descriptionTranslations: {},
+      });
+      masterDataGroupsService.update.mockResolvedValue({ id: 'g1' });
+    });
+
+    it('should toggle isActive without touching the names', async () => {
+      await service.updateGroup('course_level', { isActive: false });
+
+      expect(masterDataGroupsService.update).toHaveBeenCalledWith('g1', {
+        isActive: false,
+      });
+    });
+
+    it('should merge a translation patch onto the stored map', async () => {
+      await service.updateGroup('course_level', {
+        nameTranslations: { en: 'Course level' },
+      });
+
+      expect(masterDataGroupsService.update).toHaveBeenCalledWith(
+        'g1',
+        expect.objectContaining({
+          name: 'Cấp độ',
+          nameTranslations: { vi: 'Cấp độ', en: 'Course level' },
+        }),
+      );
+    });
+
+    it('should 404 for an unknown groupKey', async () => {
+      masterDataGroupsService.findByGroupKey.mockResolvedValue(null);
+
+      await expect(
+        service.updateGroup('nope', { isActive: false }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 
   describe('findCodesForGroup', () => {
