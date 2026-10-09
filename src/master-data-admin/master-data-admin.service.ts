@@ -33,6 +33,8 @@ import { TranslationCoverageDto } from './dto/translation-coverage.dto';
  */
 const GROUP_CODE_LIMIT = 1000;
 const ALL_GROUPS_LIMIT = 200;
+/** Every code of every group, for the batched coverage read. */
+const ALL_CODES_LIMIT = 20000;
 
 @Injectable()
 export class MasterDataAdminService {
@@ -257,10 +259,50 @@ export class MasterDataAdminService {
       paginationOptions: { page: 1, limit: GROUP_CODE_LIMIT },
     });
 
-    const scoped = includeInactive
-      ? codes
-      : codes.filter((code) => code.isActive);
+    return this.coverageOf(
+      includeInactive ? codes : codes.filter((code) => code.isActive),
+    );
+  }
 
+  /**
+   * Coverage for every group in one read: one query for the groups, one for
+   * all codes, grouped here.
+   *
+   * The admin screen used to call the per-group route once per group to
+   * draw the list's chips — 22 requests on every open, and again for each
+   * group after every save. Groups with no codes come back with zeros, so
+   * every key the screen asks about is present.
+   */
+  async translationCoverageByGroup(
+    includeInactive = false,
+  ): Promise<Record<string, TranslationCoverageDto>> {
+    const [groups, codes] = await Promise.all([
+      this.findAllGroups(),
+      this.masterDataCodesService.findAllWithPagination({
+        filterOptions: includeInactive ? {} : { isActive: true },
+        paginationOptions: { page: 1, limit: ALL_CODES_LIMIT },
+      }),
+    ]);
+
+    const byGroup = new Map<string, MasterDataCode[]>();
+    for (const code of codes) {
+      const key = code.group?.groupKey;
+      if (!key) continue;
+      const list = byGroup.get(key) ?? [];
+      list.push(code);
+      byGroup.set(key, list);
+    }
+
+    return Object.fromEntries(
+      groups.map((group) => [
+        group.groupKey,
+        this.coverageOf(byGroup.get(group.groupKey) ?? []),
+      ]),
+    );
+  }
+
+  /** Per-locale counts over codes already scoped (active or not) by the caller. */
+  private coverageOf(scoped: MasterDataCode[]): TranslationCoverageDto {
     const coverage: TranslationCoverageDto = {};
 
     for (const locale of SUPPORTED_LOCALES) {

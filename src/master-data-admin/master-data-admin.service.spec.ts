@@ -140,6 +140,77 @@ describe('MasterDataAdminService', () => {
     });
   });
 
+  describe('translationCoverageByGroup', () => {
+    const code = (
+      id: string,
+      groupKey: string,
+      en?: string,
+      isActive = true,
+    ) => ({
+      id,
+      isActive,
+      group: { groupKey },
+      nameTranslations: en ? { vi: 'x', en } : { vi: 'x' },
+    });
+
+    beforeEach(() => {
+      masterDataGroupsService.findAllWithPagination.mockResolvedValue([
+        { groupKey: 'course_level' },
+        { groupKey: 'expertise_area' },
+        { groupKey: 'empty_group' },
+      ]);
+      masterDataCodesService.findAllWithPagination.mockResolvedValue([
+        code('c1', 'course_level', 'Beginner'),
+        code('c2', 'course_level'),
+        code('c3', 'expertise_area', 'Data'),
+      ]);
+    });
+
+    it('should answer for every group in one read of the codes', async () => {
+      const result = await service.translationCoverageByGroup();
+
+      expect(
+        masterDataCodesService.findAllWithPagination,
+      ).toHaveBeenCalledTimes(1);
+      expect(result.course_level.en).toEqual({
+        total: 2,
+        translated: 1,
+        missingIds: ['c2'],
+      });
+      expect(result.expertise_area.en).toEqual({
+        total: 1,
+        translated: 1,
+        missingIds: [],
+      });
+    });
+
+    it('should return zeros for a group that has no codes', async () => {
+      const result = await service.translationCoverageByGroup();
+
+      expect(result.empty_group.en).toEqual({
+        total: 0,
+        translated: 0,
+        missingIds: [],
+      });
+    });
+
+    it('should count active codes only unless asked otherwise', async () => {
+      await service.translationCoverageByGroup();
+      expect(
+        masterDataCodesService.findAllWithPagination,
+      ).toHaveBeenLastCalledWith(
+        expect.objectContaining({ filterOptions: { isActive: true } }),
+      );
+
+      await service.translationCoverageByGroup(true);
+      expect(
+        masterDataCodesService.findAllWithPagination,
+      ).toHaveBeenLastCalledWith(
+        expect.objectContaining({ filterOptions: {} }),
+      );
+    });
+  });
+
   describe('findCodesForGroup', () => {
     it('should 404 for an unknown groupKey', async () => {
       masterDataGroupsService.findByGroupKey.mockResolvedValue(null);
