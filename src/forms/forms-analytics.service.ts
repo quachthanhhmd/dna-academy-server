@@ -1,6 +1,8 @@
 import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { FormSubmissionConsentEntity } from '../form-submission-consent/infrastructure/persistence/relational/entities/form-submission-consent.entity';
+import { FormAnswerOptionEntity } from '../form-answer-option/infrastructure/persistence/relational/entities/form-answer-option.entity';
+import { FormQuestionEntity } from '../form-question/infrastructure/persistence/relational/entities/form-question.entity';
 import { MasterDataCodesService } from '../master-data-codes/master-data-codes.service';
 import { LocaleContext } from '../utils/i18n/locale-context';
 import { pickLocalized } from '../utils/i18n/pick-localized';
@@ -9,11 +11,13 @@ import { FormsService } from './forms.service';
 import {
   ANALYTICS_STATUS_ORDER,
   AnalyticsBucket,
+  AnalyticsCrosstabDto,
   AnalyticsQuestionsDto,
   AnalyticsSummaryDto,
   AnalyticsSupplyDemandDto,
   AnalyticsTimeseriesDto,
   FindAnalyticsDto,
+  FindCrosstabDto,
   FindFormAnalyticsDto,
 } from './dto/form-analytics.dto';
 
@@ -544,6 +548,111 @@ export class FormsAnalyticsService {
           options,
         };
       }),
+    };
+  }
+
+  // ───────────────────────────── crosstab ─────────────────────────────
+
+  /**
+   * Two select questions crossed: how many submissions chose each
+   * (row option, column option) pair. Drill-blind — the crosstab is a
+   * form-level view, and a drill would empty most cells.
+   */
+  async getCrosstab(dto: FindCrosstabDto): Promise<AnalyticsCrosstabDto> {
+    const range = this.resolveRange(dto);
+    const definition = await this.formsService.getPublicDefinition(
+      dto.formCode,
+    );
+    const selects = new Map(
+      definition.sections
+        .flatMap((section) => section.questions)
+        .filter(
+          (question) =>
+            question.type === 'single_select' ||
+            question.type === 'multi_select',
+        )
+        .map((question) => [question.code, question]),
+    );
+    const rowQuestion = selects.get(dto.row);
+    const colQuestion = selects.get(dto.col);
+
+    if (!rowQuestion || !colQuestion || dto.row === dto.col) {
+      throw new UnprocessableEntityException({
+        status: 422,
+        errors: { crosstab: 'analytics_invalid_crosstab' },
+      });
+    }
+
+    const base = () => {
+      const qb = this.repository.answerOptionsRepo
+        .createQueryBuilder('r')
+        .innerJoin('r.submission', 'submission')
+        .innerJoin('r.question', 'rq')
+        .innerJoin(
+          FormAnswerOptionEntity,
+          'c',
+          'c.submission_id = r.submission_id',
+        )
+        .innerJoin(FormQuestionEntity, 'cq', 'cq.id = c.question_id');
+      this.applyScope(qb, range, dto, { ignoreDrill: true });
+      qb.andWhere('rq.code = :row', { row: dto.row }).andWhere(
+        'cq.code = :col',
+        { col: dto.col },
+      );
+      return qb;
+    };
+
+    const [rows, respondentRow] = await Promise.all([
+      base()
+        .select('r.optionCode', 'rowCode')
+        .addSelect('c.optionCode', 'colCode')
+        .addSelect('COUNT(DISTINCT r.submission_id)', 'count')
+        .groupBy('r.optionCode')
+        .addGroupBy('c.optionCode')
+        .getRawMany<{ rowCode: string; colCode: string; count: string }>(),
+      base()
+        .select('COUNT(DISTINCT r.submission_id)', 'n')
+        .getRawOne<{ n: string }>(),
+    ]);
+
+    const rowOptions = rowQuestion.options.map((option) => ({
+      code: option.code,
+      name: option.name,
+    }));
+    const colOptions = colQuestion.options.map((option) => ({
+      code: option.code,
+      name: option.name,
+    }));
+    const rowIndex = new Map(
+      rowOptions.map((option, index) => [option.code, index]),
+    );
+    const colIndex = new Map(
+      colOptions.map((option, index) => [option.code, index]),
+    );
+
+    const cells = rowOptions.map(() => colOptions.map(() => 0));
+    for (const row of rows) {
+      const i = rowIndex.get(row.rowCode);
+      const j = colIndex.get(row.colCode);
+      // A code no longer in the allowlist keeps its number out of the matrix
+      // rather than inventing a column with no label.
+      if (i === undefined || j === undefined) continue;
+      cells[i][j] += Number(row.count);
+    }
+
+    return {
+      row: {
+        code: rowQuestion.code,
+        label: rowQuestion.label,
+        options: rowOptions,
+      },
+      col: {
+        code: colQuestion.code,
+        label: colQuestion.label,
+        options: colOptions,
+      },
+      cells,
+      respondents: Number(respondentRow?.n ?? 0),
     };
   }
 

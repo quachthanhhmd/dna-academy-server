@@ -279,6 +279,92 @@ describe('Forms analytics API (PLAN-forms-insights)', () => {
     });
   });
 
+  describe('crosstab', () => {
+    const crosstab = (query: string) =>
+      request(app)
+        .get(`/api/v1/admin/forms/analytics/crosstab${query}`)
+        .auth(adminToken, { type: 'bearer' });
+
+    const advanced = (email: string) => ({
+      answers: [
+        { questionCode: 'full_name', text: 'Nguyễn Văn Test' },
+        { questionCode: 'email', text: email },
+        { questionCode: 'phone', text: '0901234567' },
+        { questionCode: 'current_level', optionCodes: ['self_taught'] },
+        { questionCode: 'profession', optionCodes: ['data_analytics'] },
+        { questionCode: 'session_slot', optionCodes: ['weekday_evening'] },
+        { questionCode: 'time_band', optionCodes: ['slot_19_21'] },
+        { questionCode: 'learning_goal', optionCodes: ['upskill'] },
+      ],
+      consents: ['zoom_format', 'contact'],
+      context: { source: 'certificate', locale: 'vi' },
+      _hp: '',
+      startedAt: Date.now() - 60_000,
+    });
+
+    const cellOf = (
+      body: {
+        row: { options: { code: string }[] };
+        col: { options: { code: string }[] };
+        cells: number[][];
+      },
+      rowCode: string,
+      colCode: string,
+    ) => {
+      const i = body.row.options.findIndex((o) => o.code === rowCode);
+      const j = body.col.options.findIndex((o) => o.code === colCode);
+      return i >= 0 && j >= 0 ? body.cells[i][j] : 0;
+    };
+
+    const QUERY =
+      '?formCode=advanced_course_interest&row=session_slot&col=time_band';
+
+    it('should 401 an anonymous caller', async () => {
+      await request(app)
+        .get('/api/v1/admin/forms/analytics/crosstab')
+        .expect(401);
+    });
+
+    it('should 422 a non-select or repeated axis', async () => {
+      await crosstab(
+        '?formCode=advanced_course_interest&row=full_name&col=time_band',
+      ).expect(422);
+      await crosstab(
+        '?formCode=advanced_course_interest&row=time_band&col=time_band',
+      ).expect(422);
+    });
+
+    it('should zero-fill the matrix in allowlist order', async () => {
+      const { body } = await crosstab(QUERY).expect(200);
+      expect(body.row.code).toBe('session_slot');
+      expect(body.col.code).toBe('time_band');
+      expect(body.cells).toHaveLength(body.row.options.length);
+      for (const row of body.cells) {
+        expect(row).toHaveLength(body.col.options.length);
+      }
+    });
+
+    it('should count the two-axis cell as a delta', async () => {
+      const baseline = await crosstab(QUERY).expect(200);
+      const base = cellOf(baseline.body, 'weekday_evening', 'slot_19_21');
+
+      await submit(
+        'advanced_course_interest',
+        advanced(uniqueEmail(`forms.xtab.a.${runId}`)),
+      ).expect(201);
+      await submit(
+        'advanced_course_interest',
+        advanced(uniqueEmail(`forms.xtab.b.${runId}`)),
+      ).expect(201);
+
+      const after = await crosstab(QUERY).expect(200);
+      expect(
+        cellOf(after.body, 'weekday_evening', 'slot_19_21'),
+      ).toBeGreaterThanOrEqual(base + 2);
+      expect(after.body.respondents).toBeGreaterThanOrEqual(2);
+    });
+  });
+
   describe('supply-demand', () => {
     const supplyDemand = (query = '') =>
       request(app)

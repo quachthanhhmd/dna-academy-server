@@ -188,6 +188,46 @@ export class AnalyticsQuestionsDto {
   questions: AnalyticsQuestionDto[];
 }
 
+// ───────────────────────── crosstab response ─────────────────────────
+
+export class FindCrosstabDto extends FindFormAnalyticsDto {
+  @ApiProperty({ description: 'row question code' })
+  @IsString()
+  @MaxLength(64)
+  row: string;
+
+  @ApiProperty({ description: 'column question code' })
+  @IsString()
+  @MaxLength(64)
+  col: string;
+}
+
+export class AnalyticsCrosstabOptionDto {
+  @ApiProperty() code: string;
+  @ApiProperty() name: string;
+}
+
+export class AnalyticsCrosstabAxisDto {
+  @ApiProperty() code: string;
+  @ApiProperty() label: string;
+  @ApiProperty({ type: [AnalyticsCrosstabOptionDto] })
+  options: AnalyticsCrosstabOptionDto[];
+}
+
+export class AnalyticsCrosstabDto {
+  @ApiProperty({ type: AnalyticsCrosstabAxisDto })
+  row: AnalyticsCrosstabAxisDto;
+  @ApiProperty({ type: AnalyticsCrosstabAxisDto })
+  col: AnalyticsCrosstabAxisDto;
+  @ApiProperty({
+    description:
+      'cells[i][j] = submissions that chose row option i AND col option j',
+  })
+  cells: number[][];
+  @ApiProperty({ description: 'submissions that answered both questions' })
+  respondents: number;
+}
+
 // ─────────────────────── supply / demand response ───────────────────────
 
 export class AnalyticsSupplyDemandRowDto {

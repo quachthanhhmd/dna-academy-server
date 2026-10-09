@@ -32,11 +32,13 @@ import {
   UpdateSubmissionDto,
 } from './dto/form-admin.dto';
 import {
+  AnalyticsCrosstabDto,
   AnalyticsQuestionsDto,
   AnalyticsSummaryDto,
   AnalyticsSupplyDemandDto,
   AnalyticsTimeseriesDto,
   FindAnalyticsDto,
+  FindCrosstabDto,
   FindFormAnalyticsDto,
 } from './dto/form-analytics.dto';
 import { FormsAnalyticsService } from './forms-analytics.service';
@@ -128,6 +130,17 @@ export class FormsAdminController {
   @Get('analytics/questions')
   getAnalyticsQuestions(@Query() query: FindFormAnalyticsDto) {
     return this.formsAnalyticsService.getQuestions(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({
+    summary: 'Two select questions crossed (row × column counts)',
+  })
+  @ApiOkResponse({ type: AnalyticsCrosstabDto })
+  @ApiNotFoundResponse()
+  @Get('analytics/crosstab')
+  getAnalyticsCrosstab(@Query() query: FindCrosstabDto) {
+    return this.formsAnalyticsService.getCrosstab(query);
   }
 
   @RequirePermission('forms', 'analytics')
