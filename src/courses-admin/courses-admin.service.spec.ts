@@ -101,6 +101,24 @@ describe('CoursesAdminService', () => {
       );
     });
 
+    it('should default startsFromSectionZero to false and carry it when set', async () => {
+      coursesService.findBySlug.mockResolvedValue(null);
+      coursesService.create.mockResolvedValue({ id: 'course-1' });
+
+      await service.create(baseDto as any, 7);
+      expect(coursesService.create).toHaveBeenLastCalledWith(
+        expect.objectContaining({ startsFromSectionZero: false }),
+      );
+
+      await service.create(
+        { ...baseDto, startsFromSectionZero: true } as any,
+        7,
+      );
+      expect(coursesService.create).toHaveBeenLastCalledWith(
+        expect.objectContaining({ startsFromSectionZero: true }),
+      );
+    });
+
     it('should carry requiresSequentialCompletion through to the course', async () => {
       coursesService.findBySlug.mockResolvedValue(null);
       coursesService.create.mockResolvedValue({ id: 'course-1' });

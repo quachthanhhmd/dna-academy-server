@@ -127,6 +127,8 @@ export class CoursesService {
       requiresSequentialCompletion:
         createCourseDto.requiresSequentialCompletion ?? false,
 
+      startsFromSectionZero: createCourseDto.startsFromSectionZero ?? false,
+
       avgRating: createCourseDto.avgRating,
 
       totalEnrollments: createCourseDto.totalEnrollments,
@@ -330,6 +332,8 @@ export class CoursesService {
 
       requiresSequentialCompletion:
         updateCourseDto.requiresSequentialCompletion,
+
+      startsFromSectionZero: updateCourseDto.startsFromSectionZero,
 
       avgRating: updateCourseDto.avgRating,
 

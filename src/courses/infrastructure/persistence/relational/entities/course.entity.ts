@@ -92,6 +92,16 @@ export class CourseEntity extends EntityRelationalHelper {
   })
   requiresSequentialCompletion: boolean;
 
+  // When true, section numbering starts at 0 — the first section is an
+  // introduction ("Phần 0") rather than the first teaching section.
+  @Column({
+    name: 'starts_from_section_zero',
+    nullable: false,
+    type: Boolean,
+    default: false,
+  })
+  startsFromSectionZero: boolean;
+
   // Epic 4 v2 §2.1: widened from integer so a 4.75 average survives a
   // round-trip. Postgres returns numeric as a string; the transformer keeps
   // the domain model on plain numbers.

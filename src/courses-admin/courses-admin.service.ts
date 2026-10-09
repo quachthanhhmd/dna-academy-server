@@ -73,6 +73,7 @@ export class CoursesAdminService {
       enrollmentOpen: dto.enrollmentOpen,
       // Epic 4 v2 §2.1 — drives SequentialLockService in the player.
       requiresSequentialCompletion: dto.requiresSequentialCompletion ?? false,
+      startsFromSectionZero: dto.startsFromSectionZero ?? false,
       status: 'draft',
       slug,
       level,
