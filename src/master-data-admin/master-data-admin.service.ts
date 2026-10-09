@@ -12,6 +12,8 @@ import { MasterDataCode } from '../master-data-codes/domain/master-data-code';
 import { CoursesService } from '../courses/courses.service';
 import { CourseGroupAssignmentsService } from '../course-group-assignments/course-group-assignments.service';
 import { CreateMasterDataAdminCodeDto } from './dto/create-master-data-admin-code.dto';
+import { CreateMasterDataAdminGroupDto } from './dto/create-master-data-admin-group.dto';
+import { UpdateMasterDataAdminGroupDto } from './dto/update-master-data-admin-group.dto';
 import { UpdateMasterDataAdminCodeDto } from './dto/update-master-data-admin-code.dto';
 import { MasterDataCodeWithCountDto } from './dto/master-data-code-with-count.dto';
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from '../utils/i18n/locale';
@@ -45,6 +47,91 @@ export class MasterDataAdminService {
     return this.masterDataGroupsService.findAllWithPagination({
       paginationOptions: { page: 1, limit: ALL_GROUPS_LIMIT },
     });
+  }
+
+  /**
+   * A new group. The key is unique and permanent; the Vietnamese name is
+   * required for the same reason it is on a code — it is every other
+   * locale's fallback.
+   */
+  async createGroup(
+    dto: CreateMasterDataAdminGroupDto,
+  ): Promise<MasterDataGroup> {
+    const existing = await this.masterDataGroupsService.findByGroupKey(
+      dto.groupKey,
+    );
+    if (existing) {
+      throw new ConflictException({
+        status: HttpStatus.CONFLICT,
+        errors: { groupKey: 'groupKeyExists' },
+      });
+    }
+
+    const nameTranslations = withDefaultLocale(
+      sanitizeTranslations(dto.nameTranslations),
+      dto.name,
+    );
+    const descriptionTranslations = withDefaultLocale(
+      sanitizeTranslations(dto.descriptionTranslations),
+      dto.description,
+    );
+    const defaultName = this.assertDefaultLocaleName(nameTranslations);
+
+    return this.masterDataGroupsService.create({
+      groupKey: dto.groupKey,
+      name: defaultName,
+      nameTranslations,
+      description: descriptionTranslations[DEFAULT_LOCALE] ?? null,
+      descriptionTranslations,
+      isActive: dto.isActive ?? true,
+      displayOrder: dto.displayOrder ?? 0,
+    });
+  }
+
+  /** Name, description, order and the on/off switch — never the key. */
+  async updateGroup(
+    groupKey: string,
+    dto: UpdateMasterDataAdminGroupDto,
+  ): Promise<MasterDataGroup | null> {
+    const group = await this.findGroupOrThrow(groupKey);
+    const payload: Record<string, unknown> = {
+      isActive: dto.isActive,
+      displayOrder: dto.displayOrder,
+    };
+
+    if (dto.nameTranslations !== undefined || dto.name !== undefined) {
+      const nameTranslations = withDefaultLocale(
+        mergeTranslations(group.nameTranslations, dto.nameTranslations),
+        dto.nameTranslations?.[DEFAULT_LOCALE] === undefined
+          ? dto.name
+          : undefined,
+      );
+      payload.name = this.assertDefaultLocaleName(nameTranslations);
+      payload.nameTranslations = nameTranslations;
+    }
+
+    if (
+      dto.descriptionTranslations !== undefined ||
+      dto.description !== undefined
+    ) {
+      const descriptionTranslations = withDefaultLocale(
+        mergeTranslations(
+          group.descriptionTranslations,
+          dto.descriptionTranslations,
+        ),
+        dto.descriptionTranslations?.[DEFAULT_LOCALE] === undefined
+          ? dto.description
+          : undefined,
+      );
+      payload.descriptionTranslations = descriptionTranslations;
+      payload.description = descriptionTranslations[DEFAULT_LOCALE] ?? null;
+    }
+
+    for (const key of Object.keys(payload)) {
+      if (payload[key] === undefined) delete payload[key];
+    }
+
+    return this.masterDataGroupsService.update(group.id, payload);
   }
 
   async findCodesForGroup(

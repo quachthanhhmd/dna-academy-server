@@ -173,6 +173,11 @@ export class CreateCourseDto {
   @IsBoolean()
   requiresSequentialCompletion?: boolean;
 
+  @ApiProperty({ required: false, type: () => Boolean, default: false })
+  @IsOptional()
+  @IsBoolean()
+  startsFromSectionZero?: boolean;
+
   @ApiProperty({ required: false, type: () => Date })
   @IsOptional()
   unpublishedAt?: Date | null;

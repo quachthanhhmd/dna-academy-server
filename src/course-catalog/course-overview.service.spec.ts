@@ -118,6 +118,23 @@ describe('CourseOverviewService', () => {
     expect(result.requiresSequentialCompletion).toBe(false);
   });
 
+  it('should expose startsFromSectionZero for section numbering', async () => {
+    coursesService.findBySlug.mockResolvedValue({
+      ...publishedCourse,
+      startsFromSectionZero: true,
+    });
+
+    const result = await service.findPublishedBySlug('career-basics');
+
+    expect(result.startsFromSectionZero).toBe(true);
+  });
+
+  it('should default startsFromSectionZero to false', async () => {
+    const result = await service.findPublishedBySlug('career-basics');
+
+    expect(result.startsFromSectionZero).toBe(false);
+  });
+
   describe('instructors', () => {
     it('should return the full primary profile and the co-instructors', async () => {
       courseInstructorsService.findViewByCourseId.mockResolvedValue({

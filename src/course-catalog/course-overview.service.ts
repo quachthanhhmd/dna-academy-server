@@ -146,6 +146,7 @@ export class CourseOverviewService {
       hasCertificate: course.hasCertificate,
       requiresSequentialCompletion:
         course.requiresSequentialCompletion ?? false,
+      startsFromSectionZero: course.startsFromSectionZero ?? false,
       avgRating: course.avgRating ?? null,
       totalEnrollments: course.totalEnrollments ?? 0,
       learningOutcomes: learningOutcomes.map((item) => item.description),

@@ -37,6 +37,15 @@ export class Course {
   })
   requiresSequentialCompletion: boolean;
 
+  @ApiProperty({
+    type: () => Boolean,
+    nullable: false,
+    description:
+      'When true, sections are numbered from 0 so the first one reads as an ' +
+      'introduction. Display only — ordering is still displayOrder.',
+  })
+  startsFromSectionZero: boolean;
+
   @Exclude({ toPlainOnly: true })
   avgRating?: number | null;
 
