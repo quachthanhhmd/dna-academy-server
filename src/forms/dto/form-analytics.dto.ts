@@ -351,3 +351,51 @@ export class SetAnswerThemeResponseDto {
   @ApiProperty({ nullable: true, type: String }) themeSource: string | null;
   @ApiProperty() themedAt: string;
 }
+
+// ─────────────── respondents drill-down (the KPI tiles) ───────────────
+
+/** Which slice of the form's respondents a KPI tile counted. */
+export const RESPONDENT_METRICS = ['all', 'consent', 'new'] as const;
+export type RespondentMetric = (typeof RESPONDENT_METRICS)[number];
+
+export class FindRespondentsDto extends FindFormAnalyticsDto {
+  @ApiPropertyOptional({ enum: RESPONDENT_METRICS, default: 'all' })
+  @IsOptional()
+  @IsIn(RESPONDENT_METRICS as unknown as string[])
+  metric?: RespondentMetric;
+
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ default: 20, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
+export class AnalyticsRespondentDto {
+  @ApiProperty() submissionId: string;
+  @ApiProperty({ nullable: true, type: String }) fullName: string | null;
+  @ApiProperty({ nullable: true, type: String }) email: string | null;
+  @ApiProperty({ nullable: true, type: String }) phone: string | null;
+  @ApiProperty() status: string;
+  @ApiProperty() source: string;
+  @ApiProperty() createdAt: string;
+  @ApiProperty({ type: [String] }) professionNames: string[];
+}
+
+export class AnalyticsRespondentsDto {
+  @ApiProperty({ type: [AnalyticsRespondentDto] })
+  data: AnalyticsRespondentDto[];
+  @ApiProperty() total: number;
+  @ApiProperty() page: number;
+  @ApiProperty() limit: number;
+  @ApiProperty() hasNextPage: boolean;
+}
