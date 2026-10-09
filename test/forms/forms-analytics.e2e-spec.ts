@@ -530,4 +530,41 @@ describe('Forms analytics API (PLAN-forms-insights)', () => {
       await tag(item.answerId, 'time', plainUser.token).expect(403);
     });
   });
+
+  describe('export', () => {
+    const url = (query = '') =>
+      `/api/v1/admin/forms/analytics/export.xlsx${query}`;
+
+    it('should 401 an anonymous caller', async () => {
+      await request(app).get(url()).expect(401);
+    });
+
+    it('should 403 a user without forms:export', async () => {
+      await request(app)
+        .get(url())
+        .auth(plainUser.token, { type: 'bearer' })
+        .expect(403);
+    });
+
+    it('should return an xlsx for the overview and for a form', async () => {
+      for (const query of ['', '?formCode=free_course_waitlist']) {
+        const res = await request(app)
+          .get(url(query))
+          .auth(adminToken, { type: 'bearer' })
+          .buffer(true)
+          .parse((response, callback) => {
+            const chunks: Buffer[] = [];
+            response.on('data', (chunk: Buffer) => chunks.push(chunk));
+            response.on('end', () => callback(null, Buffer.concat(chunks)));
+          });
+
+        expect(res.status).toBe(200);
+        expect(String(res.headers['content-type'])).toContain('spreadsheetml');
+        // An xlsx is a zip: the local file header magic is "PK".
+        expect((res.body as Buffer).subarray(0, 2).toString('latin1')).toBe(
+          'PK',
+        );
+      }
+    });
+  });
 });

@@ -39,6 +39,7 @@ import {
   AnalyticsTextsDto,
   AnalyticsTimeseriesDto,
   FindAnalyticsDto,
+  FindAnalyticsExportDto,
   FindCrosstabDto,
   FindFormAnalyticsDto,
   FindTextsDto,
@@ -46,6 +47,7 @@ import {
   SetAnswerThemeResponseDto,
 } from './dto/form-analytics.dto';
 import { FormsAnalyticsService } from './forms-analytics.service';
+import { FormsAnalyticsExportService } from './forms-analytics-export.service';
 import { FormsService } from './forms.service';
 
 @ApiTags('Admin / Forms')
@@ -56,6 +58,7 @@ export class FormsAdminController {
   constructor(
     private readonly formsService: FormsService,
     private readonly formsAnalyticsService: FormsAnalyticsService,
+    private readonly formsAnalyticsExportService: FormsAnalyticsExportService,
   ) {}
 
   @RequirePermission('forms', 'view')
@@ -183,6 +186,24 @@ export class FormsAdminController {
       dto.themeCode ?? null,
       request.user.id,
     );
+  }
+
+  @RequirePermission('forms', 'export')
+  @ApiOperation({
+    summary: 'Excel export for a tab: raw answers plus chart images',
+  })
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header('Content-Disposition', 'attachment; filename="form-insights.xlsx"')
+  @Get('analytics/export.xlsx')
+  async exportAnalytics(
+    @Query() query: FindAnalyticsExportDto,
+    @Res() response: Response,
+  ): Promise<void> {
+    const buffer = await this.formsAnalyticsExportService.buildWorkbook(query);
+    response.send(buffer);
   }
 
   @RequirePermission('forms', 'view')

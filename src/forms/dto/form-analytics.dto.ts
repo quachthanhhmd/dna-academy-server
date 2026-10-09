@@ -91,6 +91,17 @@ export class FindFormAnalyticsDto extends FindAnalyticsDto {
   formCode: string;
 }
 
+/** The export accepts an optional `formCode`: absent means the overview. */
+export class FindAnalyticsExportDto extends FindAnalyticsDto {
+  @ApiPropertyOptional({
+    description: 'form code; omitted exports the overview (all active forms)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  formCode?: string;
+}
+
 // ─────────────────────────── summary response ───────────────────────────
 
 export class AnalyticsRangeDto {

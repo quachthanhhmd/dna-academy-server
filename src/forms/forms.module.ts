@@ -14,6 +14,7 @@ import { FormSubmissionConsentEntity } from '../form-submission-consent/infrastr
 import { FormSubmissionEventEntity } from '../form-submission-event/infrastructure/persistence/relational/entities/form-submission-event.entity';
 import { FormsService } from './forms.service';
 import { FormsAnalyticsService } from './forms-analytics.service';
+import { FormsAnalyticsExportService } from './forms-analytics-export.service';
 import { FormsPublicController } from './forms-public.controller';
 import { FormsAdminController } from './forms-admin.controller';
 
@@ -41,7 +42,12 @@ import { FormsAdminController } from './forms-admin.controller';
     AuthorizationModule,
   ],
   controllers: [FormsPublicController, FormsAdminController],
-  providers: [FormsRepository, FormsService, FormsAnalyticsService],
+  providers: [
+    FormsRepository,
+    FormsService,
+    FormsAnalyticsService,
+    FormsAnalyticsExportService,
+  ],
   exports: [FormsService],
 })
 export class FormsModule {}
