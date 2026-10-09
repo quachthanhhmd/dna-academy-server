@@ -55,11 +55,19 @@ export class CourseEntity extends EntityRelationalHelper {
   })
   courseId?: string | null;
 
-  @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'SET NULL',
+    eager: false,
+    nullable: true,
+  })
   @JoinColumn({ name: 'created_by_id' })
   createdBy?: UserEntity | null;
 
-  @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'SET NULL',
+    eager: false,
+    nullable: true,
+  })
   @JoinColumn({ name: 'published_by_id' })
   publishedBy?: UserEntity | null;
 
@@ -78,7 +86,11 @@ export class CourseEntity extends EntityRelationalHelper {
   })
   unpublishedAt?: Date | null;
 
-  @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'SET NULL',
+    eager: false,
+    nullable: true,
+  })
   @JoinColumn({ name: 'unpublished_by_id' })
   unpublishedBy?: UserEntity | null;
 

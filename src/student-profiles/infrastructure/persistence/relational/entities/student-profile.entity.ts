@@ -34,7 +34,11 @@ export class StudentProfileEntity extends EntityRelationalHelper {
   @JoinColumn({ name: 'education_stage_code_id' })
   educationStageCode?: MasterDataCodeEntity | null;
 
-  @OneToOne(() => UserEntity, { eager: true, nullable: false })
+  @OneToOne(() => UserEntity, {
+    onDelete: 'CASCADE',
+    eager: true,
+    nullable: false,
+  })
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;
 

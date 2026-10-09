@@ -20,9 +20,7 @@ export class SessionEntity extends EntityRelationalHelper {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => UserEntity, {
-    eager: true,
-  })
+  @ManyToOne(() => UserEntity, { onDelete: 'CASCADE', eager: true })
   @JoinColumn({ name: 'user_id' })
   @Index()
   user: UserEntity;

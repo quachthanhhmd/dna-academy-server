@@ -55,7 +55,11 @@ export class CareerReflectionAnswerEntity extends EntityRelationalHelper {
   @JoinColumn({ name: 'question_id' })
   question: CareerReflectionQuestionEntity;
 
-  @ManyToOne(() => EnrollmentEntity, { eager: true, nullable: false })
+  @ManyToOne(() => EnrollmentEntity, {
+    onDelete: 'CASCADE',
+    eager: true,
+    nullable: false,
+  })
   @JoinColumn({ name: 'enrollment_id' })
   enrollment: EnrollmentEntity;
 

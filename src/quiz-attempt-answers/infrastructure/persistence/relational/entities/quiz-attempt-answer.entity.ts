@@ -30,7 +30,11 @@ export class QuizAttemptAnswerEntity extends EntityRelationalHelper {
   })
   gradedAt?: Date | null;
 
-  @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'SET NULL',
+    eager: false,
+    nullable: true,
+  })
   @JoinColumn({ name: 'graded_by_id' })
   gradedBy?: UserEntity | null;
 
@@ -81,7 +85,11 @@ export class QuizAttemptAnswerEntity extends EntityRelationalHelper {
   @JoinColumn({ name: 'question_id' })
   question: QuizQuestionEntity;
 
-  @ManyToOne(() => QuizAttemptEntity, { eager: true, nullable: false })
+  @ManyToOne(() => QuizAttemptEntity, {
+    onDelete: 'CASCADE',
+    eager: true,
+    nullable: false,
+  })
   @JoinColumn({ name: 'attempt_id' })
   attempt: QuizAttemptEntity;
 

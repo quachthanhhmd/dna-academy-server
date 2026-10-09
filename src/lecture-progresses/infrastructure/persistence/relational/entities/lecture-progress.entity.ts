@@ -54,7 +54,11 @@ export class LectureProgressEntity extends EntityRelationalHelper {
   @JoinColumn({ name: 'lecture_id' })
   lecture: LectureEntity;
 
-  @ManyToOne(() => EnrollmentEntity, { eager: true, nullable: false })
+  @ManyToOne(() => EnrollmentEntity, {
+    onDelete: 'CASCADE',
+    eager: true,
+    nullable: false,
+  })
   @JoinColumn({ name: 'enrollment_id' })
   enrollment: EnrollmentEntity;
 

@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/domain/user';
 import { CreateUserDto } from '../users/dto/create-user.dto';
@@ -32,6 +33,7 @@ export class UsersAdminService {
     private readonly userRolesService: UserRolesService,
     private readonly authorizationService: AuthorizationService,
     private readonly sessionService: SessionService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /** New accounts are Users; `PUT /admin/users/:id/roles` changes that. */
@@ -109,8 +111,61 @@ export class UsersAdminService {
 
     await this.findOrThrow(userId);
     await this.assertWithinCaller(actorId, userId);
-    await this.sessionService.deleteByUserId({ userId });
-    await this.usersService.remove(userId);
+    await this.hardDelete(userId);
+  }
+
+  /**
+   * Removes the user from the system, not just from the list.
+   *
+   * The foreign keys do the work (migration UserDeleteCascades1788300000000):
+   * what belongs to the learner — enrollments and everything under them,
+   * certificates, ratings, profile, sessions, linked social accounts, roles —
+   * is deleted with them; records that only name who acted (a course's
+   * creator, an uploader, a grader) keep existing with that name cleared.
+   *
+   * The course counters are denormalised, so they are corrected in the same
+   * transaction: `total_enrollments` loses this learner's enrollments and
+   * `avg_rating` is recomputed the way CompletionService computes it (a plain
+   * average of the course's ratings, numeric(3,2)). All or nothing.
+   */
+  private async hardDelete(userId: number): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const enrolled: { courseId: string; count: number }[] =
+        await manager.query(
+          `SELECT course_id AS "courseId", COUNT(*)::int AS "count"
+             FROM enrollment WHERE student_id = $1 GROUP BY course_id`,
+          [userId],
+        );
+      const rated: { courseId: string }[] = await manager.query(
+        `SELECT DISTINCT course_id AS "courseId"
+           FROM course_rating WHERE student_id = $1`,
+        [userId],
+      );
+
+      await manager.query(`DELETE FROM "user" WHERE id = $1`, [userId]);
+
+      for (const { courseId, count } of enrolled) {
+        await manager.query(
+          `UPDATE course
+              SET total_enrollments = GREATEST(COALESCE(total_enrollments, 0) - $2, 0)
+            WHERE id = $1`,
+          [courseId, count],
+        );
+      }
+      for (const { courseId } of rated) {
+        await manager.query(
+          `UPDATE course
+              SET avg_rating = (
+                SELECT ROUND(AVG(rating)::numeric, 2)
+                  FROM course_rating WHERE course_id = $1
+              )
+            WHERE id = $1`,
+          [courseId],
+        );
+      }
+    });
+
+    this.logger.log(`User ${userId} permanently deleted by an admin.`);
   }
 
   private async assertWithinCaller(

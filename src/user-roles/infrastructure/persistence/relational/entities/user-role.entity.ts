@@ -20,7 +20,11 @@ import { EntityRelationalHelper } from '../../../../../utils/relational-entity-h
   name: 'user_role',
 })
 export class UserRoleEntity extends EntityRelationalHelper {
-  @ManyToOne(() => UserEntity, { eager: false, nullable: true })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'SET NULL',
+    eager: false,
+    nullable: true,
+  })
   @JoinColumn({ name: 'assigned_by_id' })
   assignedBy?: UserEntity | null;
 
@@ -35,7 +39,11 @@ export class UserRoleEntity extends EntityRelationalHelper {
   @JoinColumn({ name: 'role_id' })
   role: RoleEntity;
 
-  @ManyToOne(() => UserEntity, { eager: true, nullable: false })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'CASCADE',
+    eager: true,
+    nullable: false,
+  })
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;
 

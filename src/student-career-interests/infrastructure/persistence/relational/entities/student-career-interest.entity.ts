@@ -28,7 +28,11 @@ export class StudentCareerInterestEntity extends EntityRelationalHelper {
   @JoinColumn({ name: 'career_interest_id' })
   careerInterest: MasterDataCodeEntity;
 
-  @ManyToOne(() => UserEntity, { eager: true, nullable: false })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'CASCADE',
+    eager: true,
+    nullable: false,
+  })
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;
 

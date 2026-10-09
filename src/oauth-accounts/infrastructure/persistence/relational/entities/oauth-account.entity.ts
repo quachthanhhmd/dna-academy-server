@@ -59,7 +59,11 @@ export class OauthAccountEntity extends EntityRelationalHelper {
   })
   provider: string;
 
-  @ManyToOne(() => UserEntity, { eager: true, nullable: false })
+  @ManyToOne(() => UserEntity, {
+    onDelete: 'CASCADE',
+    eager: true,
+    nullable: false,
+  })
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;
 
