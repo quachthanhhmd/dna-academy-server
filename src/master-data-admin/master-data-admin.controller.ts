@@ -21,6 +21,8 @@ import {
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
+import { CreateMasterDataAdminGroupDto } from './dto/create-master-data-admin-group.dto';
+import { UpdateMasterDataAdminGroupDto } from './dto/update-master-data-admin-group.dto';
 import { MasterDataAdminService } from './master-data-admin.service';
 import { PermissionGuard } from '../authorization/permission.guard';
 import { RequirePermission } from '../authorization/require-permission.decorator';
@@ -47,13 +49,40 @@ export class MasterDataAdminController {
   ) {}
 
   @ApiOperation({
-    summary: 'List all master data groups (read-only in V1)',
+    summary: 'List all master data groups',
   })
   @RequirePermission('master_data', 'view')
   @Get('groups')
   @ApiOkResponse({ type: [MasterDataGroup] })
   findGroups(): Promise<MasterDataGroup[]> {
     return this.masterDataAdminService.findAllGroups();
+  }
+
+  @ApiOperation({ summary: 'Create a master data group' })
+  @RequirePermission('master_data', 'create')
+  @Post('groups')
+  @ApiCreatedResponse({ type: MasterDataGroup })
+  @ApiConflictResponse({ description: 'The groupKey is already taken' })
+  createGroup(
+    @Body() dto: CreateMasterDataAdminGroupDto,
+  ): Promise<MasterDataGroup> {
+    return this.masterDataAdminService.createGroup(dto);
+  }
+
+  @ApiOperation({
+    summary: 'Update a group (name, description, order, isActive)',
+    description: 'The groupKey is permanent and cannot be changed.',
+  })
+  @RequirePermission('master_data', 'edit')
+  @Patch('groups/:groupKey')
+  @ApiParam({ name: 'groupKey', type: String })
+  @ApiOkResponse({ type: MasterDataGroup })
+  @ApiNotFoundResponse()
+  updateGroup(
+    @Param('groupKey') groupKey: string,
+    @Body() dto: UpdateMasterDataAdminGroupDto,
+  ): Promise<MasterDataGroup | null> {
+    return this.masterDataAdminService.updateGroup(groupKey, dto);
   }
 
   @ApiOperation({
