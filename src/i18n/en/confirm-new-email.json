@@ -1,4 +1,6 @@
 {
+  "subject": "Verify your new email address",
+  "action": "Verify new email",
   "text1": "Hey!",
   "text2": "Confirm your new email address.",
   "text3": "Simply click the big green button below to verify your email address."

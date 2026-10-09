@@ -2,7 +2,7 @@ NODE_ENV=development
 APP_PORT=3001
 APP_NAME="NestJS API"
 API_PREFIX=api
-APP_FALLBACK_LANGUAGE=en
+APP_FALLBACK_LANGUAGE=vi
 APP_HEADER_LANGUAGE=x-custom-lang
 # Rate limiting on auth routes. Behind a load balancer set APP_TRUST_PROXY to
 # the number of proxy hops (usually 1) or the proxies' addresses, or every

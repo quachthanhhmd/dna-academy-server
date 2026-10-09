@@ -33,15 +33,57 @@ export class MailService {
     return new URL('/brand/careerdna-icon.png', frontendDomain).toString();
   }
 
+  /**
+   * The name to put in front of a learner, for subject lines and body copy.
+   *
+   * Deliberately `mail.defaultName` rather than `app.name`: the former is
+   * already the From display name, so the subject and the sender agree, and
+   * `app.name` is "DNA Academy API" in env/.env.example — correct for a
+   * service, wrong for anything a person reads.
+   */
+  private brandName(): string {
+    return (
+      this.configService.get('mail.defaultName', { infer: true }) ??
+      this.configService.get('app.name', { infer: true }) ??
+      'DNA Academy'
+    );
+  }
+
+  /**
+   * The inbox line and the button label for one email.
+   *
+   * These used to be a single i18n value, which is why every subject read
+   * like a button ("Confirm email"): the same short imperative was doing both
+   * jobs. They have opposite requirements — a subject competes for attention
+   * in a crowded inbox and needs the brand and the outcome, a button needs
+   * two or three words — so each template namespace now owns both.
+   */
+  private async mailCopy(
+    namespace: string,
+  ): Promise<{ subject: MaybeType<string>; action: MaybeType<string> }> {
+    const i18n = I18nContext.current();
+
+    if (!i18n) {
+      return { subject: undefined, action: undefined };
+    }
+
+    // The return generic is explicit because the key is built at runtime:
+    // nestjs-i18n infers the value type from a literal key path, and a
+    // template literal widens that to `unknown`.
+    const [subject, action] = await Promise.all([
+      i18n.t<string, string>(`${namespace}.subject`, {
+        args: { appName: this.brandName() },
+      }),
+      i18n.t<string, string>(`${namespace}.action`),
+    ]);
+
+    return { subject, action };
+  }
+
   async userSignUp(
     mailData: MailData<{ hash: string; firstName?: string }>,
   ): Promise<void> {
-    const i18n = I18nContext.current();
-    let emailConfirmTitle: MaybeType<string>;
-
-    if (i18n) {
-      emailConfirmTitle = await i18n.t('common.confirmEmail');
-    }
+    const { subject, action } = await this.mailCopy('confirm-email');
 
     const url = new URL(
       this.configService.getOrThrow('app.frontendDomain', {
@@ -52,8 +94,8 @@ export class MailService {
 
     await this.mailerService.sendMail({
       to: mailData.to,
-      subject: emailConfirmTitle,
-      text: `${url.toString()} ${emailConfirmTitle}`,
+      subject,
+      text: `${url.toString()} ${subject}`,
       templatePath: path.join(
         this.configService.getOrThrow('app.workingDirectory', {
           infer: true,
@@ -67,9 +109,9 @@ export class MailService {
       // references must be present here. firstName falls back to the empty
       // string, which the template turns into the generic "Chào bạn".
       context: {
-        title: emailConfirmTitle,
+        title: subject,
         url: url.toString(),
-        actionTitle: emailConfirmTitle,
+        actionTitle: action,
         logo_url: this.logoUrl(),
         app_name: this.configService.get('app.name', { infer: true }),
         email: mailData.to,
@@ -85,12 +127,7 @@ export class MailService {
       firstName?: string;
     }>,
   ): Promise<void> {
-    const i18n = I18nContext.current();
-    let resetPasswordTitle: MaybeType<string>;
-
-    if (i18n) {
-      resetPasswordTitle = await i18n.t('common.resetPassword');
-    }
+    const { subject, action } = await this.mailCopy('reset-password');
 
     const url = new URL(
       this.configService.getOrThrow('app.frontendDomain', {
@@ -116,8 +153,8 @@ export class MailService {
 
     await this.mailerService.sendMail({
       to: mailData.to,
-      subject: resetPasswordTitle,
-      text: `${url.toString()} ${resetPasswordTitle}`,
+      subject,
+      text: `${url.toString()} ${subject}`,
       templatePath: path.join(
         this.configService.getOrThrow('app.workingDirectory', {
           infer: true,
@@ -129,9 +166,9 @@ export class MailService {
       ),
       // Handlebars is in strict mode, so every var below must be here.
       context: {
-        title: resetPasswordTitle,
+        title: subject,
         url: url.toString(),
-        actionTitle: resetPasswordTitle,
+        actionTitle: action,
         logo_url: this.logoUrl(),
         app_name: this.configService.get('app.name', {
           infer: true,
@@ -152,15 +189,14 @@ export class MailService {
     mailData: MailData<{ hash: string; tokenExpires: number }>,
   ): Promise<void> {
     const i18n = I18nContext.current();
-    let title: MaybeType<string>;
+    const { subject, action } = await this.mailCopy('instructor-invite');
     let text1: MaybeType<string>;
     let text2: MaybeType<string>;
     let text3: MaybeType<string>;
     let text4: MaybeType<string>;
 
     if (i18n) {
-      [title, text1, text2, text3, text4] = await Promise.all([
-        i18n.t('common.setPassword'),
+      [text1, text2, text3, text4] = await Promise.all([
         i18n.t('instructor-invite.text1'),
         i18n.t('instructor-invite.text2'),
         i18n.t('instructor-invite.text3'),
@@ -179,8 +215,8 @@ export class MailService {
 
     await this.mailerService.sendMail({
       to: mailData.to,
-      subject: title,
-      text: `${url.toString()} ${title}`,
+      subject,
+      text: `${url.toString()} ${subject}`,
       templatePath: path.join(
         this.configService.getOrThrow('app.workingDirectory', {
           infer: true,
@@ -191,9 +227,9 @@ export class MailService {
         'reset-password.hbs',
       ),
       context: {
-        title,
+        title: subject,
         url: url.toString(),
-        actionTitle: title,
+        actionTitle: action,
         logo_url: this.logoUrl(),
         app_name: this.configService.get('app.name', {
           infer: true,
@@ -208,14 +244,13 @@ export class MailService {
 
   async confirmNewEmail(mailData: MailData<{ hash: string }>): Promise<void> {
     const i18n = I18nContext.current();
-    let emailConfirmTitle: MaybeType<string>;
+    const { subject, action } = await this.mailCopy('confirm-new-email');
     let text1: MaybeType<string>;
     let text2: MaybeType<string>;
     let text3: MaybeType<string>;
 
     if (i18n) {
-      [emailConfirmTitle, text1, text2, text3] = await Promise.all([
-        i18n.t('common.confirmEmail'),
+      [text1, text2, text3] = await Promise.all([
         i18n.t('confirm-new-email.text1'),
         i18n.t('confirm-new-email.text2'),
         i18n.t('confirm-new-email.text3'),
@@ -231,8 +266,8 @@ export class MailService {
 
     await this.mailerService.sendMail({
       to: mailData.to,
-      subject: emailConfirmTitle,
-      text: `${url.toString()} ${emailConfirmTitle}`,
+      subject,
+      text: `${url.toString()} ${subject}`,
       templatePath: path.join(
         this.configService.getOrThrow('app.workingDirectory', {
           infer: true,
@@ -243,9 +278,9 @@ export class MailService {
         'confirm-new-email.hbs',
       ),
       context: {
-        title: emailConfirmTitle,
+        title: subject,
         url: url.toString(),
-        actionTitle: emailConfirmTitle,
+        actionTitle: action,
         logo_url: this.logoUrl(),
         app_name: this.configService.get('app.name', { infer: true }),
         text1,
