@@ -86,6 +86,24 @@ export class MasterDataAdminController {
   }
 
   @ApiOperation({
+    summary: 'Per-locale translation coverage for every group, in one call',
+    description:
+      'Keyed by groupKey: `{ course_level: { en: { total, translated, ' +
+      'missingIds } } }`. Replaces calling the per-group route once per ' +
+      'group. Counts active codes only unless includeInactive=true.',
+  })
+  @RequirePermission('master_data', 'view')
+  @Get('translation-coverage')
+  @ApiQuery({ name: 'includeInactive', type: Boolean, required: false })
+  translationCoverageByGroup(
+    @Query('includeInactive') includeInactive?: string,
+  ): Promise<Record<string, TranslationCoverageDto>> {
+    return this.masterDataAdminService.translationCoverageByGroup(
+      includeInactive === 'true',
+    );
+  }
+
+  @ApiOperation({
     summary: 'List codes for a group, with linkedCoursesCount',
   })
   @RequirePermission('master_data', 'view')
