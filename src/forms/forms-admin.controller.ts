@@ -31,6 +31,23 @@ import {
   FormSubmissionListResponseDto,
   UpdateSubmissionDto,
 } from './dto/form-admin.dto';
+import {
+  AnalyticsCrosstabDto,
+  AnalyticsQuestionsDto,
+  AnalyticsSummaryDto,
+  AnalyticsSupplyDemandDto,
+  AnalyticsTextsDto,
+  AnalyticsTimeseriesDto,
+  FindAnalyticsDto,
+  FindAnalyticsExportDto,
+  FindCrosstabDto,
+  FindFormAnalyticsDto,
+  FindTextsDto,
+  SetAnswerThemeDto,
+  SetAnswerThemeResponseDto,
+} from './dto/form-analytics.dto';
+import { FormsAnalyticsService } from './forms-analytics.service';
+import { FormsAnalyticsExportService } from './forms-analytics-export.service';
 import { FormsService } from './forms.service';
 
 @ApiTags('Admin / Forms')
@@ -38,7 +55,11 @@ import { FormsService } from './forms.service';
 @UseGuards(AuthGuard('jwt'), PermissionGuard)
 @Controller({ path: 'admin/forms', version: '1' })
 export class FormsAdminController {
-  constructor(private readonly formsService: FormsService) {}
+  constructor(
+    private readonly formsService: FormsService,
+    private readonly formsAnalyticsService: FormsAnalyticsService,
+    private readonly formsAnalyticsExportService: FormsAnalyticsExportService,
+  ) {}
 
   @RequirePermission('forms', 'view')
   @ApiOperation({ summary: 'The form definitions, for the admin filter' })
@@ -87,6 +108,102 @@ export class FormsAdminController {
   @Get('analytics/overview')
   getOverview(@Query() query: FindOverviewDto) {
     return this.formsService.getOverview(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({
+    summary: 'Form insights summary: KPIs, source and status breakdowns',
+  })
+  @ApiOkResponse({ type: AnalyticsSummaryDto })
+  @Get('analytics/summary')
+  getAnalyticsSummary(@Query() query: FindAnalyticsDto) {
+    return this.formsAnalyticsService.getSummary(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({ summary: 'Submissions over time, bucketed by range length' })
+  @ApiOkResponse({ type: AnalyticsTimeseriesDto })
+  @Get('analytics/timeseries')
+  getAnalyticsTimeseries(@Query() query: FindAnalyticsDto) {
+    return this.formsAnalyticsService.getTimeseries(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({
+    summary: 'Per-question distributions for one form (with drill)',
+  })
+  @ApiOkResponse({ type: AnalyticsQuestionsDto })
+  @ApiNotFoundResponse()
+  @Get('analytics/questions')
+  getAnalyticsQuestions(@Query() query: FindFormAnalyticsDto) {
+    return this.formsAnalyticsService.getQuestions(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({
+    summary: 'Two select questions crossed (row × column counts)',
+  })
+  @ApiOkResponse({ type: AnalyticsCrosstabDto })
+  @ApiNotFoundResponse()
+  @Get('analytics/crosstab')
+  getAnalyticsCrosstab(@Query() query: FindCrosstabDto) {
+    return this.formsAnalyticsService.getCrosstab(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({
+    summary: 'Demand (learner forms) vs supply (instructor form) by field',
+  })
+  @ApiOkResponse({ type: AnalyticsSupplyDemandDto })
+  @Get('analytics/supply-demand')
+  getAnalyticsSupplyDemand(@Query() query: FindAnalyticsDto) {
+    return this.formsAnalyticsService.getSupplyDemand(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({
+    summary: 'Free-text answers for one question, with theme counts',
+  })
+  @ApiOkResponse({ type: AnalyticsTextsDto })
+  @ApiNotFoundResponse()
+  @Get('analytics/texts')
+  getAnalyticsTexts(@Query() query: FindTextsDto) {
+    return this.formsAnalyticsService.getTexts(query);
+  }
+
+  @RequirePermission('forms', 'manage')
+  @ApiOperation({ summary: 'Tag (or clear the tag on) a free-text answer' })
+  @ApiOkResponse({ type: SetAnswerThemeResponseDto })
+  @ApiNotFoundResponse()
+  @Patch('analytics/answers/:answerId/theme')
+  setAnswerTheme(
+    @Param('answerId') answerId: string,
+    @Body() dto: SetAnswerThemeDto,
+    @Request() request: { user: { id: number } },
+  ) {
+    return this.formsAnalyticsService.setTheme(
+      answerId,
+      dto.themeCode ?? null,
+      request.user.id,
+    );
+  }
+
+  @RequirePermission('forms', 'export')
+  @ApiOperation({
+    summary: 'Excel export for a tab: raw answers plus chart images',
+  })
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header('Content-Disposition', 'attachment; filename="form-insights.xlsx"')
+  @Get('analytics/export.xlsx')
+  async exportAnalytics(
+    @Query() query: FindAnalyticsExportDto,
+    @Res() response: Response,
+  ): Promise<void> {
+    const buffer = await this.formsAnalyticsExportService.buildWorkbook(query);
+    response.send(buffer);
   }
 
   @RequirePermission('forms', 'view')

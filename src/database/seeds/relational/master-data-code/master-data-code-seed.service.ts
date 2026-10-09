@@ -837,6 +837,101 @@ const MASTER_DATA_CODES: ReadonlyArray<{
       },
     ],
   },
+  {
+    // PLAN-forms-insights B6. The themes an admin tags Form B's
+    // "biggest challenge" free text with. `other` is offered so a genuine
+    // category outside the list is still chartable.
+    groupKey: 'form_theme_biggest_challenge',
+    codes: [
+      {
+        code: 'time',
+        displayOrder: 1,
+        nameTranslations: { vi: 'Thiếu thời gian', en: 'Lack of time' },
+      },
+      {
+        code: 'roadmap',
+        displayOrder: 2,
+        nameTranslations: {
+          vi: 'Không biết bắt đầu từ đâu',
+          en: 'No clear roadmap',
+        },
+      },
+      {
+        code: 'practice',
+        displayOrder: 3,
+        nameTranslations: {
+          vi: 'Thiếu dự án thực tế',
+          en: 'No real-world practice',
+        },
+      },
+      {
+        code: 'cost',
+        displayOrder: 4,
+        nameTranslations: { vi: 'Chi phí', en: 'Cost' },
+      },
+      {
+        code: 'english',
+        displayOrder: 5,
+        nameTranslations: { vi: 'Tiếng Anh', en: 'English' },
+      },
+      {
+        code: 'confidence',
+        displayOrder: 6,
+        nameTranslations: {
+          vi: 'Thiếu tự tin, động lực',
+          en: 'Confidence & motivation',
+        },
+      },
+      {
+        code: 'other',
+        displayOrder: 7,
+        nameTranslations: { vi: 'Khác', en: 'Other' },
+      },
+    ],
+  },
+  {
+    // PLAN-forms-insights B6. Themes for Form C's "experiences to design".
+    groupKey: 'form_theme_experiences_to_design',
+    codes: [
+      {
+        code: 'domain',
+        displayOrder: 1,
+        nameTranslations: {
+          vi: 'Case nghiệp vụ theo ngành',
+          en: 'Industry cases',
+        },
+      },
+      {
+        code: 'tools',
+        displayOrder: 2,
+        nameTranslations: {
+          vi: 'Công cụ & kỹ thuật',
+          en: 'Tools & techniques',
+        },
+      },
+      {
+        code: 'career',
+        displayOrder: 3,
+        nameTranslations: {
+          vi: 'Chuyển ngành & phỏng vấn',
+          en: 'Career switch & interviews',
+        },
+      },
+      {
+        code: 'leadership',
+        displayOrder: 4,
+        nameTranslations: {
+          vi: 'Quản lý dự án & team',
+          en: 'Project & team leadership',
+        },
+      },
+      {
+        code: 'other',
+        displayOrder: 5,
+        nameTranslations: { vi: 'Khác', en: 'Other' },
+      },
+    ],
+  },
 ];
 
 @Injectable()
