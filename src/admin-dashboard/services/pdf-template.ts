@@ -263,10 +263,12 @@ const filterLine = (meta: OverviewData['meta']): string => {
 };
 
 const STYLES = `
-  /* Noto covers Vietnamese; the image installs font-noto for exactly this. */
+  /* Be Vietnam Pro — the web app's typeface, shipped in the image in the
+     weights used here (400, 400 italic, 600, 700). Noto Sans is the fallback
+     for glyphs it lacks. */
   * { box-sizing: border-box; }
   body {
-    font-family: 'Noto Sans', 'DejaVu Sans', 'Liberation Sans', sans-serif;
+    font-family: 'Be Vietnam Pro', 'Noto Sans', 'DejaVu Sans', sans-serif;
     color: #10151c; margin: 0; font-size: 11px; line-height: 1.45;
     /* A 1px inset so the rightmost border never lands exactly on the page's
        clip boundary, where it rounds away and the last card looks cut off. */

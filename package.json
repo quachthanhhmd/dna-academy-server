@@ -12,6 +12,7 @@
     "migration:create": "npm run typeorm -- migration:create",
     "migration:run": "npm run typeorm -- --dataSource=src/database/data-source.ts migration:run",
     "migration:run:dist": "typeorm migration:run -d dist/database/data-source.js",
+    "migration:revert:dist": "typeorm migration:revert -d dist/database/data-source.js",
     "migration:revert": "npm run typeorm -- --dataSource=src/database/data-source.ts migration:revert",
     "schema:drop": "npm run typeorm -- --dataSource=src/database/data-source.ts schema:drop",
     "seed:create:relational": "hygen seeds create-relational",
@@ -54,9 +55,13 @@
     "test:db:reset": "npm run test:stack:down && npm run test:stack:up",
     "test:e2e:ci": "npm run test:stack:up && npm run test:e2e; code=$?; npm run test:stack:down; exit $code",
     "clean:master-data": "ts-node -r tsconfig-paths/register ./src/database/maintenance/clean-master-data.ts",
+    "clean:master-data:dist": "node dist/database/maintenance/clean-master-data.js",
     "create:admin": "env-cmd --no-override --silent -f ${ENV_FILE:-./env/.env.${APP_ENV:-local}} -- ts-node -r tsconfig-paths/register ./src/database/maintenance/create-admin.ts",
+    "create:admin:dist": "node dist/database/maintenance/create-admin.js",
     "storage:backfill": "env-cmd --no-override --silent -f ${ENV_FILE:-./env/.env.${APP_ENV:-local}} -- ts-node -r tsconfig-paths/register ./src/database/maintenance/storage-backfill.ts",
-    "grant:admin": "env-cmd --no-override --silent -f ${ENV_FILE:-./env/.env.${APP_ENV:-local}} -- ts-node -r tsconfig-paths/register ./src/database/maintenance/grant-admin.ts"
+    "storage:backfill:dist": "node dist/database/maintenance/storage-backfill.js",
+    "grant:admin": "env-cmd --no-override --silent -f ${ENV_FILE:-./env/.env.${APP_ENV:-local}} -- ts-node -r tsconfig-paths/register ./src/database/maintenance/grant-admin.ts",
+    "grant:admin:dist": "node dist/database/maintenance/grant-admin.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1011.0",
