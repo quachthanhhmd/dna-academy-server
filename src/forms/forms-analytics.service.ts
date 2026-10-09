@@ -18,6 +18,7 @@ import {
   AnalyticsBucket,
   AnalyticsCrosstabDto,
   AnalyticsQuestionsDto,
+  AnalyticsRespondentsDto,
   AnalyticsSummaryDto,
   AnalyticsSupplyDemandDto,
   AnalyticsTextsDto,
@@ -25,6 +26,7 @@ import {
   FindAnalyticsDto,
   FindCrosstabDto,
   FindFormAnalyticsDto,
+  FindRespondentsDto,
   FindTextsDto,
   SetAnswerThemeResponseDto,
 } from './dto/form-analytics.dto';
@@ -977,6 +979,91 @@ export class FormsAnalyticsService {
       themeCode,
       themeSource: answer.themeSource,
       themedAt: (themedAt ?? new Date()).toISOString(),
+    };
+  }
+
+  // ─────────────── respondents (the KPI tiles' drill-down) ───────────────
+
+  /**
+   * The people behind a form tab's KPI tiles, paged. Each metric windows the
+   * submissions the tile counted: `all` is the scoped respondents, `consent`
+   * those with the `contact` consent, `new` those still unreviewed. This is a
+   * PII surface, like the dashboard's student drawer, and is bounded by
+   * `limit` (max 100) so a form with thousands of rows never ships in one go.
+   */
+  async getRespondents(
+    dto: FindRespondentsDto,
+  ): Promise<AnalyticsRespondentsDto> {
+    const range = this.resolveRange(dto);
+    const metric = dto.metric ?? 'all';
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+
+    const base = () => {
+      const qb =
+        this.repository.submissionsRepo.createQueryBuilder('submission');
+      this.applyScope(qb, range, dto);
+      if (metric === 'new') {
+        qb.andWhere('submission.status = :newStatus', { newStatus: 'new' });
+      }
+      if (metric === 'consent') {
+        qb.innerJoin(
+          FormSubmissionConsentEntity,
+          'consent',
+          'consent.submission_id = submission.id AND consent.consent_code = :contact',
+          { contact: 'contact' },
+        );
+      }
+      return qb;
+    };
+
+    const [rows, totalRow] = await Promise.all([
+      base()
+        .select('submission.id', 'submissionId')
+        .addSelect('submission.fullName', 'fullName')
+        .addSelect('submission.email', 'email')
+        .addSelect('submission.phone', 'phone')
+        .addSelect('submission.status', 'status')
+        .addSelect('submission.source', 'source')
+        .addSelect('submission.createdAt', 'createdAt')
+        .orderBy('submission.createdAt', 'DESC')
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .getRawMany<{
+          submissionId: string;
+          fullName: string | null;
+          email: string | null;
+          phone: string | null;
+          status: string;
+          source: string;
+          createdAt: Date;
+        }>(),
+      base()
+        .select('COUNT(DISTINCT submission.id)', 'n')
+        .getRawOne<{ n: string }>(),
+    ]);
+
+    const professionBySubmission = await this.professionsFor(
+      rows.map((row) => row.submissionId),
+      LocaleContext.current(),
+    );
+
+    const total = Number(totalRow?.n ?? 0);
+    return {
+      data: rows.map((row) => ({
+        submissionId: row.submissionId,
+        fullName: row.fullName,
+        email: row.email,
+        phone: row.phone,
+        status: row.status,
+        source: row.source,
+        createdAt: new Date(row.createdAt).toISOString(),
+        professionNames: professionBySubmission.get(row.submissionId) ?? [],
+      })),
+      total,
+      page,
+      limit,
+      hasNextPage: page * limit < total,
     };
   }
 }

@@ -531,6 +531,63 @@ describe('Forms analytics API (PLAN-forms-insights)', () => {
     });
   });
 
+  describe('respondents', () => {
+    const respondents = (query: string) =>
+      request(app)
+        .get(`/api/v1/admin/forms/analytics/respondents${query}`)
+        .auth(adminToken, { type: 'bearer' });
+
+    const FORM = '?formCode=free_course_waitlist';
+
+    it('should 401 an anonymous caller', async () => {
+      await request(app)
+        .get('/api/v1/admin/forms/analytics/respondents')
+        .expect(401);
+    });
+
+    it('should 403 a user without forms:analytics', async () => {
+      await request(app)
+        .get(`/api/v1/admin/forms/analytics/respondents${FORM}`)
+        .auth(plainUser.token, { type: 'bearer' })
+        .expect(403);
+    });
+
+    it('should page the respondents and cap the limit', async () => {
+      const first = await respondents(`${FORM}&limit=2`).expect(200);
+      expect(first.body.limit).toBe(2);
+      expect(first.body.total).toBeGreaterThanOrEqual(first.body.data.length);
+
+      if (first.body.hasNextPage) {
+        const second = await respondents(`${FORM}&limit=2&page=2`).expect(200);
+        expect(second.body.page).toBe(2);
+        expect(second.body.data[0].submissionId).not.toBe(
+          first.body.data[0].submissionId,
+        );
+      }
+
+      // The DTO rejects a limit above 100 (validation maps to 422 here).
+      await respondents(`${FORM}&limit=1000`).expect(422);
+    });
+
+    it('should return only the requested metric slice', async () => {
+      const all = await respondents(`${FORM}&limit=100`).expect(200);
+      const fresh = await respondents(`${FORM}&metric=new&limit=100`).expect(
+        200,
+      );
+      expect(
+        fresh.body.data.every(
+          (row: { status: string }) => row.status === 'new',
+        ),
+      ).toBe(true);
+      expect(fresh.body.total).toBeLessThanOrEqual(all.body.total);
+
+      const consent = await respondents(
+        `${FORM}&metric=consent&limit=100`,
+      ).expect(200);
+      expect(consent.body.total).toBeLessThanOrEqual(all.body.total);
+    });
+  });
+
   describe('export', () => {
     const url = (query = '') =>
       `/api/v1/admin/forms/analytics/export.xlsx${query}`;

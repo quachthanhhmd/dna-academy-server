@@ -34,6 +34,7 @@ import {
 import {
   AnalyticsCrosstabDto,
   AnalyticsQuestionsDto,
+  AnalyticsRespondentsDto,
   AnalyticsSummaryDto,
   AnalyticsSupplyDemandDto,
   AnalyticsTextsDto,
@@ -42,6 +43,7 @@ import {
   FindAnalyticsExportDto,
   FindCrosstabDto,
   FindFormAnalyticsDto,
+  FindRespondentsDto,
   FindTextsDto,
   SetAnswerThemeDto,
   SetAnswerThemeResponseDto,
@@ -148,6 +150,15 @@ export class FormsAdminController {
   @Get('analytics/crosstab')
   getAnalyticsCrosstab(@Query() query: FindCrosstabDto) {
     return this.formsAnalyticsService.getCrosstab(query);
+  }
+
+  @RequirePermission('forms', 'analytics')
+  @ApiOperation({ summary: 'The respondents behind a KPI tile, paged' })
+  @ApiOkResponse({ type: AnalyticsRespondentsDto })
+  @ApiNotFoundResponse()
+  @Get('analytics/respondents')
+  getAnalyticsRespondents(@Query() query: FindRespondentsDto) {
+    return this.formsAnalyticsService.getRespondents(query);
   }
 
   @RequirePermission('forms', 'analytics')
