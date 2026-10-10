@@ -160,6 +160,18 @@ describe('QuizService', () => {
       expect(result.previousAttempts).toBe(3);
     });
 
+    it('should not count an attempt that was started but never submitted', async () => {
+      deps.quizAttemptsService.findByEnrollmentAndLecture.mockResolvedValue([
+        { id: 'a', score: null, submittedAt: null },
+        { id: 'b', score: null, submittedAt: null },
+      ]);
+
+      const result = await service.startAttempt('lec-1', 7);
+
+      expect(result.previousAttempts).toBe(0);
+      expect(result.bestScore).toBeNull();
+    });
+
     it('should report no best score before the first submitted attempt', async () => {
       const result = await service.startAttempt('lec-1', 7);
 

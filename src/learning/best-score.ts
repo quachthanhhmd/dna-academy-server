@@ -17,3 +17,13 @@ export const bestScore = (
 
   return scores.length ? Math.max(...scores) : null;
 };
+
+/**
+ * How many times the student has actually sat the quiz. Starting an attempt
+ * writes a row before a single answer exists, so counting rows counted every
+ * press of "Start" — the instructions screen read "3 attempts" beside "no
+ * score yet". Only a submitted attempt is a go at the quiz.
+ */
+export const submittedAttemptCount = (
+  attempts: { submittedAt?: Date | null }[],
+): number => attempts.filter((attempt) => attempt.submittedAt).length;
