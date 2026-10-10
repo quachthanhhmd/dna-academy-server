@@ -193,14 +193,47 @@ const FOREIGN_KEYS: [string, string, string, string, string][] = [
   ],
 ];
 
+/**
+ * Drops the foreign key(s) on `table.column`, whatever they are named.
+ *
+ * The names above are TypeORM's generated ones, which is what a database
+ * built by `synchronize` carries. A database built by running the migrations —
+ * production — can differ: 1786400000000-AddCourseJourneyV2 named the
+ * `course.unpublished_by_id` key `FK_course_unpublishedById` by hand, and
+ * dropping it by the generated name failed the whole deploy. Looking the key
+ * up by column works on both, and re-adding it under the generated name below
+ * brings every database to the same name.
+ */
+async function dropForeignKeysOn(
+  queryRunner: QueryRunner,
+  table: string,
+  column: string,
+): Promise<void> {
+  const keys: { conname: string }[] = await queryRunner.query(
+    `SELECT c.conname
+       FROM pg_constraint c
+       JOIN pg_attribute a
+         ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+      WHERE c.contype = 'f'
+        AND c.conrelid = $1::regclass
+        AND array_length(c.conkey, 1) = 1
+        AND a.attname = $2`,
+    [table, column],
+  );
+
+  for (const { conname } of keys) {
+    await queryRunner.query(
+      `ALTER TABLE "${table}" DROP CONSTRAINT "${conname}"`,
+    );
+  }
+}
+
 export class UserDeleteCascades1788300000000 implements MigrationInterface {
   name = 'UserDeleteCascades1788300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     for (const [table, column, name, parent, action] of FOREIGN_KEYS) {
-      await queryRunner.query(
-        `ALTER TABLE "${table}" DROP CONSTRAINT "${name}"`,
-      );
+      await dropForeignKeysOn(queryRunner, table, column);
       await queryRunner.query(
         `ALTER TABLE "${table}" ADD CONSTRAINT "${name}" FOREIGN KEY ("${column}") REFERENCES "${parent}"("id") ON DELETE ${action} ON UPDATE NO ACTION`,
       );
@@ -209,9 +242,7 @@ export class UserDeleteCascades1788300000000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     for (const [table, column, name, parent] of FOREIGN_KEYS) {
-      await queryRunner.query(
-        `ALTER TABLE "${table}" DROP CONSTRAINT "${name}"`,
-      );
+      await dropForeignKeysOn(queryRunner, table, column);
       await queryRunner.query(
         `ALTER TABLE "${table}" ADD CONSTRAINT "${name}" FOREIGN KEY ("${column}") REFERENCES "${parent}"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
       );
