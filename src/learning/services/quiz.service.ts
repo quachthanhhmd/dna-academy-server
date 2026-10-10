@@ -17,7 +17,7 @@ import { QuizGraderService, SubmittedAnswer } from './quiz-grader.service';
 import { ProgressService } from './progress.service';
 import { CourseCurriculumService } from './course-curriculum.service';
 import { QuizAttemptDto, QuizResultDto } from '../dto/quiz.dto';
-import { bestScore } from '../best-score';
+import { bestScore, submittedAttemptCount } from '../best-score';
 
 const parseJson = (value?: string | null): Record<string, unknown> | null => {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -95,7 +95,7 @@ export class QuizService {
       passingScore: quiz.passingScore,
       instructions: quiz.instructions ?? null,
       timeLimitSecs: quiz.timeLimitSecs ?? null,
-      previousAttempts: previous.length,
+      previousAttempts: submittedAttemptCount(previous),
       bestScore: bestScore(previous),
       resumedAnswers: parseJson(draft?.answersJson),
       questions,

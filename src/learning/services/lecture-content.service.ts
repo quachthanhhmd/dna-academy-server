@@ -7,7 +7,7 @@ import { LectureContentReflectionsService } from '../../lecture-content-reflecti
 import { QuizQuestionsService } from '../../quiz-questions/quiz-questions.service';
 import { ReflectionQuestionsService } from '../../reflection-questions/reflection-questions.service';
 import { QuizAttemptsService } from '../../quiz-attempts/quiz-attempts.service';
-import { bestScore } from '../best-score';
+import { bestScore, submittedAttemptCount } from '../best-score';
 import { sanitizeHtml } from '../sanitize-html';
 
 /**
@@ -97,7 +97,7 @@ export class LectureContentService {
           allowResume: quiz.allowResume,
           timeLimitSecs: quiz.timeLimitSecs ?? null,
           questionCount: questions.length,
-          previousAttempts: attempts.length,
+          previousAttempts: submittedAttemptCount(attempts),
           bestScore: bestScore(attempts),
         };
       }

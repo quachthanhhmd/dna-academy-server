@@ -73,6 +73,19 @@ describe('LectureContentService', () => {
       expect(payload).toMatchObject({ previousAttempts: 2, bestScore: 80 });
     });
 
+    // Pressing "Start" writes a row; only a submitted one is an attempt.
+    it('should not count an attempt that was started but never submitted', async () => {
+      deps.quizAttemptsService.findByEnrollmentAndLecture.mockResolvedValue([
+        { id: 'a', score: 60, submittedAt: new Date() },
+        { id: 'b', score: null, submittedAt: null },
+        { id: 'c', score: null, submittedAt: null },
+      ]);
+
+      const payload = await service.payloadFor('lec-1', 'quiz', 'enr-1');
+
+      expect(payload).toMatchObject({ previousAttempts: 1, bestScore: 60 });
+    });
+
     it('should report no best score before the first submitted attempt', async () => {
       const payload = await service.payloadFor('lec-1', 'quiz', 'enr-1');
 
