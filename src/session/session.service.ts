@@ -14,25 +14,21 @@ export class SessionService {
   }
 
   create(
-    data: Omit<Session, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>,
+    data: Omit<Session, 'id' | 'createdAt' | 'updatedAt'>,
   ): Promise<Session> {
     return this.sessionRepository.create(data);
   }
 
   update(
     id: Session['id'],
-    payload: Partial<
-      Omit<Session, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
-    >,
+    payload: Partial<Omit<Session, 'id' | 'createdAt' | 'updatedAt'>>,
   ): Promise<Session | null> {
     return this.sessionRepository.update(id, payload);
   }
 
   updateByHash(
     conditions: { id: Session['id']; hash: Session['hash'] },
-    payload: Partial<
-      Omit<Session, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
-    >,
+    payload: Partial<Omit<Session, 'id' | 'createdAt' | 'updatedAt'>>,
   ): Promise<Session | null> {
     return this.sessionRepository.updateByHash(conditions, payload);
   }

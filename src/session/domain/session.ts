@@ -6,5 +6,4 @@ export class Session {
   hash: string;
   createdAt: Date;
   updatedAt: Date;
-  deletedAt: Date;
 }

@@ -13,7 +13,6 @@ export class SessionMapper {
     domainEntity.hash = raw.hash;
     domainEntity.createdAt = raw.createdAt;
     domainEntity.updatedAt = raw.updatedAt;
-    domainEntity.deletedAt = raw.deletedAt;
     return domainEntity;
   }
 
@@ -29,7 +28,6 @@ export class SessionMapper {
     persistenceEntity.user = user;
     persistenceEntity.createdAt = domainEntity.createdAt;
     persistenceEntity.updatedAt = domainEntity.updatedAt;
-    persistenceEntity.deletedAt = domainEntity.deletedAt;
 
     return persistenceEntity;
   }

@@ -39,9 +39,7 @@ export class SessionRelationalRepository implements SessionRepository {
 
   async update(
     id: Session['id'],
-    payload: Partial<
-      Omit<Session, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
-    >,
+    payload: Partial<Omit<Session, 'id' | 'createdAt' | 'updatedAt'>>,
   ): Promise<Session | null> {
     const entity = await this.sessionRepository.findOne({
       where: { id: Number(id) },
@@ -65,9 +63,7 @@ export class SessionRelationalRepository implements SessionRepository {
 
   async updateByHash(
     conditions: { id: Session['id']; hash: Session['hash'] },
-    payload: Partial<
-      Omit<Session, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
-    >,
+    payload: Partial<Omit<Session, 'id' | 'createdAt' | 'updatedAt'>>,
   ): Promise<Session | null> {
     const result = await this.sessionRepository.update(
       { id: Number(conditions.id), hash: conditions.hash },
@@ -85,14 +81,21 @@ export class SessionRelationalRepository implements SessionRepository {
     return entity ? SessionMapper.toDomain(entity) : null;
   }
 
+  /**
+   * All three deletes are hard — see SessionEntity for why. The behaviour the
+   * auth path depends on is unchanged: `updateByHash` already returned null
+   * for a session that had been soft-deleted, because its follow-up
+   * `findOne` filtered tombstones out. A row that is simply gone produces the
+   * same null through `affected: 0`, one statement earlier.
+   */
   async deleteById(id: Session['id']): Promise<void> {
-    await this.sessionRepository.softDelete({
+    await this.sessionRepository.delete({
       id: Number(id),
     });
   }
 
   async deleteByUserId(conditions: { userId: User['id'] }): Promise<void> {
-    await this.sessionRepository.softDelete({
+    await this.sessionRepository.delete({
       user: {
         id: Number(conditions.userId),
       },
@@ -103,7 +106,7 @@ export class SessionRelationalRepository implements SessionRepository {
     userId: User['id'];
     excludeSessionId: Session['id'];
   }): Promise<void> {
-    await this.sessionRepository.softDelete({
+    await this.sessionRepository.delete({
       user: {
         id: Number(conditions.userId),
       },
