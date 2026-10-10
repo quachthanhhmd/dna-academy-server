@@ -8,7 +8,7 @@
 #   scripts/backup-to-drive.sh logs       # logs only
 #
 # Cron (VPS is on Asia/Ho_Chi_Minh, so 01:00 here is 01:00 VNT):
-#   0 1 * * * /opt/dna-academy/scripts/backup-to-drive.sh >> /var/log/dna-backup.log 2>&1
+#   0 1 * * * /root/srv/dna-academy/scripts/backup-to-drive.sh >> /var/log/dna-backup.log 2>&1
 #
 # Set up rclone once, interactively, ON THE VPS:
 #   rclone config        # new remote named `gdrive`, type `drive`
@@ -26,9 +26,9 @@
 set -euo pipefail
 
 # ---- settings ---------------------------------------------------------------
-COMPOSE_FILE="${COMPOSE_FILE:-/opt/dna-academy/docker-compose.prod.yaml}"
+COMPOSE_FILE="${COMPOSE_FILE:-/root/srv/dna-academy/docker-compose.prod.yaml}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-dna-academy}"
-ENV_FILE="${ENV_FILE:-/etc/dna-academy/api.env}"
+ENV_FILE="${ENV_FILE:-/root/srv/dna-academy/.env}"
 STAGING_DIR="${STAGING_DIR:-/var/backups/dna-academy}"
 RCLONE_REMOTE="${RCLONE_REMOTE:-gdrive}"
 REMOTE_DB_DIR="${REMOTE_DB_DIR:-dna-academy/db}"

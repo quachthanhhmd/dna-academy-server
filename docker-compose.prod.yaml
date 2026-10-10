@@ -8,12 +8,14 @@
 # from it, and compose reads interpolation variables from --env-file (or a
 # `.env` beside this file), never from a service's `env_file:` key.
 #
-#   cd /opt/dna-academy
-#   docker compose --env-file /etc/dna-academy/api.env -f docker-compose.prod.yaml pull
-#   docker compose --env-file /etc/dna-academy/api.env -f docker-compose.prod.yaml up -d
+#   cd /root/srv/dna-academy
+#   docker compose -f docker-compose.prod.yaml pull
+#   docker compose -f docker-compose.prod.yaml up -d
 #
-# Simpler: `ln -s /etc/dna-academy/api.env /opt/dna-academy/.env`, after
-# which compose finds it on its own and --env-file can be dropped.
+# The env file is /root/srv/dna-academy/.env, right beside this compose file, so
+# compose auto-loads it for ${DATABASE_*} interpolation when you run from this
+# directory and --env-file can be dropped. Pass --env-file only if you keep the
+# env elsewhere or run from another directory.
 #
 # Images come from GHCR, built by each repository's Release workflow on a
 # push to master. Nothing is built here: `next build` and `nest build` on a
@@ -70,7 +72,7 @@ services:
     # the dev script; name the production one explicitly so a stale image
     # cannot quietly seed development fixtures.
     command: ["/opt/startup.relational.prod.sh"]
-    env_file: /etc/dna-academy/api.env
+    env_file: /root/srv/dna-academy/.env
     environment:
       TZ: Asia/Ho_Chi_Minh
       # Headroom for Chromium: the PDF export spikes several hundred MB on

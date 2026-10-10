@@ -1,0 +1,16 @@
+[Unit]
+Description=DNA Academy infra resource watch -> Discord alert
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/root/srv/dna-academy/scripts/infra-alert-discord.sh
+# The webhook URL and any threshold overrides live in infra-alert.env, beside
+# the app's .env but separate so the webhook is not injected into the API
+# container. The script also sources this file itself; naming it here too means
+# the service fails loudly if the file is missing rather than running with no
+# webhook. Copy it from the committed env-example-infra-alert template.
+EnvironmentFile=/root/srv/dna-academy/infra-alert.env
+StandardOutput=journal
+StandardError=journal

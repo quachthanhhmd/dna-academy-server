@@ -1,0 +1,14 @@
+[Unit]
+Description=Check DNA Academy host resources every few minutes
+
+[Timer]
+# 2 min after boot, then every 5 minutes. Frequent enough to catch a disk
+# filling or memory spiking before it takes the stack down; the script's own
+# cooldown (REPEAT_MINUTES) keeps a sustained breach from spamming Discord.
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=20s
+Unit=dna-infra-alert.service
+
+[Install]
+WantedBy=timers.target

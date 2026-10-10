@@ -1,0 +1,38 @@
+# Config for scripts/infra-alert-discord.sh (the resource -> Discord watch).
+#
+# This is the COMMITTED TEMPLATE. On the VPS, copy it next to the app env and
+# fill in the real webhook — the real file holds a secret and is never
+# committed:
+#
+#   cp env-example-infra-alert /root/srv/dna-academy/infra-alert.env
+#   chmod 600 /root/srv/dna-academy/infra-alert.env
+#   # then edit it and paste your real DISCORD_WEBHOOK_URL
+#
+# Kept separate from the app's own /root/srv/dna-academy/.env on purpose: that file
+# is the API container's env_file, and the webhook has no business inside the
+# API container. Same directory, different file — not scattered across the box.
+
+# --- required ---------------------------------------------------------------
+# Discord -> Server Settings -> Integrations -> Webhooks -> New Webhook ->
+# pick the channel -> Copy Webhook URL. That URL is the whole credential.
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/XXXXXXXX/YYYYYYYY
+
+# --- thresholds (optional; shown values are the script defaults) ------------
+# Uncomment and change only what you want to override.
+#DISK_THRESHOLD=85          # % full of DISK_MOUNT before alerting
+#MEM_THRESHOLD=90           # % RAM in use (total - available)
+#SWAP_THRESHOLD=50          # % swap in use (0 disables the swap check)
+#CPU_LOAD_THRESHOLD=2.0     # 5-min load average PER CORE
+#DISK_MOUNT=/               # filesystem to watch
+
+# --- behaviour (optional; shown values are the script defaults) -------------
+#CONSECUTIVE_BREACHES=2     # over-threshold checks in a row before 1st alert
+#REPEAT_MINUTES=180         # while still over, re-remind at most this often
+#MUTE_DEFAULT_MINUTES=15    # default window for `infra-alert-discord.sh mute`
+
+# --- deploy auto-detect (optional) ------------------------------------------
+# Where the script finds the compose stack, to stay quiet while a container is
+# still starting. Defaults assume the app lives in /root/srv/dna-academy.
+#COMPOSE_FILE=/root/srv/dna-academy/docker-compose.prod.yaml
+#COMPOSE_PROJECT=dna-academy
+#COMPOSE_ENV_FILE=/root/srv/dna-academy/.env
