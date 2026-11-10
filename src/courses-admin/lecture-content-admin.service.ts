@@ -15,9 +15,14 @@ import { QuizQuestionsService } from '../quiz-questions/quiz-questions.service';
 import { QuizAnswerOptionsService } from '../quiz-answer-options/quiz-answer-options.service';
 import { LectureContentReflectionsService } from '../lecture-content-reflections/lecture-content-reflections.service';
 import { ReflectionQuestionsService } from '../reflection-questions/reflection-questions.service';
+import { LectureContentRatingsService } from '../lecture-content-ratings/lecture-content-ratings.service';
+import { LectureRatingResponsesService } from '../lecture-rating-responses/lecture-rating-responses.service';
 import { CourseAggregatesService } from './course-aggregates.service';
 import { SaveLectureContentDto } from './dto/save-lecture-content.dto';
 import { FilesService } from '../files/files.service';
+
+/** How many recent comments the editor's results block shows. */
+export const RATING_SUMMARY_COMMENT_LIMIT = 20;
 
 @Injectable()
 export class LectureContentAdminService {
@@ -34,6 +39,8 @@ export class LectureContentAdminService {
     private readonly reflectionQuestionsService: ReflectionQuestionsService,
     private readonly courseAggregatesService: CourseAggregatesService,
     private readonly filesService: FilesService,
+    private readonly lectureContentRatingsService: LectureContentRatingsService,
+    private readonly lectureRatingResponsesService: LectureRatingResponsesService,
   ) {}
 
   /**
@@ -91,6 +98,8 @@ export class LectureContentAdminService {
         return this.findQuizContent(lectureId);
       case 'reflection':
         return this.findReflectionContent(lectureId);
+      case 'rating':
+        return this.findRatingContent(lectureId);
       default:
         return null;
     }
@@ -222,6 +231,8 @@ export class LectureContentAdminService {
         return this.saveQuiz(lectureId, dto);
       case 'reflection':
         return this.saveReflection(lectureId, dto);
+      case 'rating':
+        return this.saveRating(lectureId, dto);
       default:
         throw new UnprocessableEntityException({
           status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -400,6 +411,72 @@ export class LectureContentAdminService {
     return content;
   }
 
+  private async findRatingContent(
+    lectureId: Lecture['id'],
+  ): Promise<Record<string, unknown> | null> {
+    const rating =
+      await this.lectureContentRatingsService.findByLectureId(lectureId);
+
+    return rating
+      ? {
+          lectureType: 'rating',
+          prompt: rating.prompt,
+          labelMin: rating.labelMin ?? null,
+          labelMax: rating.labelMax ?? null,
+          allowComment: rating.allowComment,
+        }
+      : null;
+  }
+
+  private async saveRating(
+    lectureId: Lecture['id'],
+    dto: SaveLectureContentDto,
+  ) {
+    const prompt = dto.prompt?.trim();
+    if (!prompt) {
+      throw this.missingFieldException('prompt');
+    }
+
+    const payload = {
+      prompt,
+      // An emptied label is cleared, not left as it was.
+      labelMin: dto.labelMin?.trim() || null,
+      labelMax: dto.labelMax?.trim() || null,
+      allowComment: dto.allowComment ?? true,
+    };
+
+    const existing =
+      await this.lectureContentRatingsService.findByLectureId(lectureId);
+
+    return existing
+      ? this.lectureContentRatingsService.update(existing.id, payload)
+      : this.lectureContentRatingsService.create({
+          lecture: { id: lectureId },
+          ...payload,
+        });
+  }
+
+  /**
+   * What learners answered a rating lesson — counts, the mean and the latest
+   * comments. Anonymous by construction: the summary carries no learner or
+   * enrollment field.
+   */
+  async ratingSummary(lectureId: Lecture['id']) {
+    const lecture = await this.findLectureOrThrow(lectureId);
+
+    if (lecture.lectureType !== 'rating') {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { lectureType: 'notRating' },
+      });
+    }
+
+    return this.lectureRatingResponsesService.summarize(
+      lectureId,
+      RATING_SUMMARY_COMMENT_LIMIT,
+    );
+  }
+
   private async saveReflection(
     lectureId: Lecture['id'],
     dto: SaveLectureContentDto,
@@ -449,6 +526,7 @@ export class LectureContentAdminService {
       'pdf_document',
       'quiz',
       'reflection',
+      'rating',
     ]) {
       await this.clearContentForType(lectureId, type);
     }
@@ -519,6 +597,15 @@ export class LectureContentAdminService {
           cleared = true;
         }
         return cleared;
+      }
+      case 'rating': {
+        // Learner responses stay: they cascade only when the lesson itself is
+        // deleted, so switching a lesson back to a rating finds them again.
+        const existing =
+          await this.lectureContentRatingsService.findByLectureId(lectureId);
+        if (!existing) return false;
+        await this.lectureContentRatingsService.remove(existing.id);
+        return true;
       }
       default:
         return false;

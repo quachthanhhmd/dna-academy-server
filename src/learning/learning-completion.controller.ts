@@ -30,6 +30,8 @@ import { RequirePermission } from '../authorization/require-permission.decorator
 import { CourseAccessGuard } from '../course-access/course-access.guard';
 import { CourseAccess } from '../course-access/course-access.decorator';
 import { ReflectionService } from './services/reflection.service';
+import { LessonRatingService } from './services/lesson-rating.service';
+import { SubmitLessonRatingDto } from './dto/lesson-rating.dto';
 import { CompletionService } from './services/completion.service';
 import { CareerReflectionService } from './services/career-reflection.service';
 import { CertificateGeneratorService } from './services/certificate-generator.service';
@@ -49,6 +51,7 @@ import {
 export class LearningCompletionController {
   constructor(
     private readonly reflectionService: ReflectionService,
+    private readonly lessonRatingService: LessonRatingService,
     private readonly completionService: CompletionService,
     private readonly certificateGenerator: CertificateGeneratorService,
     private readonly careerReflectionService: CareerReflectionService,
@@ -84,6 +87,28 @@ export class LearningCompletionController {
     return this.reflectionService.submit(lectureId, request.user.id, {
       isDraft: dto.isDraft ?? false,
       answers: dto.answers,
+    });
+  }
+
+  @ApiOperation({
+    summary: 'Rate a "Đánh giá" lesson 1–5',
+    description:
+      "Creates or replaces the learner's rating and marks the lesson " +
+      'complete. The comment is dropped when the lesson does not allow ' +
+      'comments. Not the course rating (enrollments/:id/rating).',
+  })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), OnboardingGuard)
+  @Put('lectures/:lectureId/rating-response')
+  @ApiOkResponse()
+  submitLessonRating(
+    @Param('lectureId') lectureId: string,
+    @Body() dto: SubmitLessonRatingDto,
+    @Request() request,
+  ) {
+    return this.lessonRatingService.submit(lectureId, request.user.id, {
+      rating: dto.rating,
+      comment: dto.comment,
     });
   }
 

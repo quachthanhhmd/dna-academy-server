@@ -10,6 +10,7 @@ import {
   IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -231,4 +232,35 @@ export class SaveLectureContentDto {
   @ValidateNested({ each: true })
   @Type(() => ReflectionQuestionInputDto)
   reflectionQuestions?: ReflectionQuestionInputDto[];
+
+  // rating
+  @ApiPropertyOptional({
+    description:
+      'Required when lectureType=rating. The question learners rate 1–5, ' +
+      'e.g. "Bạn đánh giá nội dung phần này thế nào?".',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  prompt?: string;
+
+  @ApiPropertyOptional({ description: 'lectureType=rating — what 1 means.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  labelMin?: string;
+
+  @ApiPropertyOptional({ description: 'lectureType=rating — what 5 means.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  labelMax?: string;
+
+  @ApiPropertyOptional({
+    default: true,
+    description: 'lectureType=rating — show the optional comment box.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowComment?: boolean;
 }

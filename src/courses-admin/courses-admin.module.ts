@@ -38,6 +38,9 @@ import { LectureMoveAdminController } from './lecture-move-admin.controller';
 import { LecturesAdminService } from './lectures-admin.service';
 import { LectureContentAdminController } from './lecture-content-admin.controller';
 import { LectureContentAdminService } from './lecture-content-admin.service';
+import { LectureRatingAdminController } from './lecture-rating-admin.controller';
+import { LectureContentRatingsModule } from '../lecture-content-ratings/lecture-content-ratings.module';
+import { LectureRatingResponsesModule } from '../lecture-rating-responses/lecture-rating-responses.module';
 
 @Module({
   imports: [
@@ -65,6 +68,8 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
     QuizAnswerOptionsModule,
     LectureContentReflectionsModule,
     ReflectionQuestionsModule,
+    LectureContentRatingsModule,
+    LectureRatingResponsesModule,
     AuthorizationModule,
     CourseAccessModule,
   ],
@@ -74,6 +79,7 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
     LecturesAdminController,
     LectureMoveAdminController,
     LectureContentAdminController,
+    LectureRatingAdminController,
   ],
   providers: [
     CoursesAdminService,

@@ -79,6 +79,7 @@ describe('CoursePublishAdminService', () => {
       lectureContentQuizzesService as any,
       lectureContentReflectionsService as any,
       courseInstructorsService as any,
+      { findByLectureId: jest.fn() } as any,
     );
   });
 

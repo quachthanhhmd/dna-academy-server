@@ -49,6 +49,9 @@ import { ProgressService } from './services/progress.service';
 import { QuizService } from './services/quiz.service';
 import { QuizFileUploadService } from './services/quiz-file-upload.service';
 import { ReflectionService } from './services/reflection.service';
+import { LessonRatingService } from './services/lesson-rating.service';
+import { LectureContentRatingsModule } from '../lecture-content-ratings/lecture-content-ratings.module';
+import { LectureRatingResponsesModule } from '../lecture-rating-responses/lecture-rating-responses.module';
 import { CompletionService } from './services/completion.service';
 import { CareerReflectionService } from './services/career-reflection.service';
 import { PdfModule } from '../pdf/pdf.module';
@@ -85,6 +88,8 @@ import { CertificatePdfService } from './services/certificate-pdf.service';
     QuizSavesModule,
     ReflectionQuestionsModule,
     ReflectionResponsesModule,
+    LectureContentRatingsModule,
+    LectureRatingResponsesModule,
     CertificatesModule,
     CourseRatingsModule,
     CareerReflectionQuestionsModule,
@@ -120,6 +125,7 @@ import { CertificatePdfService } from './services/certificate-pdf.service';
     QuizService,
     QuizFileUploadService,
     ReflectionService,
+    LessonRatingService,
     CompletionService,
     CareerReflectionService,
     CertificateVerificationService,

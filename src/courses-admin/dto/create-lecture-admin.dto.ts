@@ -15,6 +15,8 @@ export const LECTURE_TYPES = [
   'pdf_document',
   'quiz',
   'reflection',
+  // A 1–5 rating of the lesson or section it follows (lecture_content_rating).
+  'rating',
 ] as const;
 
 export class CreateLectureAdminDto {

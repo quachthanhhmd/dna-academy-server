@@ -144,8 +144,14 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LocaleContextMiddleware } from './utils/i18n/locale-context.middleware';
 import { UserLocaleInterceptor } from './utils/i18n/user-locale.interceptor';
 
+import { LectureContentRatingsModule } from './lecture-content-ratings/lecture-content-ratings.module';
+
+import { LectureRatingResponsesModule } from './lecture-rating-responses/lecture-rating-responses.module';
+
 @Module({
   imports: [
+    LectureRatingResponsesModule,
+    LectureContentRatingsModule,
     MasterDataStartupSeedModule,
     AuthorizationModule,
     RolesAdminModule,

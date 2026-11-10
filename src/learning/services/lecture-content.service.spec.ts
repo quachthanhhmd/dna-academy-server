@@ -26,6 +26,18 @@ describe('LectureContentService', () => {
         }),
       },
       reflectionsService: { findByLectureId: jest.fn() as jest.Mock<any> },
+      ratingsService: {
+        findByLectureId: (jest.fn() as jest.Mock<any>).mockResolvedValue({
+          id: 'rating-1',
+          prompt: 'How was this section?',
+          labelMin: 'Poor',
+          labelMax: null,
+          allowComment: true,
+        }),
+      },
+      ratingResponsesService: {
+        findOne: (jest.fn() as jest.Mock<any>).mockResolvedValue(null),
+      },
       quizQuestionsService: {
         findByLectureId: (jest.fn() as jest.Mock<any>).mockResolvedValue([
           { id: 'q1' },
@@ -51,6 +63,8 @@ describe('LectureContentService', () => {
       deps.quizQuestionsService,
       deps.reflectionQuestionsService,
       deps.quizAttemptsService,
+      deps.ratingsService,
+      deps.ratingResponsesService,
     );
   });
 
@@ -177,6 +191,38 @@ describe('LectureContentService', () => {
         await service.payloadFor('lec-1', 'pdf_document', 'enr-1'),
       ).toBeNull();
       expect(deps.documentsService.resolveFileUrl).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('rating payload', () => {
+    it("should carry the question and the learner's saved rating", async () => {
+      const submittedAt = new Date('2026-11-08T10:00:00Z');
+      deps.ratingResponsesService.findOne.mockResolvedValue({
+        rating: 4,
+        comment: 'Clear',
+        submittedAt,
+      });
+
+      const payload = await service.payloadFor('lec-1', 'rating', 'enr-1');
+
+      expect(payload).toEqual({
+        prompt: 'How was this section?',
+        labelMin: 'Poor',
+        labelMax: null,
+        allowComment: true,
+        myResponse: { rating: 4, comment: 'Clear', submittedAt },
+      });
+      expect(deps.ratingResponsesService.findOne).toHaveBeenCalledWith(
+        'lec-1',
+        'enr-1',
+      );
+    });
+
+    it('should not look up a response for a guest preview', async () => {
+      const payload = await service.payloadFor('lec-1', 'rating');
+
+      expect(payload).toMatchObject({ myResponse: null });
+      expect(deps.ratingResponsesService.findOne).not.toHaveBeenCalled();
     });
   });
 });
