@@ -84,6 +84,14 @@ export class CourseCardDto {
       'identity too (§1.4 option A).',
   })
   isEnrolled: boolean;
+
+  @ApiProperty({
+    description:
+      'An unpublished course an admin shows as "Sắp ra mắt". The card is not ' +
+      'a link — the course page and enrolment are still closed — and these ' +
+      'always come after every published course.',
+  })
+  isComingSoon: boolean;
 }
 
 export class CourseCatalogResponseDto {

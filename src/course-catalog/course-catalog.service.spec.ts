@@ -104,8 +104,28 @@ describe('CourseCatalogService', () => {
           groupIds: ['group-1', 'group-2'],
           hasPreview: true,
           isEnrolled: false,
+          isComingSoon: false,
         },
       ]);
+    });
+
+    it('should flag an unpublished coming-soon course, and only that one', async () => {
+      coursesService.findCatalog.mockResolvedValue({
+        data: [
+          { ...publishedCourse, status: 'published', comingSoon: false },
+          {
+            ...publishedCourse,
+            id: 'course-soon',
+            status: 'draft',
+            comingSoon: true,
+          },
+        ],
+        total: 2,
+      });
+
+      const cards = (await service.findCatalog({})).data;
+
+      expect(cards.map((card) => card.isComingSoon)).toEqual([false, true]);
     });
 
     it('should null out optional card fields rather than emitting undefined', async () => {

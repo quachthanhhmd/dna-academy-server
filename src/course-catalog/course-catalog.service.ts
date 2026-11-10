@@ -146,6 +146,9 @@ export class CourseCatalogService {
       groupIds: extras.groupIds,
       hasPreview: extras.hasPreview,
       isEnrolled: extras.isEnrolled,
+      // The same rule the catalog query selects by (findCatalog): marked by
+      // an admin and not yet published.
+      isComingSoon: course.comingSoon === true && course.status !== 'published',
     };
   }
 }

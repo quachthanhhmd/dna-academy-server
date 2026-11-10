@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach, jest } from '@jest/globals';
+import { UnprocessableEntityException } from '@nestjs/common';
 import { CoursePublishAdminService } from './course-publish-admin.service';
 
 describe('CoursePublishAdminService', () => {
@@ -91,6 +92,9 @@ describe('CoursePublishAdminService', () => {
         status: 'published',
         publishedAt: expect.any(Date),
         publishedBy: { id: 42 },
+        // Publishing ends "coming soon", so a later unpublish cannot
+        // quietly put the course back in the catalog.
+        comingSoon: false,
       });
     });
 
@@ -170,6 +174,46 @@ describe('CoursePublishAdminService', () => {
 
       await expect(service.publish('course-1', 42)).rejects.toMatchObject({
         response: { missingItems: ['lectureContent'] },
+      });
+    });
+  });
+
+  describe('setComingSoon', () => {
+    it('should mark an unpublished course as coming soon', async () => {
+      coursesService.findById.mockResolvedValue({
+        ...completeCourse,
+        status: 'draft',
+      });
+
+      await service.setComingSoon('course-1', true);
+
+      expect(coursesService.update).toHaveBeenCalledWith('course-1', {
+        comingSoon: true,
+      });
+    });
+
+    it('should 422 turning it on for a published course, writing nothing', async () => {
+      coursesService.findById.mockResolvedValue({
+        ...completeCourse,
+        status: 'published',
+      });
+
+      await expect(
+        service.setComingSoon('course-1', true),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(coursesService.update).not.toHaveBeenCalled();
+    });
+
+    it('should always allow turning it off', async () => {
+      coursesService.findById.mockResolvedValue({
+        ...completeCourse,
+        status: 'published',
+      });
+
+      await service.setComingSoon('course-1', false);
+
+      expect(coursesService.update).toHaveBeenCalledWith('course-1', {
+        comingSoon: false,
       });
     });
   });

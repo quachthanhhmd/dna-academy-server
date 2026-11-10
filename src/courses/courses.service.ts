@@ -114,6 +114,8 @@ export class CoursesService {
     return this.courseRepository.create({
       // Do not remove comment below.
       // <creating-property-payload />
+      comingSoon: createCourseDto.comingSoon,
+
       courseId: createCourseDto.courseId,
 
       createdBy,
@@ -320,6 +322,8 @@ export class CoursesService {
     const payload: DeepPartial<Course> = {
       // Do not remove comment below.
       // <updating-property-payload />
+      comingSoon: updateCourseDto.comingSoon,
+
       courseId: updateCourseDto.courseId,
 
       createdBy,

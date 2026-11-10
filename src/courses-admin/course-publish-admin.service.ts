@@ -48,6 +48,9 @@ export class CoursePublishAdminService {
       status: 'published',
       publishedAt: new Date(),
       publishedBy: { id: userId },
+      // A published course is a real one. Clearing the flag also stops it
+      // turning back into "coming soon" by itself if it is unpublished later.
+      comingSoon: false,
     });
 
     // Spread to a plain object: Course has unconditional @Exclude on
@@ -62,6 +65,26 @@ export class CoursePublishAdminService {
     const updated = await this.coursesService.update(courseId, {
       status: 'unpublished',
     });
+
+    return { ...updated };
+  }
+
+  /**
+   * Shows an unpublished course in the public catalog as "Sắp ra mắt", or
+   * hides it again. Nothing is checked beyond the course existing: the card
+   * only needs what any saved course already has, and it cannot be opened.
+   */
+  async setComingSoon(courseId: Course['id'], comingSoon: boolean) {
+    const course = await this.findOrThrow(courseId);
+
+    if (comingSoon && course.status === 'published') {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { comingSoon: 'alreadyPublished' },
+      });
+    }
+
+    const updated = await this.coursesService.update(courseId, { comingSoon });
 
     return { ...updated };
   }

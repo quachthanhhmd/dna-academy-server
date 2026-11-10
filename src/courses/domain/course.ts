@@ -6,6 +6,14 @@ import { MasterDataCode } from '../../master-data-codes/domain/master-data-code'
 import { ApiProperty } from '@nestjs/swagger';
 
 export class Course {
+  /**
+   * Shown in the public catalog as "Sắp ra mắt" while not yet published: a
+   * greyed, unclickable card, listed after every published course. Has no
+   * effect on a published course, and publishing clears it.
+   */
+  @ApiProperty({ type: () => Boolean, default: false })
+  comingSoon?: boolean;
+
   @ApiProperty({
     type: () => String,
     nullable: true,

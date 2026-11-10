@@ -36,6 +36,7 @@ import { UpdateCourseAdminDto } from './dto/update-course-admin.dto';
 import { FindAllCoursesAdminDto } from './dto/find-all-courses-admin.dto';
 import { ReplaceCourseListDto } from './dto/replace-course-list.dto';
 import { ReplaceCourseGroupsDto } from './dto/replace-course-groups.dto';
+import { SetComingSoonDto } from './dto/set-coming-soon.dto';
 import { Course } from '../courses/domain/course';
 import {
   InfinityPaginationResponse,
@@ -269,5 +270,24 @@ export class CoursesAdminController {
   @ApiNotFoundResponse()
   unpublish(@Param('id') id: string) {
     return this.coursePublishAdminService.unpublish(id);
+  }
+
+  @ApiOperation({
+    summary: 'Show or hide an unpublished course as "coming soon"',
+    description:
+      'A coming-soon course appears in the public catalog greyed out and ' +
+      'unclickable, after every published course. Like publishing, it puts ' +
+      'the course in front of the public, so it takes the same permission. ' +
+      '422 when turning it on for a course that is already published; ' +
+      'publishing clears it.',
+  })
+  @RequirePermission('courses', 'publish')
+  @Patch(':id/coming-soon')
+  @ApiParam({ name: 'id', type: String })
+  @ApiOkResponse({ type: Course })
+  @ApiNotFoundResponse()
+  @ApiUnprocessableEntityResponse({ description: 'Course already published' })
+  setComingSoon(@Param('id') id: string, @Body() dto: SetComingSoonDto) {
+    return this.coursePublishAdminService.setComingSoon(id, dto.comingSoon);
   }
 }
