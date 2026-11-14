@@ -30,6 +30,7 @@ import { CourseDetailService } from './course-detail.service';
 import { CourseListsAdminService } from './course-lists-admin.service';
 import { CourseGroupsAdminService } from './course-groups-admin.service';
 import { CoursePublishAdminService } from './course-publish-admin.service';
+import { CourseDeletionAdminService } from './course-deletion-admin.service';
 import { CourseAggregatesService } from './course-aggregates.service';
 import { SectionsAdminController } from './sections-admin.controller';
 import { SectionsAdminService } from './sections-admin.service';
@@ -97,6 +98,7 @@ import { YoutubeAdminController } from './youtube-admin.controller';
     CourseListsAdminService,
     CourseGroupsAdminService,
     CoursePublishAdminService,
+    CourseDeletionAdminService,
     CourseAggregatesService,
     SectionsAdminService,
     LecturesAdminService,

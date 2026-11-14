@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -16,7 +17,9 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -29,6 +32,7 @@ import { CourseDetailService } from './course-detail.service';
 import { CourseListsAdminService } from './course-lists-admin.service';
 import { CourseGroupsAdminService } from './course-groups-admin.service';
 import { CoursePublishAdminService } from './course-publish-admin.service';
+import { CourseDeletionAdminService } from './course-deletion-admin.service';
 import { PermissionGuard } from '../authorization/permission.guard';
 import { RequirePermission } from '../authorization/require-permission.decorator';
 import { CreateCourseAdminDto } from './dto/create-course-admin.dto';
@@ -65,6 +69,7 @@ export class CoursesAdminController {
     private readonly courseGroupsAdminService: CourseGroupsAdminService,
     private readonly coursePublishAdminService: CoursePublishAdminService,
     private readonly courseAccessService: CourseAccessService,
+    private readonly courseDeletionAdminService: CourseDeletionAdminService,
   ) {}
 
   @ApiOperation({
@@ -289,5 +294,25 @@ export class CoursesAdminController {
   @ApiUnprocessableEntityResponse({ description: 'Course already published' })
   setComingSoon(@Param('id') id: string, @Body() dto: SetComingSoonDto) {
     return this.coursePublishAdminService.setComingSoon(id, dto.comingSoon);
+  }
+
+  @ApiOperation({
+    summary: 'Delete a course',
+    description:
+      'Removes a course nobody has enrolled in, with its sections, lessons ' +
+      'and their content, in one transaction. 409 COURSE_HAS_ENROLLMENTS ' +
+      'once anyone has enrolled — their progress and certificates would go ' +
+      'with it; unpublish the course instead.',
+  })
+  @RequirePermission('courses', 'delete')
+  @CourseAccess({ mode: 'edit', from: { course: 'id' } })
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiParam({ name: 'id', type: String })
+  @ApiNoContentResponse()
+  @ApiNotFoundResponse()
+  @ApiConflictResponse({ description: 'The course has enrollments' })
+  remove(@Param('id') id: string) {
+    return this.courseDeletionAdminService.remove(id);
   }
 }
