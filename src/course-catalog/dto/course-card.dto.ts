@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { InstructorRefDto } from '../../instructors/dto/instructor-profile.dto';
 
 export class MasterDataRefDto {
@@ -92,6 +92,14 @@ export class CourseCardDto {
       'always come after every published course.',
   })
   isComingSoon: boolean;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Coming-soon cards only: "what you\'ll learn", in order, for the hover ' +
+      'preview — their overview is not public yet.',
+  })
+  learningOutcomes?: string[];
 }
 
 export class CourseCatalogResponseDto {

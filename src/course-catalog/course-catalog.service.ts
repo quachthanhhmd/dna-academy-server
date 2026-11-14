@@ -12,6 +12,7 @@ import { CourseGroupAssignmentsService } from '../course-group-assignments/cours
 import { LecturesService } from '../lectures/lectures.service';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { mergeIdFilters } from '../utils/parse-id-list';
+import { CourseLearningOutcomesService } from '../course-learning-outcomes/course-learning-outcomes.service';
 
 export const CATALOG_DEFAULT_LIMIT = 12;
 export const CATALOG_MAX_LIMIT = 50;
@@ -24,6 +25,7 @@ export class CourseCatalogService {
     private readonly courseGroupAssignmentsService: CourseGroupAssignmentsService,
     private readonly lecturesService: LecturesService,
     private readonly enrollmentsService: EnrollmentsService,
+    private readonly courseLearningOutcomesService: CourseLearningOutcomesService,
   ) {}
 
   /**
@@ -98,6 +100,31 @@ export class CourseCatalogService {
             new Set<string>(),
           ];
 
+    /*
+      A coming-soon card is not a link and its overview is still closed (404),
+      so the card's hover preview cannot fetch "what you'll learn" the way a
+      published card does. Those few cards carry it instead.
+    */
+    const outcomesByCourse = new Map(
+      await Promise.all(
+        data
+          .filter((course) => this.isComingSoon(course))
+          .map(
+            async (course) =>
+              [
+                course.id,
+                (
+                  await this.courseLearningOutcomesService.findByCourseId(
+                    course.id,
+                  )
+                )
+                  .sort((a, b) => a.displayOrder - b.displayOrder)
+                  .map((item) => item.description),
+              ] as const,
+          ),
+      ),
+    );
+
     return {
       data: data.map((course) =>
         this.toCard(course, {
@@ -105,6 +132,7 @@ export class CourseCatalogService {
           groupIds: groupIdsByCourse.get(course.id) ?? [],
           hasPreview: previewCourseIds.has(course.id),
           isEnrolled: enrolled.has(course.id),
+          learningOutcomes: outcomesByCourse.get(course.id),
         }),
       ),
       totalCount: total,
@@ -121,6 +149,7 @@ export class CourseCatalogService {
       groupIds: string[];
       hasPreview: boolean;
       isEnrolled: boolean;
+      learningOutcomes?: string[];
     },
   ): CourseCardDto {
     return {
@@ -148,7 +177,14 @@ export class CourseCatalogService {
       isEnrolled: extras.isEnrolled,
       // The same rule the catalog query selects by (findCatalog): marked by
       // an admin and not yet published.
-      isComingSoon: course.comingSoon === true && course.status !== 'published',
+      isComingSoon: this.isComingSoon(course),
+      ...(extras.learningOutcomes
+        ? { learningOutcomes: extras.learningOutcomes }
+        : {}),
     };
+  }
+
+  private isComingSoon(course: Course): boolean {
+    return course.comingSoon === true && course.status !== 'published';
   }
 }
