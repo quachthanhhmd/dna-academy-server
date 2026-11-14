@@ -43,6 +43,14 @@ const MIGRATION_OWNED_INDEX = { synchronize: false } as unknown as IndexOptions;
   name: 'course',
 })
 export class CourseEntity extends EntityRelationalHelper {
+  @Column({
+    name: 'coming_soon',
+    nullable: false,
+    type: Boolean,
+    default: false,
+  })
+  comingSoon?: boolean;
+
   // Client-supplied business code (e.g. "DNA-101"), distinct from the UUID
   // primary key. Nullable at the DB level so pre-existing rows survive the
   // migration and so Postgres keeps allowing multiple NULLs under the unique

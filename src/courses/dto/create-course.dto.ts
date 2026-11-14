@@ -25,6 +25,8 @@ import {
 } from 'class-transformer';
 
 export class CreateCourseDto {
+  comingSoon?: boolean;
+
   @ApiProperty({
     required: false,
     type: () => String,

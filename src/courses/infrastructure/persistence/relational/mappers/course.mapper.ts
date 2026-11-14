@@ -9,6 +9,8 @@ import { CourseEntity } from '../entities/course.entity';
 export class CourseMapper {
   static toDomain(raw: CourseEntity): Course {
     const domainEntity = new Course();
+    domainEntity.comingSoon = raw.comingSoon;
+
     domainEntity.courseId = raw.courseId;
 
     if (raw.createdBy) {
@@ -95,6 +97,8 @@ export class CourseMapper {
 
   static toPersistence(domainEntity: Course): CourseEntity {
     const persistenceEntity = new CourseEntity();
+    persistenceEntity.comingSoon = domainEntity.comingSoon;
+
     persistenceEntity.courseId = domainEntity.courseId;
 
     if (domainEntity.createdBy) {

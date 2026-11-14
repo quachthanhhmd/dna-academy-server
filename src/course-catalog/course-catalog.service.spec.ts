@@ -34,7 +34,15 @@ describe('CourseCatalogService', () => {
     totalEnrollments: 128,
   };
 
+  let courseLearningOutcomesService: { findByCourseId: jest.Mock<any> };
+
   beforeEach(() => {
+    courseLearningOutcomesService = {
+      findByCourseId: (jest.fn() as jest.Mock<any>).mockResolvedValue([
+        { description: 'Second', displayOrder: 2 },
+        { description: 'First', displayOrder: 1 },
+      ]),
+    };
     coursesService = { findCatalog: jest.fn() };
     coursesService.findCatalog.mockResolvedValue({ data: [], total: 0 });
     courseInstructorsService = { findViewByCourseIds: jest.fn() };
@@ -54,6 +62,7 @@ describe('CourseCatalogService', () => {
       courseGroupAssignmentsService as any,
       lecturesService as any,
       enrollmentsService as any,
+      courseLearningOutcomesService as any,
     );
   });
 
@@ -104,8 +113,49 @@ describe('CourseCatalogService', () => {
           groupIds: ['group-1', 'group-2'],
           hasPreview: true,
           isEnrolled: false,
+          isComingSoon: false,
         },
       ]);
+    });
+
+    it('should flag an unpublished coming-soon course, and only that one', async () => {
+      coursesService.findCatalog.mockResolvedValue({
+        data: [
+          { ...publishedCourse, status: 'published', comingSoon: false },
+          {
+            ...publishedCourse,
+            id: 'course-soon',
+            status: 'draft',
+            comingSoon: true,
+          },
+        ],
+        total: 2,
+      });
+
+      const cards = (await service.findCatalog({})).data;
+
+      expect(cards.map((card) => card.isComingSoon)).toEqual([false, true]);
+    });
+
+    it('should carry ordered learning outcomes on coming-soon cards only', async () => {
+      coursesService.findCatalog.mockResolvedValue({
+        data: [
+          { ...publishedCourse, status: 'published', comingSoon: false },
+          { ...publishedCourse, id: 'soon', status: 'draft', comingSoon: true },
+        ],
+        total: 2,
+      });
+
+      const [published, soon] = (await service.findCatalog({})).data;
+
+      expect(published).not.toHaveProperty('learningOutcomes');
+      expect(soon.learningOutcomes).toEqual(['First', 'Second']);
+      expect(
+        courseLearningOutcomesService.findByCourseId,
+      ).toHaveBeenCalledTimes(1);
+      expect(courseLearningOutcomesService.findByCourseId).toHaveBeenCalledWith(
+        'soon',
+      );
     });
 
     it('should null out optional card fields rather than emitting undefined', async () => {

@@ -22,6 +22,9 @@ import {
   unaccentIlikeSql,
 } from '../course-search.sql';
 
+/** Selected so the coming-soon-last ordering survives pagination. */
+const CATALOG_COMING_SOON_ALIAS = 'catalog_coming_soon';
+
 @Injectable()
 export class CourseRelationalRepository implements CourseRepository {
   constructor(
@@ -112,8 +115,29 @@ export class CourseRelationalRepository implements CourseRepository {
       .createQueryBuilder('course')
       .leftJoinAndSelect('course.level', 'level')
       .leftJoinAndSelect('course.category', 'category')
-      .where('course.status = :status', { status: 'published' })
-      .andWhere('course.enrollmentOpen = true');
+      // Published and open — or not yet published but marked "coming soon"
+      // by an admin, which the catalog shows greyed out and unclickable.
+      .where(
+        new Brackets((qb) => {
+          qb.where(
+            new Brackets((open) => {
+              open
+                .where('course.status = :published', {
+                  published: 'published',
+                })
+                .andWhere('course.enrollmentOpen = true');
+            }),
+          ).orWhere(
+            new Brackets((soon) => {
+              soon
+                .where('course.status <> :published', {
+                  published: 'published',
+                })
+                .andWhere('course.comingSoon = true');
+            }),
+          );
+        }),
+      );
 
     // Epic 4.4 §1.5 — full-text search.
     //
@@ -239,6 +263,15 @@ export class CourseRelationalRepository implements CourseRepository {
       });
     }
 
+    // Coming-soon courses always come last, whatever the chosen sort: they
+    // cannot be opened, so they must never push a real course off page one.
+    // Ordered through a selected alias for the same reason as the rank below.
+    query.addSelect(
+      `CASE WHEN "course"."status" = 'published' THEN 0 ELSE 1 END`,
+      CATALOG_COMING_SOON_ALIAS,
+    );
+    query.orderBy(CATALOG_COMING_SOON_ALIAS, 'ASC');
+
     // Epic 4 v2 §2.2 — catalog sort. NULLS LAST keeps unrated/zero-length
     // courses out of the top slots on a descending sort.
     switch (resolveCatalogSort(sortBy, hasSearch)) {
@@ -254,23 +287,23 @@ export class CourseRelationalRepository implements CourseRepository {
       // TypeORM wraps a paginated join query in.
       case 'relevance':
         query.addSelect(searchRankSql('course'), CATALOG_RANK_ALIAS);
-        query.orderBy(CATALOG_RANK_ALIAS, 'DESC');
+        query.addOrderBy(CATALOG_RANK_ALIAS, 'DESC');
         break;
       case 'most_popular':
-        query.orderBy('course.totalEnrollments', 'DESC', 'NULLS LAST');
+        query.addOrderBy('course.totalEnrollments', 'DESC', 'NULLS LAST');
         break;
       case 'highest_rated':
-        query.orderBy('course.avgRating', 'DESC', 'NULLS LAST');
+        query.addOrderBy('course.avgRating', 'DESC', 'NULLS LAST');
         break;
       case 'shortest':
-        query.orderBy('course.totalDurationSecs', 'ASC', 'NULLS LAST');
+        query.addOrderBy('course.totalDurationSecs', 'ASC', 'NULLS LAST');
         break;
       case 'longest':
-        query.orderBy('course.totalDurationSecs', 'DESC', 'NULLS LAST');
+        query.addOrderBy('course.totalDurationSecs', 'DESC', 'NULLS LAST');
         break;
       case 'newest':
       default:
-        query.orderBy('course.publishedAt', 'DESC', 'NULLS LAST');
+        query.addOrderBy('course.publishedAt', 'DESC', 'NULLS LAST');
         break;
     }
     // Deterministic tiebreak so pagination cannot repeat or skip a row.

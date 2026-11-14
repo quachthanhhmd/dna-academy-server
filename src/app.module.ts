@@ -11,6 +11,7 @@ import mailConfig from './mail/config/mail.config';
 import fileConfig from './files/config/file.config';
 import facebookConfig from './auth-facebook/config/facebook.config';
 import googleConfig from './auth-google/config/google.config';
+import youtubeConfig from './youtube/config/youtube.config';
 import learningConfig from './learning/config/learning.config';
 import certificateConfig from './certificates/config/certificate.config';
 import path from 'path';
@@ -144,8 +145,26 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LocaleContextMiddleware } from './utils/i18n/locale-context.middleware';
 import { UserLocaleInterceptor } from './utils/i18n/user-locale.interceptor';
 
+import { LectureContentRatingsModule } from './lecture-content-ratings/lecture-content-ratings.module';
+
+import { LectureRatingResponsesModule } from './lecture-rating-responses/lecture-rating-responses.module';
+
+import { SurveyQuestionsModule } from './survey-questions/survey-questions.module';
+
+import { SurveyQuestionOptionsModule } from './survey-question-options/survey-question-options.module';
+
+import { SurveyResponsesModule } from './survey-responses/survey-responses.module';
+
+import { SurveyAnswersModule } from './survey-answers/survey-answers.module';
+
 @Module({
   imports: [
+    SurveyAnswersModule,
+    SurveyResponsesModule,
+    SurveyQuestionOptionsModule,
+    SurveyQuestionsModule,
+    LectureRatingResponsesModule,
+    LectureContentRatingsModule,
     MasterDataStartupSeedModule,
     AuthorizationModule,
     RolesAdminModule,
@@ -209,6 +228,7 @@ import { UserLocaleInterceptor } from './utils/i18n/user-locale.interceptor';
         googleConfig,
         learningConfig,
         certificateConfig,
+        youtubeConfig,
       ],
       envFilePath: envFilePaths,
     }),

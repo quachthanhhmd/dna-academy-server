@@ -101,6 +101,30 @@ export class LecturesAdminController {
     return this.lecturesAdminService.update(courseId, sectionId, id, dto);
   }
 
+  @ApiOperation({
+    summary: 'Duplicate a survey lesson',
+    description:
+      'Copies the lesson and its live questions (not the responses) into ' +
+      'the same section, right after the original, as a draft. 422 for any ' +
+      'lesson type other than survey.',
+  })
+  @RequirePermission('courses', 'edit')
+  @CourseAccess({ mode: 'edit', from: { course: 'courseId' } })
+  @Post(':id/duplicate')
+  @ApiParam({ name: 'courseId', type: String })
+  @ApiParam({ name: 'sectionId', type: String })
+  @ApiParam({ name: 'id', type: String })
+  @ApiCreatedResponse({ type: Lecture })
+  @ApiNotFoundResponse()
+  @ApiUnprocessableEntityResponse({ description: 'Not a survey lesson' })
+  duplicate(
+    @Param('courseId') courseId: string,
+    @Param('sectionId') sectionId: string,
+    @Param('id') id: string,
+  ) {
+    return this.lecturesAdminService.duplicate(courseId, sectionId, id);
+  }
+
   @ApiOperation({ summary: 'Delete a lecture' })
   @RequirePermission('courses', 'delete')
   @CourseAccess({ mode: 'edit', from: { course: 'courseId' } })

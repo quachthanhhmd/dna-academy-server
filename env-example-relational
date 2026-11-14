@@ -99,6 +99,12 @@ FACEBOOK_APP_SECRET=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 
+# YouTube Data API v3 key, used to read each video lecture's length from its
+# link. Restrict it to the YouTube Data API v3 in Google Cloud Console. Left
+# empty, durations are entered by hand. Backfill old lectures with
+# `npm run youtube:durations` (dry run) then `-- --apply`.
+YOUTUBE_API_KEY=
+
 # Epic 4 v2.1 §2.4.1 — learning rules. Both are validated at boot: the
 # threshold must be an integer 0-100, the word count an integer >= 1.
 # QUIZ_PASS_THRESHOLD_DEFAULT only seeds new quizzes; changing it never

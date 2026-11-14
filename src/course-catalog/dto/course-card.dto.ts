@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { InstructorRefDto } from '../../instructors/dto/instructor-profile.dto';
 
 export class MasterDataRefDto {
@@ -84,6 +84,22 @@ export class CourseCardDto {
       'identity too (§1.4 option A).',
   })
   isEnrolled: boolean;
+
+  @ApiProperty({
+    description:
+      'An unpublished course an admin shows as "Sắp ra mắt". The card is not ' +
+      'a link — the course page and enrolment are still closed — and these ' +
+      'always come after every published course.',
+  })
+  isComingSoon: boolean;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Coming-soon cards only: "what you\'ll learn", in order, for the hover ' +
+      'preview — their overview is not public yet.',
+  })
+  learningOutcomes?: string[];
 }
 
 export class CourseCatalogResponseDto {

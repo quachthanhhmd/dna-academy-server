@@ -38,6 +38,12 @@ describe('EnrollmentResetService', () => {
       careerReflectionAnswersService: {
         removeByEnrollmentId: jest.fn() as jest.Mock<any>,
       },
+      lectureRatingResponsesService: {
+        removeByEnrollmentId: jest.fn() as jest.Mock<any>,
+      },
+      surveyResponsesService: {
+        removeByEnrollmentId: jest.fn() as jest.Mock<any>,
+      },
       certificatesService: {
         findByEnrollmentId: (jest.fn() as jest.Mock<any>).mockResolvedValue({
           id: 'cert-1',
@@ -53,6 +59,8 @@ describe('EnrollmentResetService', () => {
       'quizSavesService',
       'reflectionResponsesService',
       'careerReflectionAnswersService',
+      'lectureRatingResponsesService',
+      'surveyResponsesService',
     ]) {
       deps[key].removeByEnrollmentId = (
         jest.fn() as jest.Mock<any>
@@ -68,6 +76,8 @@ describe('EnrollmentResetService', () => {
       deps.reflectionResponsesService,
       deps.careerReflectionAnswersService,
       deps.certificatesService,
+      deps.lectureRatingResponsesService,
+      deps.surveyResponsesService,
     );
   });
 
@@ -81,6 +91,8 @@ describe('EnrollmentResetService', () => {
       'quizSavesService',
       'reflectionResponsesService',
       'careerReflectionAnswersService',
+      'lectureRatingResponsesService',
+      'surveyResponsesService',
     ]) {
       expect(deps[key].removeByEnrollmentId).toHaveBeenCalledWith('enr-1');
     }

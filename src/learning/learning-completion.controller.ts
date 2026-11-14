@@ -30,6 +30,10 @@ import { RequirePermission } from '../authorization/require-permission.decorator
 import { CourseAccessGuard } from '../course-access/course-access.guard';
 import { CourseAccess } from '../course-access/course-access.decorator';
 import { ReflectionService } from './services/reflection.service';
+import { LessonRatingService } from './services/lesson-rating.service';
+import { SubmitLessonRatingDto } from './dto/lesson-rating.dto';
+import { SurveyLessonService } from './services/survey-lesson.service';
+import { SubmitSurveyResponseDto } from './dto/survey-response.dto';
 import { CompletionService } from './services/completion.service';
 import { CareerReflectionService } from './services/career-reflection.service';
 import { CertificateGeneratorService } from './services/certificate-generator.service';
@@ -49,6 +53,8 @@ import {
 export class LearningCompletionController {
   constructor(
     private readonly reflectionService: ReflectionService,
+    private readonly lessonRatingService: LessonRatingService,
+    private readonly surveyLessonService: SurveyLessonService,
     private readonly completionService: CompletionService,
     private readonly certificateGenerator: CertificateGeneratorService,
     private readonly careerReflectionService: CareerReflectionService,
@@ -85,6 +91,53 @@ export class LearningCompletionController {
       isDraft: dto.isDraft ?? false,
       answers: dto.answers,
     });
+  }
+
+  @ApiOperation({
+    summary: 'Rate a "Đánh giá" lesson 1–5',
+    description:
+      "Creates or replaces the learner's rating and marks the lesson " +
+      'complete. The comment is dropped when the lesson does not allow ' +
+      'comments. Not the course rating (enrollments/:id/rating).',
+  })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), OnboardingGuard)
+  @Put('lectures/:lectureId/rating-response')
+  @ApiOkResponse()
+  submitLessonRating(
+    @Param('lectureId') lectureId: string,
+    @Body() dto: SubmitLessonRatingDto,
+    @Request() request,
+  ) {
+    return this.lessonRatingService.submit(lectureId, request.user.id, {
+      rating: dto.rating,
+      comment: dto.comment,
+    });
+  }
+
+  @ApiOperation({
+    summary: 'Submit or update the answers to a survey lesson',
+    description:
+      "Replaces the learner's answers to the survey's live questions and " +
+      'marks the lesson complete. Every required question must be answered; ' +
+      "a choice must be one of the question's own options and a rating " +
+      'within its scale. 422 lists the problems under errors.answers keyed ' +
+      'by question id.',
+  })
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), OnboardingGuard)
+  @Put('lectures/:lectureId/survey-response')
+  @ApiOkResponse()
+  submitSurvey(
+    @Param('lectureId') lectureId: string,
+    @Body() dto: SubmitSurveyResponseDto,
+    @Request() request,
+  ) {
+    return this.surveyLessonService.submit(
+      lectureId,
+      request.user.id,
+      dto.answers,
+    );
   }
 
   @ApiOperation({

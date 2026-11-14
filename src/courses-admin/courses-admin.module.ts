@@ -38,6 +38,14 @@ import { LectureMoveAdminController } from './lecture-move-admin.controller';
 import { LecturesAdminService } from './lectures-admin.service';
 import { LectureContentAdminController } from './lecture-content-admin.controller';
 import { LectureContentAdminService } from './lecture-content-admin.service';
+import { LectureRatingAdminController } from './lecture-rating-admin.controller';
+import { LectureContentRatingsModule } from '../lecture-content-ratings/lecture-content-ratings.module';
+import { LectureRatingResponsesModule } from '../lecture-rating-responses/lecture-rating-responses.module';
+import { SurveyQuestionsModule } from '../survey-questions/survey-questions.module';
+import { SurveyQuestionOptionsModule } from '../survey-question-options/survey-question-options.module';
+import { SurveyAnswersModule } from '../survey-answers/survey-answers.module';
+import { SurveyContentAdminService } from './survey-content-admin.service';
+import { YoutubeAdminController } from './youtube-admin.controller';
 
 @Module({
   imports: [
@@ -65,6 +73,11 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
     QuizAnswerOptionsModule,
     LectureContentReflectionsModule,
     ReflectionQuestionsModule,
+    LectureContentRatingsModule,
+    LectureRatingResponsesModule,
+    SurveyQuestionsModule,
+    SurveyQuestionOptionsModule,
+    SurveyAnswersModule,
     AuthorizationModule,
     CourseAccessModule,
   ],
@@ -74,6 +87,8 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
     LecturesAdminController,
     LectureMoveAdminController,
     LectureContentAdminController,
+    LectureRatingAdminController,
+    YoutubeAdminController,
   ],
   providers: [
     CoursesAdminService,
@@ -86,6 +101,7 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
     SectionsAdminService,
     LecturesAdminService,
     LectureContentAdminService,
+    SurveyContentAdminService,
   ],
   exports: [
     CoursesAdminService,

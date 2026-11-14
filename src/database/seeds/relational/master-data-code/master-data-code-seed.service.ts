@@ -140,6 +140,16 @@ const MASTER_DATA_CODES: ReadonlyArray<{
         displayOrder: 5,
         nameTranslations: { vi: 'Bài suy ngẫm', en: 'Reflection' },
       },
+      {
+        code: 'rating',
+        displayOrder: 6,
+        nameTranslations: { vi: 'Đánh giá', en: 'Rating' },
+      },
+      {
+        code: 'survey',
+        displayOrder: 7,
+        nameTranslations: { vi: 'Khảo sát', en: 'Survey' },
+      },
     ],
   },
   {

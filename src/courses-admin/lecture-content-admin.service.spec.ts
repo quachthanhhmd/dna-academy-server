@@ -58,6 +58,18 @@ describe('LectureContentAdminService', () => {
   };
   let courseAggregatesService: { recalculate: jest.Mock<any> };
   let filesService: { findByIdOrFail: jest.Mock<any> };
+  let lectureContentRatingsService: {
+    findByLectureId: jest.Mock<any>;
+    create: jest.Mock<any>;
+    update: jest.Mock<any>;
+    remove: jest.Mock<any>;
+  };
+  let lectureRatingResponsesService: { summarize: jest.Mock<any> };
+  let surveyContentAdminService: {
+    findContent: jest.Mock<any>;
+    save: jest.Mock<any>;
+    clear: jest.Mock<any>;
+  };
 
   const lecture = (lectureType: string) => ({
     id: 'lecture-1',
@@ -119,6 +131,22 @@ describe('LectureContentAdminService', () => {
       create: jest.fn(),
     };
     courseAggregatesService = { recalculate: jest.fn() };
+    lectureContentRatingsService = {
+      findByLectureId: (jest.fn() as jest.Mock<any>).mockResolvedValue(null),
+      create: (jest.fn() as jest.Mock<any>).mockImplementation((data) =>
+        Promise.resolve({ id: 'rating-1', ...data }),
+      ),
+      update: (jest.fn() as jest.Mock<any>).mockImplementation((id, data) =>
+        Promise.resolve({ id, ...data }),
+      ),
+      remove: jest.fn(),
+    };
+    lectureRatingResponsesService = { summarize: jest.fn() };
+    surveyContentAdminService = {
+      findContent: (jest.fn() as jest.Mock<any>).mockResolvedValue(null),
+      save: (jest.fn() as jest.Mock<any>).mockResolvedValue({}),
+      clear: (jest.fn() as jest.Mock<any>).mockResolvedValue(false),
+    };
 
     service = new LectureContentAdminService(
       lecturesService as any,
@@ -133,6 +161,9 @@ describe('LectureContentAdminService', () => {
       reflectionQuestionsService as any,
       courseAggregatesService as any,
       filesService as any,
+      lectureContentRatingsService as any,
+      lectureRatingResponsesService as any,
+      surveyContentAdminService as any,
     );
   });
 
@@ -796,6 +827,110 @@ describe('LectureContentAdminService', () => {
           quizAnswerOptionsService.findByQuestionIds,
         ).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('rating', () => {
+    it('should 422 when the prompt is missing or blank', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('rating'));
+
+      await expect(
+        service.save('lecture-1', {
+          lectureType: 'rating',
+          prompt: '  ',
+        } as any),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(lectureContentRatingsService.create).not.toHaveBeenCalled();
+    });
+
+    it('should create the rating with trimmed text and comments on by default', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('rating'));
+
+      await service.save('lecture-1', {
+        lectureType: 'rating',
+        prompt: '  How was this section?  ',
+        labelMin: ' Poor ',
+        labelMax: '',
+      } as any);
+
+      expect(lectureContentRatingsService.create).toHaveBeenCalledWith({
+        lecture: { id: 'lecture-1' },
+        prompt: 'How was this section?',
+        labelMin: 'Poor',
+        labelMax: null,
+        allowComment: true,
+      });
+    });
+
+    it('should update an existing rating and keep comments off when asked', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('rating'));
+      lectureContentRatingsService.findByLectureId.mockResolvedValue({
+        id: 'rating-1',
+      });
+
+      await service.save('lecture-1', {
+        lectureType: 'rating',
+        prompt: 'Rate it',
+        allowComment: false,
+      } as any);
+
+      expect(lectureContentRatingsService.update).toHaveBeenCalledWith(
+        'rating-1',
+        expect.objectContaining({ prompt: 'Rate it', allowComment: false }),
+      );
+      expect(lectureContentRatingsService.create).not.toHaveBeenCalled();
+    });
+
+    it('should clear the rating content when the lesson changes type', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('rating'));
+      lectureContentRatingsService.findByLectureId.mockResolvedValue({
+        id: 'rating-1',
+      });
+
+      const result: any = await service.save('lecture-1', {
+        lectureType: 'article',
+        body: '<p>Hi</p>',
+      } as any);
+
+      expect(lectureContentRatingsService.remove).toHaveBeenCalledWith(
+        'rating-1',
+      );
+      expect(result.incompatibleContentCleared).toBe(true);
+    });
+
+    it('should read the rating back in the shape save accepts', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('rating'));
+      lectureContentRatingsService.findByLectureId.mockResolvedValue({
+        id: 'rating-1',
+        prompt: 'Rate it',
+        labelMin: null,
+        labelMax: 'Great',
+        allowComment: false,
+      });
+
+      await expect(service.findContent('lecture-1')).resolves.toEqual({
+        lectureType: 'rating',
+        prompt: 'Rate it',
+        labelMin: null,
+        labelMax: 'Great',
+        allowComment: false,
+      });
+    });
+
+    it('should summarise responses with the comment cap, only for a rating lesson', async () => {
+      lecturesService.findById.mockResolvedValue(lecture('rating'));
+      lectureRatingResponsesService.summarize.mockResolvedValue({ count: 0 });
+
+      await service.ratingSummary('lecture-1');
+      expect(lectureRatingResponsesService.summarize).toHaveBeenCalledWith(
+        'lecture-1',
+        20,
+      );
+
+      lecturesService.findById.mockResolvedValue(lecture('video'));
+      await expect(service.ratingSummary('lecture-1')).rejects.toBeInstanceOf(
+        UnprocessableEntityException,
+      );
     });
   });
 });

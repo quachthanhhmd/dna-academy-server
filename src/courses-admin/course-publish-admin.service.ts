@@ -14,6 +14,8 @@ import { LectureContentArticlesService } from '../lecture-content-articles/lectu
 import { LectureContentDocumentsService } from '../lecture-content-documents/lecture-content-documents.service';
 import { LectureContentQuizzesService } from '../lecture-content-quizzes/lecture-content-quizzes.service';
 import { LectureContentReflectionsService } from '../lecture-content-reflections/lecture-content-reflections.service';
+import { LectureContentRatingsService } from '../lecture-content-ratings/lecture-content-ratings.service';
+import { SurveyQuestionsService } from '../survey-questions/survey-questions.service';
 import { User } from '../users/domain/user';
 import { CourseInstructorsService } from '../course-instructors/course-instructors.service';
 
@@ -29,6 +31,8 @@ export class CoursePublishAdminService {
     private readonly lectureContentQuizzesService: LectureContentQuizzesService,
     private readonly lectureContentReflectionsService: LectureContentReflectionsService,
     private readonly courseInstructorsService: CourseInstructorsService,
+    private readonly lectureContentRatingsService: LectureContentRatingsService,
+    private readonly surveyQuestionsService: SurveyQuestionsService,
   ) {}
 
   async publish(courseId: Course['id'], userId: User['id']) {
@@ -46,6 +50,9 @@ export class CoursePublishAdminService {
       status: 'published',
       publishedAt: new Date(),
       publishedBy: { id: userId },
+      // A published course is a real one. Clearing the flag also stops it
+      // turning back into "coming soon" by itself if it is unpublished later.
+      comingSoon: false,
     });
 
     // Spread to a plain object: Course has unconditional @Exclude on
@@ -60,6 +67,26 @@ export class CoursePublishAdminService {
     const updated = await this.coursesService.update(courseId, {
       status: 'unpublished',
     });
+
+    return { ...updated };
+  }
+
+  /**
+   * Shows an unpublished course in the public catalog as "Sắp ra mắt", or
+   * hides it again. Nothing is checked beyond the course existing: the card
+   * only needs what any saved course already has, and it cannot be opened.
+   */
+  async setComingSoon(courseId: Course['id'], comingSoon: boolean) {
+    const course = await this.findOrThrow(courseId);
+
+    if (comingSoon && course.status === 'published') {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { comingSoon: 'alreadyPublished' },
+      });
+    }
+
+    const updated = await this.coursesService.update(courseId, { comingSoon });
 
     return { ...updated };
   }
@@ -124,6 +151,15 @@ export class CoursePublishAdminService {
         return !!(await this.lectureContentReflectionsService.findByLectureId(
           lecture.id,
         ));
+      case 'rating':
+        return !!(await this.lectureContentRatingsService.findByLectureId(
+          lecture.id,
+        ));
+      case 'survey':
+        return (
+          (await this.surveyQuestionsService.findByLecture(lecture.id)).length >
+          0
+        );
       default:
         return false;
     }

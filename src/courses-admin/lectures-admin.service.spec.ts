@@ -21,6 +21,7 @@ describe('LecturesAdminService', () => {
   let courseAggregatesService: { recalculate: jest.Mock<any> };
   let lectureContentAdminService: { clearAllContent: jest.Mock<any> };
   let enrollmentsService: { clearLastLecture: jest.Mock<any> };
+  let surveyContentAdminService: { copy: jest.Mock<any> };
 
   const course = { id: 'course-1' };
   const section = { id: 'section-1', course: { id: 'course-1' } };
@@ -39,6 +40,7 @@ describe('LecturesAdminService', () => {
     courseAggregatesService = { recalculate: jest.fn() };
     lectureContentAdminService = { clearAllContent: jest.fn() };
     enrollmentsService = { clearLastLecture: jest.fn() };
+    surveyContentAdminService = { copy: jest.fn() };
 
     service = new LecturesAdminService(
       coursesService as any,
@@ -47,6 +49,7 @@ describe('LecturesAdminService', () => {
       courseAggregatesService as any,
       lectureContentAdminService as any,
       enrollmentsService as any,
+      surveyContentAdminService as any,
     );
   });
 
@@ -453,6 +456,71 @@ describe('LecturesAdminService', () => {
       ).rejects.toMatchObject({
         response: { code: 'lectureHasLearnerData' },
       });
+    });
+  });
+
+  describe('duplicate', () => {
+    const survey = {
+      id: 'lec-2',
+      section: { id: 'section-1' },
+      title: 'Khảo sát giữa khoá',
+      description: '<p>Intro</p>',
+      lectureType: 'survey',
+      durationSecs: 300,
+      isPreview: false,
+      requiresCompletion: true,
+      displayOrder: 2,
+    };
+
+    beforeEach(() => {
+      coursesService.findById.mockResolvedValue(course);
+      sectionsService.findById.mockResolvedValue(section);
+      lecturesService.findById.mockResolvedValue(survey);
+      lecturesService.findBySectionId.mockResolvedValue([
+        { id: 'lec-1', displayOrder: 1 },
+        survey,
+        { id: 'lec-3', displayOrder: 3 },
+      ]);
+      lecturesService.create.mockResolvedValue({ id: 'lec-copy' });
+    });
+
+    it('should copy the survey right after the original, as a draft', async () => {
+      const copy = await service.duplicate('course-1', 'section-1', 'lec-2');
+
+      expect(lecturesService.update).toHaveBeenCalledTimes(1);
+      expect(lecturesService.update).toHaveBeenCalledWith('lec-3', {
+        displayOrder: 4,
+      });
+      expect(lecturesService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          section: { id: 'section-1' },
+          title: 'Khảo sát giữa khoá (bản sao)',
+          lectureType: 'survey',
+          displayOrder: 3,
+          status: 'draft',
+        }),
+      );
+      expect(surveyContentAdminService.copy).toHaveBeenCalledWith(
+        'lec-2',
+        'lec-copy',
+      );
+      expect(courseAggregatesService.recalculate).toHaveBeenCalledWith(
+        'course-1',
+      );
+      expect(copy).toEqual({ id: 'lec-copy' });
+    });
+
+    it('should 422 for a lesson that is not a survey, changing nothing', async () => {
+      lecturesService.findById.mockResolvedValue({
+        ...survey,
+        lectureType: 'video',
+      });
+
+      await expect(
+        service.duplicate('course-1', 'section-1', 'lec-2'),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(lecturesService.create).not.toHaveBeenCalled();
+      expect(lecturesService.update).not.toHaveBeenCalled();
     });
   });
 });

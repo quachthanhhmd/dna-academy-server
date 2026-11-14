@@ -6,6 +6,9 @@ import { LectureContentQuizzesService } from '../../lecture-content-quizzes/lect
 import { LectureContentReflectionsService } from '../../lecture-content-reflections/lecture-content-reflections.service';
 import { QuizQuestionsService } from '../../quiz-questions/quiz-questions.service';
 import { ReflectionQuestionsService } from '../../reflection-questions/reflection-questions.service';
+import { LectureContentRatingsService } from '../../lecture-content-ratings/lecture-content-ratings.service';
+import { LectureRatingResponsesService } from '../../lecture-rating-responses/lecture-rating-responses.service';
+import { SurveyLessonService } from './survey-lesson.service';
 import { QuizAttemptsService } from '../../quiz-attempts/quiz-attempts.service';
 import { bestScore, submittedAttemptCount } from '../best-score';
 import { sanitizeHtml } from '../sanitize-html';
@@ -27,6 +30,9 @@ export class LectureContentService {
     private readonly quizQuestionsService: QuizQuestionsService,
     private readonly reflectionQuestionsService: ReflectionQuestionsService,
     private readonly quizAttemptsService: QuizAttemptsService,
+    private readonly ratingsService: LectureContentRatingsService,
+    private readonly ratingResponsesService: LectureRatingResponsesService,
+    private readonly surveyLessonService: SurveyLessonService,
   ) {}
 
   async payloadFor(
@@ -121,6 +127,52 @@ export class LectureContentService {
               questionText: question.questionText,
               displayOrder: question.displayOrder,
             })),
+        };
+      }
+
+      case 'rating': {
+        const rating = await this.ratingsService.findByLectureId(lectureId);
+        if (!rating) {
+          return null;
+        }
+
+        // A guest preview has no enrollment, so nothing of theirs to show.
+        const mine = enrollmentId
+          ? await this.ratingResponsesService.findOne(lectureId, enrollmentId)
+          : null;
+
+        return {
+          prompt: rating.prompt,
+          labelMin: rating.labelMin ?? null,
+          labelMax: rating.labelMax ?? null,
+          allowComment: rating.allowComment,
+          myResponse: mine
+            ? {
+                rating: mine.rating,
+                comment: mine.comment ?? null,
+                submittedAt: mine.submittedAt,
+              }
+            : null,
+        };
+      }
+
+      case 'survey': {
+        const questions =
+          await this.surveyLessonService.questionsFor(lectureId);
+        if (!questions.length) {
+          return null;
+        }
+
+        return {
+          questions,
+          // A guest preview has no enrollment, so no answers of its own.
+          myResponse: enrollmentId
+            ? await this.surveyLessonService.myResponse(
+                lectureId,
+                enrollmentId,
+                questions,
+              )
+            : null,
         };
       }
 
