@@ -7,14 +7,24 @@ import {
   jest,
 } from '@jest/globals';
 import { UnprocessableEntityException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { YoutubeService } from './youtube.service';
+import { AllConfigType } from '../config/config.type';
+
+const withKey = (apiKey?: string) =>
+  new YoutubeService({
+    get: () => apiKey,
+  } as unknown as ConfigService<AllConfigType>);
+
+const jsonResponse = (body: unknown, ok = true, status = 200) =>
+  ({ ok, status, json: () => Promise.resolve(body) }) as Response;
 
 describe('YoutubeService', () => {
   let service: YoutubeService;
   let fetchSpy: jest.SpiedFunction<typeof fetch>;
 
   beforeEach(() => {
-    service = new YoutubeService();
+    service = withKey();
     fetchSpy = jest.spyOn(global, 'fetch');
   });
 
@@ -71,5 +81,75 @@ describe('YoutubeService', () => {
         'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       ),
     ).rejects.toBeInstanceOf(UnprocessableEntityException);
+  });
+
+  describe('getDuration', () => {
+    const url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+
+    it('should return the length YouTube reports, in seconds', async () => {
+      fetchSpy.mockResolvedValue(
+        jsonResponse({
+          items: [
+            { id: 'dQw4w9WgXcQ', contentDetails: { duration: 'PT3M33S' } },
+          ],
+        }),
+      );
+
+      await expect(withKey('key').getDuration(url)).resolves.toEqual({
+        videoId: 'dQw4w9WgXcQ',
+        durationSecs: 213,
+      });
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining('id=dQw4w9WgXcQ'),
+        expect.any(Object),
+      );
+    });
+
+    it('should reject a link that is not a YouTube video, without calling fetch', async () => {
+      await expect(
+        withKey('key').getDuration('https://vimeo.com/123'),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('should say notConfigured when there is no API key, without calling fetch', async () => {
+      await expect(withKey().getDuration(url)).resolves.toEqual({
+        videoId: 'dQw4w9WgXcQ',
+        durationSecs: null,
+        reason: 'notConfigured',
+      });
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('should say notFound for a private or deleted video', async () => {
+      fetchSpy.mockResolvedValue(jsonResponse({ items: [] }));
+
+      await expect(withKey('key').getDuration(url)).resolves.toMatchObject({
+        durationSecs: null,
+        reason: 'notFound',
+      });
+    });
+
+    it('should say noDuration for a live stream', async () => {
+      fetchSpy.mockResolvedValue(
+        jsonResponse({
+          items: [{ id: 'dQw4w9WgXcQ', contentDetails: { duration: 'P0D' } }],
+        }),
+      );
+
+      await expect(withKey('key').getDuration(url)).resolves.toMatchObject({
+        durationSecs: null,
+        reason: 'noDuration',
+      });
+    });
+
+    it('should say unavailable when the API refuses the key or quota is spent', async () => {
+      fetchSpy.mockResolvedValue(jsonResponse({}, false, 403));
+
+      await expect(withKey('key').getDuration(url)).resolves.toMatchObject({
+        durationSecs: null,
+        reason: 'unavailable',
+      });
+    });
   });
 });

@@ -24,11 +24,11 @@ export const VIDEO_LECTURE_TYPE = 'video';
  * Epic 4.2 §3.4 — BUG-09. Every lecture in the imported MIT course showed the
  * same 1:15:00 because the import script typed the value once.
  *
- * The duration cannot be derived: YouTube's oEmbed endpoint returns title,
- * author and thumbnail but not length. So V1 keeps it admin-entered and only
- * refuses the value that is certainly wrong — a video that claims to last no
- * time at all. A wrong-but-positive duration still gets through; catching that
- * needs the YouTube Data API, which §3.4 defers to V1.1.
+ * The editor now prefills the duration from the YouTube Data API
+ * (`GET /admin/youtube/duration`), but it stays editable and the API can be
+ * unconfigured or unreachable, so the server still accepts whatever the admin
+ * sends and only refuses the value that is certainly wrong — a video that
+ * claims to last no time at all.
  */
 const assertVideoDuration = (lecture: {
   lectureType?: string;

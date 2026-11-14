@@ -45,6 +45,7 @@ import { SurveyQuestionsModule } from '../survey-questions/survey-questions.modu
 import { SurveyQuestionOptionsModule } from '../survey-question-options/survey-question-options.module';
 import { SurveyAnswersModule } from '../survey-answers/survey-answers.module';
 import { SurveyContentAdminService } from './survey-content-admin.service';
+import { YoutubeAdminController } from './youtube-admin.controller';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { SurveyContentAdminService } from './survey-content-admin.service';
     LectureMoveAdminController,
     LectureContentAdminController,
     LectureRatingAdminController,
+    YoutubeAdminController,
   ],
   providers: [
     CoursesAdminService,

@@ -61,7 +61,9 @@
     "storage:backfill": "env-cmd --no-override --silent -f ${ENV_FILE:-./env/.env.${APP_ENV:-local}} -- ts-node -r tsconfig-paths/register ./src/database/maintenance/storage-backfill.ts",
     "storage:backfill:dist": "node dist/database/maintenance/storage-backfill.js",
     "grant:admin": "env-cmd --no-override --silent -f ${ENV_FILE:-./env/.env.${APP_ENV:-local}} -- ts-node -r tsconfig-paths/register ./src/database/maintenance/grant-admin.ts",
-    "grant:admin:dist": "node dist/database/maintenance/grant-admin.js"
+    "grant:admin:dist": "node dist/database/maintenance/grant-admin.js",
+    "youtube:durations": "env-cmd --no-override --silent -f ${ENV_FILE:-./env/.env.${APP_ENV:-local}} -- ts-node -r tsconfig-paths/register ./src/database/maintenance/youtube-durations.ts",
+    "youtube:durations:dist": "node dist/database/maintenance/youtube-durations.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1011.0",

@@ -7,6 +7,7 @@ import { FileConfig } from '../files/config/file-config.type';
 import { GoogleConfig } from '../auth-google/config/google-config.type';
 import { LearningConfig } from '../learning/config/learning-config.type';
 import { MailConfig } from '../mail/config/mail-config.type';
+import { YoutubeConfig } from '../youtube/config/youtube-config.type';
 
 export type AllConfigType = {
   app: AppConfig;
@@ -18,4 +19,5 @@ export type AllConfigType = {
   google: GoogleConfig;
   learning: LearningConfig;
   mail: MailConfig;
+  youtube: YoutubeConfig;
 };

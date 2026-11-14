@@ -11,6 +11,7 @@ import mailConfig from './mail/config/mail.config';
 import fileConfig from './files/config/file.config';
 import facebookConfig from './auth-facebook/config/facebook.config';
 import googleConfig from './auth-google/config/google.config';
+import youtubeConfig from './youtube/config/youtube.config';
 import learningConfig from './learning/config/learning.config';
 import certificateConfig from './certificates/config/certificate.config';
 import path from 'path';
@@ -227,6 +228,7 @@ import { SurveyAnswersModule } from './survey-answers/survey-answers.module';
         googleConfig,
         learningConfig,
         certificateConfig,
+        youtubeConfig,
       ],
       envFilePath: envFilePaths,
     }),
