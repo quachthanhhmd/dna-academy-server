@@ -14,6 +14,7 @@ import { Lecture } from '../lectures/domain/lecture';
 import { EnrollmentsService } from '../enrollments/enrollments.service';
 import { CourseAggregatesService } from './course-aggregates.service';
 import { LectureContentAdminService } from './lecture-content-admin.service';
+import { SurveyContentAdminService } from './survey-content-admin.service';
 import { CreateLectureAdminDto } from './dto/create-lecture-admin.dto';
 import { UpdateLectureAdminDto } from './dto/update-lecture-admin.dto';
 
@@ -53,6 +54,7 @@ export class LecturesAdminService {
     private readonly courseAggregatesService: CourseAggregatesService,
     private readonly lectureContentAdminService: LectureContentAdminService,
     private readonly enrollmentsService: EnrollmentsService,
+    private readonly surveyContentAdminService: SurveyContentAdminService,
   ) {}
 
   async create(
@@ -80,6 +82,58 @@ export class LecturesAdminService {
     await this.courseAggregatesService.recalculate(courseId);
 
     return lecture;
+  }
+
+  /**
+   * Copies a survey lesson — its settings and live questions, never its
+   * responses — into the same section, right after the original. The copy is
+   * a draft and starts with no answers.
+   */
+  async duplicate(
+    courseId: Course['id'],
+    sectionId: Section['id'],
+    lectureId: Lecture['id'],
+  ) {
+    await this.findCourseOrThrow(courseId);
+    await this.findSectionInCourseOrThrow(courseId, sectionId);
+    const source = await this.findLectureInSectionOrThrow(sectionId, lectureId);
+
+    if (source.lectureType !== 'survey') {
+      throw new UnprocessableEntityException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        errors: { lectureType: 'duplicateSurveyOnly' },
+      });
+    }
+
+    // Make room directly after the original.
+    const siblings = await this.lecturesService.findBySectionId(sectionId);
+    for (const sibling of siblings) {
+      if (
+        sibling.id !== source.id &&
+        sibling.displayOrder > source.displayOrder
+      ) {
+        await this.lecturesService.update(sibling.id, {
+          displayOrder: sibling.displayOrder + 1,
+        });
+      }
+    }
+
+    const copy = await this.lecturesService.create({
+      section: { id: sectionId },
+      title: `${source.title} (bản sao)`,
+      description: source.description,
+      lectureType: source.lectureType,
+      durationSecs: source.durationSecs,
+      isPreview: source.isPreview,
+      requiresCompletion: source.requiresCompletion,
+      displayOrder: source.displayOrder + 1,
+      status: 'draft',
+    });
+
+    await this.surveyContentAdminService.copy(source.id, copy.id);
+    await this.courseAggregatesService.recalculate(courseId);
+
+    return copy;
   }
 
   async update(

@@ -148,8 +148,20 @@ import { LectureContentRatingsModule } from './lecture-content-ratings/lecture-c
 
 import { LectureRatingResponsesModule } from './lecture-rating-responses/lecture-rating-responses.module';
 
+import { SurveyQuestionsModule } from './survey-questions/survey-questions.module';
+
+import { SurveyQuestionOptionsModule } from './survey-question-options/survey-question-options.module';
+
+import { SurveyResponsesModule } from './survey-responses/survey-responses.module';
+
+import { SurveyAnswersModule } from './survey-answers/survey-answers.module';
+
 @Module({
   imports: [
+    SurveyAnswersModule,
+    SurveyResponsesModule,
+    SurveyQuestionOptionsModule,
+    SurveyQuestionsModule,
     LectureRatingResponsesModule,
     LectureContentRatingsModule,
     MasterDataStartupSeedModule,

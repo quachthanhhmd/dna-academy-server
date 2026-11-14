@@ -15,6 +15,10 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { LECTURE_TYPES } from './create-lecture-admin.dto';
+import {
+  SURVEY_QUESTION_TYPES,
+  SURVEY_RATING_MAXES,
+} from '../../survey-questions/survey-question-types';
 import { QUESTION_TYPES } from '../../quiz-questions/quiz-question-types';
 
 export class QuizAnswerOptionInputDto {
@@ -117,6 +121,77 @@ export class ReflectionQuestionInputDto {
   @ApiProperty()
   @IsInt()
   displayOrder: number;
+}
+
+export class SurveyOptionInputDto {
+  @ApiPropertyOptional({
+    description: 'An existing option id to update; omit to add a new option.',
+  })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(500)
+  optionText: string;
+}
+
+export class SurveyQuestionInputDto {
+  @ApiPropertyOptional({
+    description:
+      'An existing question id to update; omit to add a new question. A ' +
+      'question left out of the list is removed — archived if it has ' +
+      'answers, deleted if not.',
+  })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
+  @ApiProperty({ enum: SURVEY_QUESTION_TYPES })
+  @IsIn(SURVEY_QUESTION_TYPES)
+  questionType: string;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(1000)
+  questionText: string;
+
+  @ApiProperty()
+  @IsBoolean()
+  isRequired: boolean;
+
+  @ApiPropertyOptional({
+    enum: SURVEY_RATING_MAXES,
+    description: 'rating_scale only: 5 or 10.',
+  })
+  @IsOptional()
+  @IsIn(SURVEY_RATING_MAXES)
+  ratingMax?: number;
+
+  @ApiPropertyOptional({ description: 'rating_scale: what 1 means.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  ratingLabelMin?: string;
+
+  @ApiPropertyOptional({
+    description: 'rating_scale: what the top value means.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  ratingLabelMax?: string;
+
+  @ApiPropertyOptional({
+    type: [SurveyOptionInputDto],
+    description: 'single_choice / multiple_choice: at least 2, in order.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SurveyOptionInputDto)
+  options?: SurveyOptionInputDto[];
 }
 
 export class SaveLectureContentDto {
@@ -263,4 +338,16 @@ export class SaveLectureContentDto {
   @IsOptional()
   @IsBoolean()
   allowComment?: boolean;
+
+  // survey
+  @ApiPropertyOptional({
+    type: [SurveyQuestionInputDto],
+    description:
+      'Required when lectureType=survey: the questions in display order.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SurveyQuestionInputDto)
+  surveyQuestions?: SurveyQuestionInputDto[];
 }

@@ -17,6 +17,7 @@ import { LectureContentReflectionsService } from '../lecture-content-reflections
 import { ReflectionQuestionsService } from '../reflection-questions/reflection-questions.service';
 import { LectureContentRatingsService } from '../lecture-content-ratings/lecture-content-ratings.service';
 import { LectureRatingResponsesService } from '../lecture-rating-responses/lecture-rating-responses.service';
+import { SurveyContentAdminService } from './survey-content-admin.service';
 import { CourseAggregatesService } from './course-aggregates.service';
 import { SaveLectureContentDto } from './dto/save-lecture-content.dto';
 import { FilesService } from '../files/files.service';
@@ -41,6 +42,7 @@ export class LectureContentAdminService {
     private readonly filesService: FilesService,
     private readonly lectureContentRatingsService: LectureContentRatingsService,
     private readonly lectureRatingResponsesService: LectureRatingResponsesService,
+    private readonly surveyContentAdminService: SurveyContentAdminService,
   ) {}
 
   /**
@@ -100,6 +102,13 @@ export class LectureContentAdminService {
         return this.findReflectionContent(lectureId);
       case 'rating':
         return this.findRatingContent(lectureId);
+      case 'survey': {
+        const surveyQuestions =
+          await this.surveyContentAdminService.findContent(lectureId);
+        return surveyQuestions
+          ? { lectureType: 'survey', surveyQuestions }
+          : null;
+      }
       default:
         return null;
     }
@@ -233,6 +242,11 @@ export class LectureContentAdminService {
         return this.saveReflection(lectureId, dto);
       case 'rating':
         return this.saveRating(lectureId, dto);
+      case 'survey':
+        return this.surveyContentAdminService.save(
+          lectureId,
+          dto.surveyQuestions,
+        );
       default:
         throw new UnprocessableEntityException({
           status: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -527,6 +541,7 @@ export class LectureContentAdminService {
       'quiz',
       'reflection',
       'rating',
+      'survey',
     ]) {
       await this.clearContentForType(lectureId, type);
     }
@@ -607,6 +622,9 @@ export class LectureContentAdminService {
         await this.lectureContentRatingsService.remove(existing.id);
         return true;
       }
+      case 'survey':
+        // Answered questions are archived, not deleted (see the service).
+        return this.surveyContentAdminService.clear(lectureId);
       default:
         return false;
     }

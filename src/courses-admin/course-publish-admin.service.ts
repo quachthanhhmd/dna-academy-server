@@ -15,6 +15,7 @@ import { LectureContentDocumentsService } from '../lecture-content-documents/lec
 import { LectureContentQuizzesService } from '../lecture-content-quizzes/lecture-content-quizzes.service';
 import { LectureContentReflectionsService } from '../lecture-content-reflections/lecture-content-reflections.service';
 import { LectureContentRatingsService } from '../lecture-content-ratings/lecture-content-ratings.service';
+import { SurveyQuestionsService } from '../survey-questions/survey-questions.service';
 import { User } from '../users/domain/user';
 import { CourseInstructorsService } from '../course-instructors/course-instructors.service';
 
@@ -31,6 +32,7 @@ export class CoursePublishAdminService {
     private readonly lectureContentReflectionsService: LectureContentReflectionsService,
     private readonly courseInstructorsService: CourseInstructorsService,
     private readonly lectureContentRatingsService: LectureContentRatingsService,
+    private readonly surveyQuestionsService: SurveyQuestionsService,
   ) {}
 
   async publish(courseId: Course['id'], userId: User['id']) {
@@ -153,6 +155,11 @@ export class CoursePublishAdminService {
         return !!(await this.lectureContentRatingsService.findByLectureId(
           lecture.id,
         ));
+      case 'survey':
+        return (
+          (await this.surveyQuestionsService.findByLecture(lecture.id)).length >
+          0
+        );
       default:
         return false;
     }

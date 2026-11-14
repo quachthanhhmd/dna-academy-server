@@ -11,6 +11,7 @@ import { QuizAttemptsService } from '../../quiz-attempts/quiz-attempts.service';
 import { QuizSavesService } from '../../quiz-saves/quiz-saves.service';
 import { ReflectionResponsesService } from '../../reflection-responses/reflection-responses.service';
 import { LectureRatingResponsesService } from '../../lecture-rating-responses/lecture-rating-responses.service';
+import { SurveyResponsesService } from '../../survey-responses/survey-responses.service';
 import { CareerReflectionAnswersService } from '../../career-reflection-answers/career-reflection-answers.service';
 import { CertificatesService } from '../../certificates/certificates.service';
 import { ResetProgressResultDto } from '../dto/progress.dto';
@@ -42,6 +43,7 @@ export class EnrollmentResetService {
     private readonly careerReflectionAnswersService: CareerReflectionAnswersService,
     private readonly certificatesService: CertificatesService,
     private readonly lectureRatingResponsesService: LectureRatingResponsesService,
+    private readonly surveyResponsesService: SurveyResponsesService,
   ) {}
 
   async resetProgress(
@@ -74,6 +76,8 @@ export class EnrollmentResetService {
     await this.quizSavesService.removeByEnrollmentId(enrollmentId);
     await this.reflectionResponsesService.removeByEnrollmentId(enrollmentId);
     await this.lectureRatingResponsesService.removeByEnrollmentId(enrollmentId);
+    // Cascades to the response's answers.
+    await this.surveyResponsesService.removeByEnrollmentId(enrollmentId);
     await this.careerReflectionAnswersService.removeByEnrollmentId(
       enrollmentId,
     );

@@ -38,6 +38,21 @@ describe('LectureContentService', () => {
       ratingResponsesService: {
         findOne: (jest.fn() as jest.Mock<any>).mockResolvedValue(null),
       },
+      surveyLessonService: {
+        questionsFor: (jest.fn() as jest.Mock<any>).mockResolvedValue([
+          {
+            id: 'q1',
+            questionType: 'single_choice',
+            questionText: 'Q?',
+            isRequired: true,
+            ratingMax: null,
+            ratingLabelMin: null,
+            ratingLabelMax: null,
+            options: [{ id: 'o1', optionText: 'A' }],
+          },
+        ]),
+        myResponse: (jest.fn() as jest.Mock<any>).mockResolvedValue(null),
+      },
       quizQuestionsService: {
         findByLectureId: (jest.fn() as jest.Mock<any>).mockResolvedValue([
           { id: 'q1' },
@@ -65,6 +80,7 @@ describe('LectureContentService', () => {
       deps.quizAttemptsService,
       deps.ratingsService,
       deps.ratingResponsesService,
+      deps.surveyLessonService,
     );
   });
 

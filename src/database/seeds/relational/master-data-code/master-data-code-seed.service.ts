@@ -145,6 +145,11 @@ const MASTER_DATA_CODES: ReadonlyArray<{
         displayOrder: 6,
         nameTranslations: { vi: 'Đánh giá', en: 'Rating' },
       },
+      {
+        code: 'survey',
+        displayOrder: 7,
+        nameTranslations: { vi: 'Khảo sát', en: 'Survey' },
+      },
     ],
   },
   {

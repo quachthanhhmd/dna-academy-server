@@ -135,6 +135,12 @@ export class LectureRelationalRepository implements LectureRepository {
                SELECT 1 FROM "lecture_content_quiz" c WHERE c."lecture_id" = l."id"))
          OR (l."lecture_type" = 'reflection' AND EXISTS (
                SELECT 1 FROM "lecture_content_reflection" c WHERE c."lecture_id" = l."id"))
+         OR (l."lecture_type" = 'rating' AND EXISTS (
+               SELECT 1 FROM "lecture_content_rating" c WHERE c."lecture_id" = l."id"))
+         -- A survey's content is its live questions; archived ones do not count.
+         OR (l."lecture_type" = 'survey' AND EXISTS (
+               SELECT 1 FROM "survey_question" c
+                WHERE c."lecture_id" = l."id" AND c."archived_at" IS NULL))
           )`,
       [courseId],
     );
@@ -158,6 +164,8 @@ export class LectureRelationalRepository implements LectureRepository {
          OR EXISTS (SELECT 1 FROM "reflection_response" r
                       JOIN "reflection_question" q ON q."id" = r."question_id"
                      WHERE q."lecture_id" = $1)
+         OR EXISTS (SELECT 1 FROM "lecture_rating_response" WHERE "lecture_id" = $1)
+         OR EXISTS (SELECT 1 FROM "survey_response" WHERE "lecture_id" = $1)
          ) AS exists`,
         [lectureId],
       );

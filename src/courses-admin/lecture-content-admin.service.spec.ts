@@ -65,6 +65,11 @@ describe('LectureContentAdminService', () => {
     remove: jest.Mock<any>;
   };
   let lectureRatingResponsesService: { summarize: jest.Mock<any> };
+  let surveyContentAdminService: {
+    findContent: jest.Mock<any>;
+    save: jest.Mock<any>;
+    clear: jest.Mock<any>;
+  };
 
   const lecture = (lectureType: string) => ({
     id: 'lecture-1',
@@ -137,6 +142,11 @@ describe('LectureContentAdminService', () => {
       remove: jest.fn(),
     };
     lectureRatingResponsesService = { summarize: jest.fn() };
+    surveyContentAdminService = {
+      findContent: (jest.fn() as jest.Mock<any>).mockResolvedValue(null),
+      save: (jest.fn() as jest.Mock<any>).mockResolvedValue({}),
+      clear: (jest.fn() as jest.Mock<any>).mockResolvedValue(false),
+    };
 
     service = new LectureContentAdminService(
       lecturesService as any,
@@ -153,6 +163,7 @@ describe('LectureContentAdminService', () => {
       filesService as any,
       lectureContentRatingsService as any,
       lectureRatingResponsesService as any,
+      surveyContentAdminService as any,
     );
   });
 

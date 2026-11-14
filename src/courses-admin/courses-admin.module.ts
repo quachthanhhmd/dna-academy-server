@@ -41,6 +41,10 @@ import { LectureContentAdminService } from './lecture-content-admin.service';
 import { LectureRatingAdminController } from './lecture-rating-admin.controller';
 import { LectureContentRatingsModule } from '../lecture-content-ratings/lecture-content-ratings.module';
 import { LectureRatingResponsesModule } from '../lecture-rating-responses/lecture-rating-responses.module';
+import { SurveyQuestionsModule } from '../survey-questions/survey-questions.module';
+import { SurveyQuestionOptionsModule } from '../survey-question-options/survey-question-options.module';
+import { SurveyAnswersModule } from '../survey-answers/survey-answers.module';
+import { SurveyContentAdminService } from './survey-content-admin.service';
 
 @Module({
   imports: [
@@ -70,6 +74,9 @@ import { LectureRatingResponsesModule } from '../lecture-rating-responses/lectur
     ReflectionQuestionsModule,
     LectureContentRatingsModule,
     LectureRatingResponsesModule,
+    SurveyQuestionsModule,
+    SurveyQuestionOptionsModule,
+    SurveyAnswersModule,
     AuthorizationModule,
     CourseAccessModule,
   ],
@@ -92,6 +99,7 @@ import { LectureRatingResponsesModule } from '../lecture-rating-responses/lectur
     SectionsAdminService,
     LecturesAdminService,
     LectureContentAdminService,
+    SurveyContentAdminService,
   ],
   exports: [
     CoursesAdminService,

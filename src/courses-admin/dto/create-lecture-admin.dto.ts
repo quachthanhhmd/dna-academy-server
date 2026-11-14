@@ -17,6 +17,8 @@ export const LECTURE_TYPES = [
   'reflection',
   // A 1–5 rating of the lesson or section it follows (lecture_content_rating).
   'rating',
+  // A survey: choice, rating-scale and text questions (survey_question).
+  'survey',
 ] as const;
 
 export class CreateLectureAdminDto {
